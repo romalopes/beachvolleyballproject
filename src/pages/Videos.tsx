@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type MediaAsset } from '../api';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
+import { PlayCircle } from 'lucide-react';
 
 export default function Videos() {
   const [videos, setVideos] = useState<MediaAsset[]>([]);
@@ -29,10 +30,12 @@ export default function Videos() {
         <div className="video-grid">
           {videos.map((video) => (
             <div key={video.id} className="video-card">
-              <div className="video-thumbnail" />
+              <div className="video-thumbnail">
+                <PlayCircle size={24} color="var(--amber-500)" style={{ position: 'absolute' }} />
+              </div>
               <div className="video-info">
                 <h4>{video.title}</h4>
-                <p>{video.asset_type === 'example_demo' ? 'Example' : 'Training Clip'}</p>
+                <p>{video.asset_type === 'example_demo' ? 'Example Demo' : 'Training Clip'}</p>
               </div>
             </div>
           ))}

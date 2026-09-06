@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type TrainingSession } from '../api';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
+import { MapPin } from 'lucide-react';
 
 export default function Schedule() {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
@@ -20,6 +21,7 @@ export default function Schedule() {
       day: date.getDate(),
       month: date.toLocaleDateString('en-US', { month: 'short' }),
       weekday: date.toLocaleDateString('en-US', { weekday: 'short' }),
+      time: date.toLocaleDateString('en-US', { hour: '2-digit', minute: '2-digit' }),
     };
   };
 
@@ -47,8 +49,8 @@ export default function Schedule() {
                 <div className="schedule-info">
                   <h4>{session.drill?.title || 'Training Session'}</h4>
                   <p>
-                    {session.location && `${session.location} &middot; `}
-                    {date.weekday}
+                    <MapPin size={14} style={{ marginRight: '0.375rem', verticalAlign: 'middle' }} />
+                    {session.location || 'No location'} &middot; {date.weekday} at {date.time}
                   </p>
                 </div>
               </div>

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api, type TrainingSession } from '../api';
 import EmptyState from '../components/EmptyState';
+import Tag from '../components/Tag';
+import { ArrowLeft, CalendarDays, MapPin, Dumbbell, Target } from 'lucide-react';
 
 export default function TrainingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -35,18 +37,26 @@ export default function TrainingDetail() {
     <div className="page">
       <div className="detail-header">
         <button className="back-link" onClick={() => navigate('/training')}>
+          <ArrowLeft size={16} />
           Back to Training
         </button>
+        <span className="section-label">Training Session</span>
         <h1>{session.drill?.title || 'Training Session'}</h1>
+        <div className="tags" style={{ marginTop: '1rem' }}>
+          <Tag variant="primary">Session</Tag>
+          {session.drill?.difficulty_level && <Tag variant="teal">{session.drill.difficulty_level}</Tag>}
+        </div>
       </div>
 
       <section className="detail-section">
         <h2>Session Details</h2>
         <p>
+          <CalendarDays size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
           <strong>Scheduled:</strong> {formatDate(session.scheduled_at)}
           <br />
           {session.location && (
             <>
+              <MapPin size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
               <strong>Location:</strong> {session.location}
             </>
           )}
@@ -64,9 +74,29 @@ export default function TrainingDetail() {
         <section className="detail-section">
           <h2>Related Drill</h2>
           <Link to={`/drills/${session.drill.id}`} className="related-item">
-            <span className="related-item-title">{session.drill.title}</span>
+            <span className="related-item-title">
+              <Dumbbell size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+              {session.drill.title}
+            </span>
             <span className="related-item-meta">{session.drill.difficulty_level}</span>
           </Link>
+        </section>
+      )}
+
+      {session.drill?.skills && session.drill.skills.length > 0 && (
+        <section className="detail-section">
+          <h2>Skills in this Session</h2>
+          <div className="related-list">
+            {session.drill.skills.map((skill) => (
+              <Link key={skill.id} to={`/skills/${skill.id}`} className="related-item">
+                <span className="related-item-title">
+                  <Target size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                  {skill.title}
+                </span>
+                <span className="related-item-meta">{skill.category?.name}</span>
+              </Link>
+            ))}
+          </div>
         </section>
       )}
     </div>

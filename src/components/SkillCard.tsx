@@ -1,4 +1,5 @@
 import type { Skill } from '../api';
+import { ArrowRight } from 'lucide-react';
 
 interface SkillCardProps {
   skill: Skill;
@@ -15,6 +16,11 @@ export default function SkillCard({ skill, onClick }: SkillCardProps) {
       {skill.description && (
         <p className="card-description">{skill.description}</p>
       )}
+      <div className="card-meta">
+        <span className="home-section-link">
+          View skill <ArrowRight size={14} />
+        </span>
+      </div>
     </div>
   );
 }

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api, type Drill } from '../api';
 import EmptyState from '../components/EmptyState';
+import Tag from '../components/Tag';
+import { ArrowLeft, Target, Users } from 'lucide-react';
 
 export default function DrillDetail() {
   const { id } = useParams<{ id: string }>();
@@ -24,12 +26,20 @@ export default function DrillDetail() {
     <div className="page">
       <div className="detail-header">
         <button className="back-link" onClick={() => navigate('/drills')}>
+          <ArrowLeft size={16} />
           Back to Drills
         </button>
+        <span className="section-label">Drill</span>
         <h1>{drill.title}</h1>
         <div className="tags" style={{ marginTop: '1rem' }}>
-          {drill.difficulty_level && <span className="tag">{drill.difficulty_level}</span>}
-          {drill.player_count && <span className="tag">{drill.player_count} players</span>}
+          <Tag variant="primary">Drill</Tag>
+          {drill.difficulty_level && <Tag variant="teal">{drill.difficulty_level}</Tag>}
+          {drill.player_count && (
+            <Tag>
+              <Users size={12} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              {drill.player_count} players
+            </Tag>
+          )}
         </div>
       </div>
 
@@ -50,7 +60,10 @@ export default function DrillDetail() {
                 to={`/skills/${skill.id}`}
                 className="related-item"
               >
-                <span className="related-item-title">{skill.title}</span>
+                <span className="related-item-title">
+                  <Target size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                  {skill.title}
+                </span>
                 <span className="related-item-meta">{skill.category?.name}</span>
               </Link>
             ))}

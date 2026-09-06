@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api, type Category, type Skill, type Drill } from '../api';
+import { ArrowRight, Target, Dumbbell, PlayCircle, ClipboardList, CalendarDays } from 'lucide-react';
+
+const sections = [
+  { title: 'Skills', path: '/skills', icon: Target, description: 'Browse all beach volleyball skills organised by category. Each skill includes descriptions and related drills.' },
+  { title: 'Drills', path: '/drills', icon: Dumbbell, description: 'Search and filter drills by difficulty and player count. Each drill links to the skills it develops.' },
+  { title: 'Videos', path: '/videos', icon: PlayCircle, description: 'Watch skill demonstrations, drill walkthroughs, and training footage from the video library.' },
+  { title: 'Training', path: '/training', icon: ClipboardList, description: 'View training sessions that combine multiple drills and skills into structured practice plans.' },
+  { title: 'Schedule', path: '/schedule', icon: CalendarDays, description: 'See upcoming training sessions and plan your practice calendar.' },
+];
 
 export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -23,6 +33,10 @@ export default function Home() {
   return (
     <div className="page">
       <section className="home-hero">
+        <div className="home-hero-badge">
+          <Target size={14} />
+          Beach Volleyball Knowledge System
+        </div>
         <h1>BEACH VOLLEYBALL PROJECT</h1>
         <p className="home-hero-tagline">
           Organise the skills. Understand the game. Train with purpose.
@@ -45,31 +59,21 @@ export default function Home() {
       </section>
 
       <section className="home-sections">
-        <a href="/skills" className="home-section-card">
-          <h3>Skills</h3>
-          <p>Browse all beach volleyball skills organised by category. Each skill includes descriptions and related drills.</p>
-          <span className="home-section-link">Explore Skills</span>
-        </a>
-        <a href="/drills" className="home-section-card">
-          <h3>Drills</h3>
-          <p>Search and filter drills by difficulty and player count. Each drill links to the skills it develops.</p>
-          <span className="home-section-link">Explore Drills</span>
-        </a>
-        <a href="/videos" className="home-section-card">
-          <h3>Videos</h3>
-          <p>Watch skill demonstrations, drill walkthroughs, and training footage from the video library.</p>
-          <span className="home-section-link">Explore Videos</span>
-        </a>
-        <a href="/training" className="home-section-card">
-          <h3>Training</h3>
-          <p>View training sessions that combine multiple drills and skills into structured practice plans.</p>
-          <span className="home-section-link">Explore Training</span>
-        </a>
-        <a href="/schedule" className="home-section-card">
-          <h3>Schedule</h3>
-          <p>See upcoming training sessions and plan your practice calendar.</p>
-          <span className="home-section-link">View Schedule</span>
-        </a>
+        {sections.map((section) => {
+          const Icon = section.icon;
+          return (
+            <Link key={section.path} to={section.path} className="home-section-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                <Icon size={20} color="var(--amber-600)" />
+                <h3>{section.title}</h3>
+              </div>
+              <p>{section.description}</p>
+              <span className="home-section-link">
+                Explore {section.title} <ArrowRight size={14} />
+              </span>
+            </Link>
+          );
+        })}
       </section>
     </div>
   );

@@ -4,6 +4,7 @@ import { api, type Category, type Skill } from '../api';
 import PageHeader from '../components/PageHeader';
 import SkillCard from '../components/SkillCard';
 import EmptyState from '../components/EmptyState';
+import { Search } from 'lucide-react';
 
 export default function Skills() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -40,6 +41,9 @@ export default function Skills() {
       />
 
       <div className="search-bar">
+        <span className="search-bar-icon">
+          <Search size={18} />
+        </span>
         <input
           type="text"
           placeholder="Search skills..."

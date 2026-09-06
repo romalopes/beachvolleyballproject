@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api, type Skill, type Drill } from '../api';
 import EmptyState from '../components/EmptyState';
+import Tag from '../components/Tag';
+import { ArrowLeft, Dumbbell } from 'lucide-react';
 
 export default function SkillDetail() {
   const { id } = useParams<{ id: string }>();
@@ -18,7 +20,7 @@ export default function SkillDetail() {
         return api.drills();
       })
       .then((drills) => {
-        setRelatedDrills(drills);
+        setRelatedDrills(drills.filter((d) => d.skills?.some((s) => s.id === Number(id))));
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -31,12 +33,15 @@ export default function SkillDetail() {
     <div className="page">
       <div className="detail-header">
         <button className="back-link" onClick={() => navigate('/skills')}>
+          <ArrowLeft size={16} />
           Back to Skills
         </button>
+        <span className="section-label">{skill.category?.name}</span>
         <h1>{skill.title}</h1>
-        {skill.category && (
-          <span className="card-tag">{skill.category.name}</span>
-        )}
+        <div className="tags" style={{ marginTop: '1rem' }}>
+          <Tag variant="primary">Skill</Tag>
+          {skill.category && <Tag>{skill.category.name}</Tag>}
+        </div>
       </div>
 
       <section className="detail-section">
@@ -56,7 +61,10 @@ export default function SkillDetail() {
                 to={`/drills/${drill.id}`}
                 className="related-item"
               >
-                <span className="related-item-title">{drill.title}</span>
+                <span className="related-item-title">
+                  <Dumbbell size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+                  {drill.title}
+                </span>
                 <span className="related-item-meta">
                   {drill.difficulty_level} &middot; {drill.player_count} players
                 </span>

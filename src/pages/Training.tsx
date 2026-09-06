@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, type TrainingSession } from '../api';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
+import { CalendarDays, Clock } from 'lucide-react';
 
 export default function Training() {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
@@ -48,9 +49,16 @@ export default function Training() {
             >
               <div className="training-item-info">
                 <h4>{session.drill?.title || 'Training Session'}</h4>
-                <p>{session.notes || session.location || 'No details'}</p>
+                <p>
+                  <CalendarDays size={14} style={{ marginRight: '0.375rem', verticalAlign: 'middle' }} />
+                  {session.location || 'No location'}
+                  {session.notes && ` · ${session.notes}`}
+                </p>
               </div>
-              <span className="training-item-date">{formatDate(session.scheduled_at)}</span>
+              <span className="training-item-date">
+                <Clock size={14} style={{ marginRight: '0.375rem', verticalAlign: 'middle' }} />
+                {formatDate(session.scheduled_at)}
+              </span>
             </div>
           ))}
         </div>
