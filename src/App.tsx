@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { AuthProvider, useAuth } from './auth/AuthContext';
+import { AuthProvider } from './auth/AuthContext';
 import Sidebar from './components/Sidebar';
 import Home from './pages/Home';
 import Skills from './pages/Skills';
@@ -17,28 +17,13 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import './App.css';
 
-const AUTH_PATHS = ['/login', '/signup', '/forgot-password', '/reset-password'];
-
-function RequireAuth({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const location = useLocation();
-
-  if (loading) return <div className="loading">Loading...</div>;
-  if (!user) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
-  return <>{children}</>;
-}
-
 function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-  const isAuthPage = AUTH_PATHS.includes(location.pathname);
 
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
-
-  // Auth pages render standalone, without the sidebar shell.
-  if (isAuthPage) return <>{children}</>;
 
   return (
     <div className="app">
@@ -77,15 +62,15 @@ export default function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/" element={<RequireAuth><Home /></RequireAuth>} />
-            <Route path="/skills" element={<RequireAuth><Skills /></RequireAuth>} />
-            <Route path="/skills/:id" element={<RequireAuth><SkillDetail /></RequireAuth>} />
-            <Route path="/drills" element={<RequireAuth><Drills /></RequireAuth>} />
-            <Route path="/drills/:id" element={<RequireAuth><DrillDetail /></RequireAuth>} />
-            <Route path="/videos" element={<RequireAuth><Videos /></RequireAuth>} />
-            <Route path="/training" element={<RequireAuth><Training /></RequireAuth>} />
-            <Route path="/training/:id" element={<RequireAuth><TrainingDetail /></RequireAuth>} />
-            <Route path="/schedule" element={<RequireAuth><Schedule /></RequireAuth>} />
+            <Route path="/" element={<Home />} />
+            <Route path="/skills" element={<Skills />} />
+            <Route path="/skills/:id" element={<SkillDetail />} />
+            <Route path="/drills" element={<Drills />} />
+            <Route path="/drills/:id" element={<DrillDetail />} />
+            <Route path="/videos" element={<Videos />} />
+            <Route path="/training" element={<Training />} />
+            <Route path="/training/:id" element={<TrainingDetail />} />
+            <Route path="/schedule" element={<Schedule />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>
