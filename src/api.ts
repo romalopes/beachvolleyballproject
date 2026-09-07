@@ -1,11 +1,11 @@
 // API base URL:
 //   - In development via Vite proxy:  falls back to "/api/v1"
-//   - In production / deployed:        set VITE_API_URL (e.g. "https://api.example.com/api/v1")
-const API_BASE = import.meta.env.VITE_API_URL || "/api/v1";
+//   - On Vercel / deployed:           set VITE_API_BASE_URL (e.g. "https://api.example.com/api/v1")
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 async function fetchAPI<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { "Content-Type": "application/json" },
   });
   if (!response.ok) throw new Error(`API Error: ${response.status}`);
   return response.json();
@@ -55,12 +55,13 @@ export interface TrainingSession {
 }
 
 export const api = {
-  categories: () => fetchAPI<Category[]>('/categories'),
-  skills: () => fetchAPI<Skill[]>('/skills'),
+  categories: () => fetchAPI<Category[]>("/categories"),
+  skills: () => fetchAPI<Skill[]>("/skills"),
   skill: (id: number) => fetchAPI<Skill>(`/skills/${id}`),
-  drills: () => fetchAPI<Drill[]>('/drills'),
+  drills: () => fetchAPI<Drill[]>("/drills"),
   drill: (id: number) => fetchAPI<Drill>(`/drills/${id}`),
-  mediaAssets: () => fetchAPI<MediaAsset[]>('/media_assets'),
-  trainingSessions: () => fetchAPI<TrainingSession[]>('/training_sessions'),
-  trainingSession: (id: number) => fetchAPI<TrainingSession>(`/training_sessions/${id}`),
+  mediaAssets: () => fetchAPI<MediaAsset[]>("/media_assets"),
+  trainingSessions: () => fetchAPI<TrainingSession[]>("/training_sessions"),
+  trainingSession: (id: number) =>
+    fetchAPI<TrainingSession>(`/training_sessions/${id}`),
 };
