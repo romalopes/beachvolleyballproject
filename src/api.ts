@@ -1,7 +1,8 @@
 // API base URL:
 //   - In development via Vite proxy:  falls back to "/api/v1"
 //   - On Vercel / deployed:           set VITE_API_BASE_URL (e.g. "https://api.example.com/api/v1")
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api/v1";
 
 async function fetchAPI<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
