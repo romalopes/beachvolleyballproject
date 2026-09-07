@@ -6,7 +6,10 @@ import {
   PlayCircle,
   CalendarDays,
   ClipboardList,
+  LogOut,
+  LogIn,
 } from 'lucide-react';
+import { useAuth } from '../auth/AuthContext';
 
 const navItems = [
   { path: '/', label: 'Home', icon: Home },
@@ -18,6 +21,8 @@ const navItems = [
 ];
 
 export default function Sidebar() {
+  const { user, logout } = useAuth();
+
   return (
     <>
       <div className="sidebar-logo">
@@ -51,6 +56,30 @@ export default function Sidebar() {
         Beach Volleyball Skills Database
         <br />
         Organise. Understand. Train.
+      </div>
+      <div className="sidebar-user">
+        {user ? (
+          <>
+            <span className="sidebar-user-email" title={user.email_address}>
+              {user.email_address}
+            </span>
+            <a
+              href="/"
+              onClick={(e) => {
+                e.preventDefault();
+                logout();
+              }}
+            >
+              <LogOut size={14} />
+              Sign out
+            </a>
+          </>
+        ) : (
+          <NavLink to="/login" className="sidebar-login">
+            <LogIn size={14} />
+            Sign in
+          </NavLink>
+        )}
       </div>
     </>
   );

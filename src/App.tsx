@@ -1,5 +1,6 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { AuthProvider, useAuth } from './auth/AuthContext';
 import Sidebar from './components/Sidebar';
 import Home from './pages/Home';
 import Skills from './pages/Skills';
@@ -10,15 +11,34 @@ import Videos from './pages/Videos';
 import Training from './pages/Training';
 import TrainingDetail from './pages/TrainingDetail';
 import Schedule from './pages/Schedule';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import './App.css';
+
+const AUTH_PATHS = ['/login', '/signup', '/forgot-password', '/reset-password'];
+
+function RequireAuth({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) return <div className="loading">Loading...</div>;
+  if (!user) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  return <>{children}</>;
+}
 
 function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const isAuthPage = AUTH_PATHS.includes(location.pathname);
 
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
+
+  // Auth pages render standalone, without the sidebar shell.
+  if (isAuthPage) return <>{children}</>;
 
   return (
     <div className="app">
@@ -38,12 +58,7 @@ function Layout({ children }: { children: React.ReactNode }) {
       </aside>
       {sidebarOpen && (
         <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(26, 26, 26, 0.3)',
-            zIndex: 90,
-          }}
+          className="sidebar-overlay open"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -54,20 +69,27 @@ function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/skills" element={<Skills />} />
-          <Route path="/skills/:id" element={<SkillDetail />} />
-          <Route path="/drills" element={<Drills />} />
-          <Route path="/drills/:id" element={<DrillDetail />} />
-          <Route path="/videos" element={<Videos />} />
-          <Route path="/training" element={<Training />} />
-          <Route path="/training/:id" element={<TrainingDetail />} />
-          <Route path="/schedule" element={<Schedule />} />
-        </Routes>
-      </Layout>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Layout>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/" element={<RequireAuth><Home /></RequireAuth>} />
+            <Route path="/skills" element={<RequireAuth><Skills /></RequireAuth>} />
+            <Route path="/skills/:id" element={<RequireAuth><SkillDetail /></RequireAuth>} />
+            <Route path="/drills" element={<RequireAuth><Drills /></RequireAuth>} />
+            <Route path="/drills/:id" element={<RequireAuth><DrillDetail /></RequireAuth>} />
+            <Route path="/videos" element={<RequireAuth><Videos /></RequireAuth>} />
+            <Route path="/training" element={<RequireAuth><Training /></RequireAuth>} />
+            <Route path="/training/:id" element={<RequireAuth><TrainingDetail /></RequireAuth>} />
+            <Route path="/schedule" element={<RequireAuth><Schedule /></RequireAuth>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Layout>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

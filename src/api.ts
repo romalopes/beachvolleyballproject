@@ -2,7 +2,7 @@
 //   - In development via Vite proxy:  falls back to "/api/v1"
 //   - On Vercel / deployed:           set VITE_API_BASE_URL (e.g. "https://api.example.com/api/v1")
 const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:3001/api/v1";
+  import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 async function fetchAPI<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -55,6 +55,29 @@ export interface TrainingSession {
   drill?: Drill;
 }
 
+export interface User {
+  id: number;
+  name: string;
+  email_address: string;
+}
+
+async function postJSON<T>(endpoint: string, body: unknown, method = "POST"): Promise<T> {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    if (data?.errors) throw new Error(data.errors.join(". "));
+    if (data?.error) throw new Error(data.error);
+    throw new Error(`API Error: ${response.status}`);
+  }
+  if (response.status === 204) return undefined as T;
+  return response.json();
+}
+
 export const api = {
   categories: () => fetchAPI<Category[]>("/categories"),
   skills: () => fetchAPI<Skill[]>("/skills"),
@@ -65,4 +88,21 @@ export const api = {
   trainingSessions: () => fetchAPI<TrainingSession[]>("/training_sessions"),
   trainingSession: (id: number) =>
     fetchAPI<TrainingSession>(`/training_sessions/${id}`),
+
+  // Auth (cookie-session based; the session cookie flows through the Vite proxy)
+  me: () => fetchAPI<User | null>("/me"),
+  login: (email_address: string, password: string) =>
+    postJSON<User>("/sessions", { email_address, password }),
+  logout: () => postJSON<void>("/sessions", {}, "DELETE"),
+  register: (name: string, email_address: string, password: string, password_confirmation: string) =>
+    postJSON<User>("/registrations", {
+      user: { name, email_address, password, password_confirmation },
+    }),
+  requestPasswordReset: (email_address: string) =>
+    postJSON<void>("/passwords", { email_address }),
+  resetPassword: (token: string, password: string, password_confirmation: string) =>
+    postJSON<void>(`/passwords/${encodeURIComponent(token)}`, {
+      password,
+      password_confirmation,
+    }, "PUT"),
 };
