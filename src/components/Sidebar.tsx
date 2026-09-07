@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink } from "react-router-dom";
 import {
   Home,
   Target,
@@ -8,16 +8,16 @@ import {
   ClipboardList,
   LogOut,
   LogIn,
-} from 'lucide-react';
-import { useAuth } from '../auth/AuthContext';
+} from "lucide-react";
+import { useAuth } from "../auth/AuthContext";
 
 const navItems = [
-  { path: '/', label: 'Home', icon: Home },
-  { path: '/skills', label: 'Skills', icon: Target },
-  { path: '/drills', label: 'Drills', icon: Dumbbell },
-  { path: '/videos', label: 'Videos', icon: PlayCircle },
-  { path: '/training', label: 'Training', icon: ClipboardList },
-  { path: '/schedule', label: 'Schedule', icon: CalendarDays },
+  { path: "/", label: "Home", icon: Home },
+  { path: "/skills", label: "Skills", icon: Target },
+  { path: "/drills", label: "Drills", icon: Dumbbell },
+  { path: "/videos", label: "Videos", icon: PlayCircle },
+  { path: "/training", label: "Training", icon: ClipboardList },
+  { path: "/schedule", label: "Schedule", icon: CalendarDays },
 ];
 
 export default function Sidebar() {
@@ -27,11 +27,7 @@ export default function Sidebar() {
     <>
       <div className="sidebar-logo">
         <span className="sidebar-logo-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M12 2a10 10 0 0 1 0 20 10 10 0 0 1 0-20" />
-            <path d="M2 12h20" />
-          </svg>
+          <img src="/ball.png" width="24" height="24" alt="" />
         </span>
         BVB Project
       </div>
@@ -43,7 +39,7 @@ export default function Sidebar() {
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                `sidebar-link${isActive ? ' active' : ''}`
+                `sidebar-link${isActive ? " active" : ""}`
               }
             >
               <Icon />

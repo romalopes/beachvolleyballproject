@@ -31,11 +31,7 @@ export default function Signup() {
       <div className="auth-card">
         <div className="auth-logo">
           <span className="sidebar-logo-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 2a10 10 0 0 1 0 20 10 10 0 0 1 0-20" />
-              <path d="M2 12h20" />
-            </svg>
+<img src="/ball.png" width="28" height="28" alt="" />
           </span>
           BVB Project
         </div>
