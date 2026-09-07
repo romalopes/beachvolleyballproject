@@ -1,4 +1,7 @@
-const API_BASE = '/api/v1';
+// API base URL:
+//   - In development via Vite proxy:  falls back to "/api/v1"
+//   - In production / deployed:        set VITE_API_URL (e.g. "https://api.example.com/api/v1")
+const API_BASE = import.meta.env.VITE_API_URL || "/api/v1";
 
 async function fetchAPI<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
