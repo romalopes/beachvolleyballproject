@@ -59,7 +59,19 @@ export interface User {
   id: number;
   name: string;
   email_address: string;
+  roles: string[];
 }
+
+export interface AdminUser {
+  id: number;
+  name: string;
+  email_address: string;
+  roles: { id: number; name: string }[];
+}
+
+export const ROLE_NAMES = ["guest", "player", "coach", "admin"] as const;
+export type RoleName = (typeof ROLE_NAMES)[number];
+
 
 async function postJSON<T>(endpoint: string, body: unknown, method = "POST"): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
@@ -88,6 +100,19 @@ export const api = {
   trainingSessions: () => fetchAPI<TrainingSession[]>("/training_sessions"),
   trainingSession: (id: number) =>
     fetchAPI<TrainingSession>(`/training_sessions/${id}`),
+
+
+  // Admin
+  adminUsers: () => fetchAPI<AdminUser[]>("/admin/users"),
+  adminAddRole: (userId: number, role: string) =>
+    postJSON<{ roles: string[] }>(`/admin/users/${userId}/roles`, { role }),
+  adminRemoveRole: (userId: number, role: string) =>
+    postJSON<{ roles: string[] }>(
+      `/admin/users/${userId}/roles/${encodeURIComponent(role)}`,
+      {},
+      "DELETE"
+    ),
+
 
   // Auth (cookie-session based; the session cookie flows through the Vite proxy)
   me: () => fetchAPI<User | null>("/me"),

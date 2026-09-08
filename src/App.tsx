@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { AuthProvider } from './auth/AuthContext';
+import { useAuth } from './auth/AuthContext';
 import Sidebar from './components/Sidebar';
 import Home from './pages/Home';
 import Skills from './pages/Skills';
@@ -11,11 +12,20 @@ import Videos from './pages/Videos';
 import Training from './pages/Training';
 import TrainingDetail from './pages/TrainingDetail';
 import Schedule from './pages/Schedule';
+import AdminUsers from './pages/AdminUsers';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import './App.css';
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  const isAdmin = user?.roles?.includes("admin");
+  if (!isAdmin) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 function Layout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -71,6 +81,7 @@ export default function App() {
             <Route path="/training" element={<Training />} />
             <Route path="/training/:id" element={<TrainingDetail />} />
             <Route path="/schedule" element={<Schedule />} />
+            <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>

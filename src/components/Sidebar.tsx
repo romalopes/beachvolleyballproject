@@ -8,6 +8,7 @@ import {
   ClipboardList,
   LogOut,
   LogIn,
+  Shield,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 
@@ -47,6 +48,17 @@ export default function Sidebar() {
             </NavLink>
           );
         })}
+        {user?.roles?.includes("admin") && (
+          <NavLink
+            to="/admin/users"
+            className={({ isActive }) =>
+              `sidebar-link${isActive ? " active" : ""}`
+            }
+          >
+            <Shield />
+            Admin
+          </NavLink>
+        )}
       </nav>
       <div className="sidebar-footer">
         Beach Volleyball Skills Database
@@ -57,7 +69,12 @@ export default function Sidebar() {
         {user ? (
           <>
             <span className="sidebar-user-email" title={user.email_address}>
-              {user.email_address}
+              {user.name || user.email_address}
+            </span>
+            <span className="sidebar-user-roles">
+              {user.roles?.map((role) => (
+                <span key={role} className="role-badge">{role}</span>
+              ))}
             </span>
             <a
               href="/"
