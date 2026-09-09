@@ -15,13 +15,13 @@ export default function SkillDetail() {
 
   useEffect(() => {
     if (!id) return;
-    api.skill(Number(id))
+    api.skill(id)
       .then((s) => {
         setSkill(s);
         return api.drills();
       })
       .then((drills) => {
-        setRelatedDrills(drills.filter((d) => isValidDrillRange(d) && d.skills?.some((s) => s.id === Number(id))));
+        setRelatedDrills(drills.filter((d) => isValidDrillRange(d) && d.skills?.some((s) => s.slug === id)));
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -59,7 +59,7 @@ export default function SkillDetail() {
             {relatedDrills.map((drill) => (
               <Link
                 key={drill.id}
-                to={`/drills/${drill.id}`}
+                to={`/drills/${drill.slug}`}
                 className="related-item"
               >
                 <span className="related-item-title">

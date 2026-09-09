@@ -9,6 +9,7 @@ import {
   LogOut,
   LogIn,
   Shield,
+  UserCircle,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 
@@ -57,6 +58,17 @@ export default function Sidebar() {
           >
             <Shield />
             Admin
+          </NavLink>
+        )}
+        {user && (
+          <NavLink
+            to="/account"
+            className={({ isActive }) =>
+              `sidebar-link${isActive ? " active" : ""}`
+            }
+          >
+            <UserCircle />
+            Account
           </NavLink>
         )}
       </nav>

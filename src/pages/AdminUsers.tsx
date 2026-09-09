@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type AdminUser, ROLE_NAMES, type RoleName } from "../api";
+import { api, type AdminUser } from "../api";
 import { useAuth } from "../auth/AuthContext";
 
 export default function AdminUsers() {
@@ -29,7 +29,7 @@ export default function AdminUsers() {
   const hasRole = (u: AdminUser, role: string) =>
     u.roles.some((r) => r.name === role);
 
-  const toggleRole = async (u: AdminUser, role: RoleName) => {
+  const toggleRole = async (u: AdminUser, role: string) => {
     const present = hasRole(u, role);
     setBusy((prev) => ({ ...prev, [u.id]: true }));
     try {
@@ -82,7 +82,7 @@ export default function AdminUsers() {
                 ))}
               </div>
               <div className="admin-user-actions">
-                {(ROLE_NAMES as readonly string[]).map((role) => {
+                {(["guest", "player", "coach", "admin"] as const).map((role) => {
                   const present = hasRole(u, role);
                   return (
                     <button
@@ -94,7 +94,7 @@ export default function AdminUsers() {
                           : "admin-btn admin-btn-add"
                       }
                       disabled={busy[u.id]}
-                      onClick={() => toggleRole(u, role as RoleName)}
+                      onClick={() => toggleRole(u, role)}
                     >
                       {present ? `Remove ${role}` : `Add ${role}`}
                     </button>

@@ -86,7 +86,7 @@ export default function TrainingDetail() {
       {session.drill && (
         <section className="detail-section">
           <h2>Related Drill</h2>
-          <Link to={`/drills/${session.drill.id}`} className="related-item">
+          <Link to={`/drills/${session.drill.slug}`} className="related-item">
             <span className="related-item-title">
               <Dumbbell size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
               {session.drill.title}
@@ -103,7 +103,7 @@ export default function TrainingDetail() {
           <h2>Skills in this Session</h2>
           <div className="related-list">
             {session.drill.skills.map((skill) => (
-              <Link key={skill.id} to={`/skills/${skill.id}`} className="related-item">
+              <Link key={skill.id} to={`/skills/${skill.slug || skill.id}`} className="related-item">
                 <span className="related-item-title">
                   <Target size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
                   {skill.title}

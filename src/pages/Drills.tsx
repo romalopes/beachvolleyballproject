@@ -124,7 +124,7 @@ export default function Drills() {
             <DrillCard
               key={drill.id}
               drill={drill}
-              onClick={() => navigate(`/drills/${drill.id}`)}
+              onClick={() => navigate(`/drills/${drill.slug}`)}
             />
           ))}
         </div>

@@ -13,6 +13,7 @@ import Training from './pages/Training';
 import TrainingDetail from './pages/TrainingDetail';
 import Schedule from './pages/Schedule';
 import AdminUsers from './pages/AdminUsers';
+import AccountPage from './pages/Account';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -82,6 +83,7 @@ export default function App() {
             <Route path="/training/:id" element={<TrainingDetail />} />
             <Route path="/schedule" element={<Schedule />} />
             <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+            <Route path="/account" element={<AccountPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>

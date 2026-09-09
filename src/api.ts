@@ -15,11 +15,13 @@ async function fetchAPI<T>(endpoint: string): Promise<T> {
 export interface Category {
   id: number;
   name: string;
+  slug: string;
 }
 
 export interface Skill {
   id: number;
   title: string;
+  slug: string;
   description: string | null;
   category_id: number;
   category?: Category;
@@ -28,6 +30,7 @@ export interface Skill {
 export interface Drill {
   id: number;
   title: string;
+  slug: string;
   setup_instructions: string;
   training_stage: 'warmup' | 'beginning' | 'middle' | 'end';
   difficulty_level: 'beginner' | 'intermediate' | 'advanced';
@@ -43,6 +46,7 @@ export interface MediaAsset {
   drill_id: number;
   skill_id: number | null;
   title: string;
+  slug: string;
   description: string | null;
   video_url: string;
   asset_type: string;
@@ -72,8 +76,22 @@ export interface AdminUser {
   roles: { id: number; name: string }[];
 }
 
-export const ROLE_NAMES = ["guest", "player", "coach", "admin"] as const;
-export type RoleName = (typeof ROLE_NAMES)[number];
+export interface AccountAddress {
+  street_address: string | null;
+  city: string | null;
+  state: string | null;
+  postal_code: string | null;
+  country: string | null;
+}
+
+export interface Account {
+  id: number | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  date_of_birth: string | null;
+  address: AccountAddress;
+}
 
 
 async function postJSON<T>(endpoint: string, body: unknown, method = "POST"): Promise<T> {
@@ -96,9 +114,9 @@ async function postJSON<T>(endpoint: string, body: unknown, method = "POST"): Pr
 export const api = {
   categories: () => fetchAPI<Category[]>("/categories"),
   skills: () => fetchAPI<Skill[]>("/skills"),
-  skill: (id: number) => fetchAPI<Skill>(`/skills/${id}`),
+  skill: (slugOrId: string) => fetchAPI<Skill>(`/skills/${encodeURIComponent(slugOrId)}`),
   drills: () => fetchAPI<Drill[]>("/drills"),
-  drill: (id: number) => fetchAPI<Drill>(`/drills/${id}`),
+  drill: (slugOrId: string) => fetchAPI<Drill>(`/drills/${encodeURIComponent(slugOrId)}`),
   mediaAssets: () => fetchAPI<MediaAsset[]>("/media_assets"),
   trainingSessions: () => fetchAPI<TrainingSession[]>("/training_sessions"),
   trainingSession: (id: number) =>
@@ -133,4 +151,27 @@ export const api = {
       password,
       password_confirmation,
     }, "PUT"),
+
+  // Account
+  account: (): Promise<Account> => fetchAPI<Account>("/account"),
+  updateAccount: (data: {
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
+    date_of_birth: string | null;
+    address: {
+      street_address: string | null;
+      city: string | null;
+      state: string | null;
+      postal_code: string | null;
+      country: string | null;
+    };
+  }): Promise<Account> =>
+    postJSON<Account>("/account", data, "PATCH"),
+  updatePassword: (data: {
+    current_password: string;
+    password: string;
+    password_confirmation: string;
+  }): Promise<{ message: string }> =>
+    postJSON<{ message: string }>("/account/password", data, "PATCH"),
 };

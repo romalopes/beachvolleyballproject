@@ -78,7 +78,7 @@ export default function Skills() {
             <SkillCard
               key={skill.id}
               skill={skill}
-              onClick={() => navigate(`/skills/${skill.id}`)}
+              onClick={() => navigate(`/skills/${skill.slug}`)}
             />
           ))}
         </div>
