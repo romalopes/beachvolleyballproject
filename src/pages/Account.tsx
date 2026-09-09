@@ -155,8 +155,13 @@ export default function AccountPage() {
           </div>
         </section>
 
-        <section className="detail-section">
-          <h2>Security</h2>
+        <button type="submit" className="auth-submit" disabled={saving}>
+          {saving ? "Saving..." : "Save changes"}
+        </button>
+      </form>
+
+      <section className="detail-section">
+        <h2>Security</h2>
           <p style={{ marginBottom: "1rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
             Choose a strong password you don't use anywhere else.
           </p>
@@ -179,12 +184,7 @@ export default function AccountPage() {
               {passwordSaving ? "Changing..." : "Change password"}
             </button>
           </form>
-        </section>
-
-        <button type="submit" className="auth-submit" disabled={saving}>
-          {saving ? "Saving..." : "Save changes"}
-        </button>
-      </form>
+      </section>
     </div>
   );
 }

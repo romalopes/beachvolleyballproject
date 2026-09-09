@@ -4,9 +4,36 @@
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
+// ---------- API token (bearer auth for cross-origin SPA) ----------
+const TOKEN_KEY = "bvb_api_token";
+
+function getToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setToken(token: string | null): void {
+  try {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // Storage may be unavailable (private mode). Auth still works for the session.
+  }
+}
+
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = getToken();
+  const headers: Record<string, string> = { ...extra };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
+
 async function fetchAPI<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
   });
   if (!response.ok) throw new Error(`API Error: ${response.status}`);
   return response.json();
@@ -69,6 +96,10 @@ export interface User {
   roles: string[];
 }
 
+export interface UserWithToken extends User {
+  token?: string;
+}
+
 export interface AdminUser {
   id: number;
   name: string;
@@ -97,7 +128,7 @@ export interface Account {
 async function postJSON<T>(endpoint: string, body: unknown, method = "POST"): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     credentials: "same-origin",
     body: JSON.stringify(body),
   });
@@ -135,14 +166,26 @@ export const api = {
     ),
 
 
-  // Auth (cookie-session based; the session cookie flows through the Vite proxy)
+  // Auth (bearer-token based for cross-origin; the token is cached in localStorage)
   me: () => fetchAPI<User | null>("/me"),
   login: (email_address: string, password: string) =>
-    postJSON<User>("/sessions", { email_address, password }),
-  logout: () => postJSON<void>("/sessions", {}, "DELETE"),
+    postJSON<UserWithToken>("/sessions", { email_address, password, api: true })
+      .then((data) => {
+        if (data.token) setToken(data.token);
+        return data;
+      }),
+  logout: () => {
+    const request = postJSON<void>("/sessions", {}, "DELETE");
+    setToken(null);
+    return request;
+  },
   register: (name: string, email_address: string, password: string, password_confirmation: string) =>
-    postJSON<User>("/registrations", {
+    postJSON<UserWithToken>("/registrations", {
       user: { name, email_address, password, password_confirmation },
+      api: true,
+    }).then((data) => {
+      if (data.token) setToken(data.token);
+      return data;
     }),
   requestPasswordReset: (email_address: string) =>
     postJSON<void>("/passwords", { email_address }),
