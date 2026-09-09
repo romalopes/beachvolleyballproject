@@ -19,6 +19,16 @@ import Training from "./pages/Training";
 import TrainingDetail from "./pages/TrainingDetail";
 import Schedule from "./pages/Schedule";
 import AdminUsers from "./pages/AdminUsers";
+import SettingsDashboard from "./pages/settings/SettingsDashboard";
+import SkillsSettings from "./pages/settings/Skills";
+import SkillDetailSettings from "./pages/settings/SkillDetail";
+import SkillFormPage from "./pages/settings/SkillFormPage";
+import CategoriesSettings from "./pages/settings/Categories";
+import CategoryDetailSettings from "./pages/settings/CategoryDetail";
+import CategoryFormPage from "./pages/settings/CategoryFormPage";
+import DrillsSettings from "./pages/settings/Drills";
+import DrillDetailSettings from "./pages/settings/DrillDetail";
+import DrillFormPage from "./pages/settings/DrillFormPage";
 import AccountPage from "./pages/Account";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -106,6 +116,110 @@ export default function App() {
               element={
                 <AdminRoute>
                   <AdminUsers />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <AdminRoute>
+                  <SettingsDashboard />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/skills"
+              element={
+                <AdminRoute>
+                  <SkillsSettings />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/skills/new"
+              element={
+                <AdminRoute>
+                  <SkillFormPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/skills/:id/edit"
+              element={
+                <AdminRoute>
+                  <SkillFormPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/skills/:id"
+              element={
+                <AdminRoute>
+                  <SkillDetailSettings />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/categories"
+              element={
+                <AdminRoute>
+                  <CategoriesSettings />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/categories/new"
+              element={
+                <AdminRoute>
+                  <CategoryFormPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/categories/:id/edit"
+              element={
+                <AdminRoute>
+                  <CategoryFormPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/categories/:id"
+              element={
+                <AdminRoute>
+                  <CategoryDetailSettings />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/drills"
+              element={
+                <AdminRoute>
+                  <DrillsSettings />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/drills/new"
+              element={
+                <AdminRoute>
+                  <DrillFormPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/drills/:id/edit"
+              element={
+                <AdminRoute>
+                  <DrillFormPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/drills/:id"
+              element={
+                <AdminRoute>
+                  <DrillDetailSettings />
                 </AdminRoute>
               }
             />

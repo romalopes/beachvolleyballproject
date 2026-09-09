@@ -989,3 +989,203 @@
   border: 1px solid var(--amber-100);
   color: var(--amber-600);
 }
+
+/* ===== Settings (admin CRUD) ===== */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  transition: box-shadow var(--transition);
+}
+
+.settings-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.settings-card-icon {
+  color: var(--amber-600);
+  display: flex;
+  align-items: center;
+}
+
+.settings-card-title {
+  font-weight: 700;
+  color: var(--charcoal);
+  font-size: 1.0625rem;
+}
+
+.settings-card-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.settings-add-btn {
+  display: inline-flex;
+  margin-top: 1rem;
+  text-decoration: none;
+}
+
+.admin-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  margin-top: 1.5rem;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.admin-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  white-space: nowrap;
+}
+
+.admin-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table tbody tr:hover {
+  background: var(--sand-100);
+}
+
+.admin-table-name {
+  font-weight: 600;
+  color: var(--amber-600);
+}
+
+.admin-table-name:hover {
+  color: var(--amber-500);
+}
+
+.admin-table-actions-col {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.admin-table-actions {
+  display: inline-flex;
+  gap: 0.375rem;
+}
+
+.delete-confirm {
+  border: 1px solid var(--amber-100);
+  background: var(--amber-50);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  color: var(--charcoal);
+}
+
+.delete-confirm-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--amber-600);
+}
+
+.delete-confirm p {
+  margin-bottom: 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.delete-confirm-force {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--amber-600);
+  margin: -0.5rem 0 1.25rem;
+}
+
+.delete-confirm-force input {
+  width: auto;
+}
+
+.admin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 640px;
+  margin-top: 1.5rem;
+}
+
+.admin-form-description {
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.admin-field label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--charcoal);
+}
+
+.admin-field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.admin-form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.settings-link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+}
+
+.settings-link-list a {
+  color: var(--amber-600);
+  font-weight: 600;
+}
+
+.settings-link-list a:hover {
+  color: var(--amber-500);
+}

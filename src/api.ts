@@ -165,6 +165,73 @@ export const api = {
       "DELETE"
     ),
 
+  // Admin Settings — Skills (admin-only endpoints, authorize_admin! on backend)
+  adminSkills: () => fetchAPI<Skill[]>("/admin/skills"),
+  adminSkill: (id: string | number) =>
+    fetchAPI<Skill>(`/admin/skills/${encodeURIComponent(String(id))}`),
+  adminCreateSkill: (data: { title: string; category_id: number; description?: string | null }) =>
+    postJSON<Skill>("/admin/skills", { skill: data }),
+  adminUpdateSkill: (
+    id: string | number,
+    data: { title?: string; category_id?: number; description?: string | null }
+  ) => postJSON<Skill>(`/admin/skills/${encodeURIComponent(String(id))}`, { skill: data }, "PATCH"),
+  adminDestroySkill: (id: string | number) =>
+    postJSON<void>(`/admin/skills/${encodeURIComponent(String(id))}`, {}, "DELETE"),
+
+  // Admin Settings — Categories
+  adminCategories: () => fetchAPI<Category[]>("/admin/categories"),
+  adminCategory: (id: string | number) =>
+    fetchAPI<Category>(`/admin/categories/${encodeURIComponent(String(id))}`),
+  adminCreateCategory: (data: { name: string }) =>
+    postJSON<Category>("/admin/categories", { category: data }),
+  adminUpdateCategory: (id: string | number, data: { name?: string }) =>
+    postJSON<Category>(
+      `/admin/categories/${encodeURIComponent(String(id))}`,
+      { category: data },
+      "PATCH"
+    ),
+  adminDestroyCategory: (id: string | number, confirmDestroy = false) =>
+    postJSON<void>(
+      `/admin/categories/${encodeURIComponent(String(id))}${
+        confirmDestroy ? `?confirm_destroy=${encodeURIComponent(String(id))}` : ""
+      }`,
+      {},
+      "DELETE"
+    ),
+
+  // Admin Settings — Drills
+  adminDrills: () => fetchAPI<Drill[]>("/admin/drills"),
+  adminDrill: (id: string | number) =>
+    fetchAPI<Drill>(`/admin/drills/${encodeURIComponent(String(id))}`),
+  adminCreateDrill: (data: {
+    title: string;
+    setup_instructions?: string | null;
+    training_stage: string;
+    difficulty_level: string;
+    min_players: number;
+    max_players: number;
+    ideal_num_players: number;
+  }) => postJSON<Drill>("/admin/drills", { drill: data }),
+  adminUpdateDrill: (
+    id: string | number,
+    data: {
+      title?: string;
+      setup_instructions?: string | null;
+      training_stage?: string;
+      difficulty_level?: string;
+      min_players?: number;
+      max_players?: number;
+      ideal_num_players?: number;
+    }
+  ) =>
+    postJSON<Drill>(
+      `/admin/drills/${encodeURIComponent(String(id))}`,
+      { drill: data },
+      "PATCH"
+    ),
+  adminDestroyDrill: (id: string | number) =>
+    postJSON<void>(`/admin/drills/${encodeURIComponent(String(id))}`, {}, "DELETE"),
+
 
   // Auth (bearer-token based for cross-origin; the token is cached in localStorage)
   me: () => fetchAPI<User | null>("/me"),

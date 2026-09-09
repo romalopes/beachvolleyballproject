@@ -10,6 +10,7 @@ import {
   LogIn,
   Shield,
   UserCircle,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 
@@ -52,15 +53,26 @@ export default function Sidebar() {
           );
         })}
         {user?.roles?.includes("admin") && (
-          <NavLink
-            to="/admin/users"
-            className={({ isActive }) =>
-              `sidebar-link${isActive ? " active" : ""}`
-            }
-          >
-            <Shield />
-            Admin
-          </NavLink>
+          <>
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                `sidebar-link${isActive ? " active" : ""}`
+              }
+            >
+              <Settings />
+              Settings
+            </NavLink>
+            <NavLink
+              to="/admin/users"
+              className={({ isActive }) =>
+                `sidebar-link${isActive ? " active" : ""}`
+              }
+            >
+              <Shield />
+              Admin
+            </NavLink>
+          </>
         )}
         {user && (
           <NavLink
