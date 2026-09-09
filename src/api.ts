@@ -29,8 +29,11 @@ export interface Drill {
   id: number;
   title: string;
   setup_instructions: string;
-  player_count: number | null;
-  difficulty_level: string | null;
+  training_stage: 'warmup' | 'beginning' | 'middle' | 'end';
+  difficulty_level: 'beginner' | 'intermediate' | 'advanced';
+  min_players: number;
+  max_players: number;
+  ideal_num_players: number;
   skills?: Skill[];
   media_assets?: MediaAsset[];
 }

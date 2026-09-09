@@ -4,6 +4,7 @@ import { api, type Skill, type Drill } from '../api';
 import EmptyState from '../components/EmptyState';
 import Tag from '../components/Tag';
 import { ArrowLeft, Dumbbell } from 'lucide-react';
+import { isValidDrillRange, playerRangeLabel, trainingStageLabel } from '../utils/drills';
 
 export default function SkillDetail() {
   const { id } = useParams<{ id: string }>();
@@ -20,7 +21,7 @@ export default function SkillDetail() {
         return api.drills();
       })
       .then((drills) => {
-        setRelatedDrills(drills.filter((d) => d.skills?.some((s) => s.id === Number(id))));
+        setRelatedDrills(drills.filter((d) => isValidDrillRange(d) && d.skills?.some((s) => s.id === Number(id))));
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -66,7 +67,7 @@ export default function SkillDetail() {
                   {drill.title}
                 </span>
                 <span className="related-item-meta">
-                  {drill.difficulty_level} &middot; {drill.player_count} players
+                  {drill.difficulty_level} &middot; {playerRangeLabel(drill.min_players, drill.max_players)} &middot; {trainingStageLabel(drill.training_stage)}
                 </span>
               </Link>
             ))}

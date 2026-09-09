@@ -4,6 +4,12 @@ import { api, type Drill } from '../api';
 import EmptyState from '../components/EmptyState';
 import Tag from '../components/Tag';
 import { ArrowLeft, Target, Users } from 'lucide-react';
+import {
+  idealLabel,
+  isValidDrillRange,
+  playerRangeLabel,
+  trainingStageLabel,
+} from '../utils/drills';
 
 export default function DrillDetail() {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +27,9 @@ export default function DrillDetail() {
 
   if (loading) return <div className="loading">Loading...</div>;
   if (!drill) return <EmptyState title="Drill not found" />;
+  if (!isValidDrillRange(drill)) {
+    return <EmptyState title="Incomplete drill data" description="This drill is missing required training attributes." />;
+  }
 
   return (
     <div className="page">
@@ -33,13 +42,13 @@ export default function DrillDetail() {
         <h1>{drill.title}</h1>
         <div className="tags" style={{ marginTop: '1rem' }}>
           <Tag variant="primary">Drill</Tag>
-          {drill.difficulty_level && <Tag variant="teal">{drill.difficulty_level}</Tag>}
-          {drill.player_count && (
-            <Tag>
-              <Users size={12} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
-              {drill.player_count} players
-            </Tag>
-          )}
+          <Tag variant="teal">{drill.difficulty_level}</Tag>
+          <Tag>{trainingStageLabel(drill.training_stage)}</Tag>
+          <Tag>
+            <Users size={12} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+            {playerRangeLabel(drill.min_players, drill.max_players)}
+          </Tag>
+          <Tag>{idealLabel(drill.ideal_num_players)}</Tag>
         </div>
       </div>
 

@@ -4,6 +4,12 @@ import { api, type TrainingSession } from '../api';
 import EmptyState from '../components/EmptyState';
 import Tag from '../components/Tag';
 import { ArrowLeft, CalendarDays, MapPin, Dumbbell, Target } from 'lucide-react';
+import {
+  idealLabel,
+  isValidDrillRange,
+  playerRangeLabel,
+  trainingStageLabel,
+} from '../utils/drills';
 
 export default function TrainingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -44,7 +50,14 @@ export default function TrainingDetail() {
         <h1>{session.drill?.title || 'Training Session'}</h1>
         <div className="tags" style={{ marginTop: '1rem' }}>
           <Tag variant="primary">Session</Tag>
-          {session.drill?.difficulty_level && <Tag variant="teal">{session.drill.difficulty_level}</Tag>}
+          {session.drill && isValidDrillRange(session.drill) && (
+            <>
+              <Tag variant="teal">{session.drill.difficulty_level}</Tag>
+              <Tag>{trainingStageLabel(session.drill.training_stage)}</Tag>
+              <Tag>{playerRangeLabel(session.drill.min_players, session.drill.max_players)}</Tag>
+              <Tag>{idealLabel(session.drill.ideal_num_players)}</Tag>
+            </>
+          )}
         </div>
       </div>
 
@@ -78,7 +91,9 @@ export default function TrainingDetail() {
               <Dumbbell size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
               {session.drill.title}
             </span>
-            <span className="related-item-meta">{session.drill.difficulty_level}</span>
+            <span className="related-item-meta">
+              {session.drill.difficulty_level} &middot; {playerRangeLabel(session.drill.min_players, session.drill.max_players)} &middot; {trainingStageLabel(session.drill.training_stage)}
+            </span>
           </Link>
         </section>
       )}

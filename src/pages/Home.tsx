@@ -5,7 +5,7 @@ import { ArrowRight, Target, Dumbbell, PlayCircle, ClipboardList, CalendarDays }
 
 const sections = [
   { title: 'Skills', path: '/skills', icon: Target, description: 'Browse all beach volleyball skills organised by category. Each skill includes descriptions and related drills.' },
-  { title: 'Drills', path: '/drills', icon: Dumbbell, description: 'Search and filter drills by difficulty and player count. Each drill links to the skills it develops.' },
+  { title: 'Drills', path: '/drills', icon: Dumbbell, description: 'Search and filter drills by difficulty, training stage, and player range. Each drill links to the skills it develops.' },
   { title: 'Videos', path: '/videos', icon: PlayCircle, description: 'Watch skill demonstrations, drill walkthroughs, and training footage from the video library.' },
   { title: 'Training', path: '/training', icon: ClipboardList, description: 'View training sessions that combine multiple drills and skills into structured practice plans.' },
   { title: 'Schedule', path: '/schedule', icon: CalendarDays, description: 'See upcoming training sessions and plan your practice calendar.' },

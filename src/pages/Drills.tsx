@@ -5,28 +5,50 @@ import PageHeader from '../components/PageHeader';
 import DrillCard from '../components/DrillCard';
 import EmptyState from '../components/EmptyState';
 import { Search } from 'lucide-react';
-
-const difficulties = ['beginner', 'intermediate', 'advanced'];
+import {
+  DIFFICULTY_LEVELS,
+  TRAINING_STAGES,
+  isValidDrillRange,
+} from '../utils/drills';
 
 export default function Drills() {
   const [drills, setDrills] = useState<Drill[]>([]);
   const [search, setSearch] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
+  const [selectedStage, setSelectedStage] = useState<string>('all');
+  const [playerFilter, setPlayerFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     api.drills()
-      .then(setDrills)
+      .then((rows) => {
+        if (import.meta.env.DEV) {
+          rows.forEach((drill) => {
+            if (!isValidDrillRange(drill)) {
+              console.warn('Invalid drill payload skipped:', drill);
+            }
+          });
+        }
+        setDrills(rows.filter(isValidDrillRange));
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const playerCount = playerFilter.trim() === '' ? null : Number(playerFilter.trim());
 
   const filteredDrills = drills.filter((drill) => {
     const matchesSearch = drill.title.toLowerCase().includes(search.toLowerCase());
     const matchesDifficulty =
       selectedDifficulty === 'all' || drill.difficulty_level === selectedDifficulty;
-    return matchesSearch && matchesDifficulty;
+    const matchesStage =
+      selectedStage === 'all' || drill.training_stage === selectedStage;
+    const matchesPlayers =
+      playerCount === null ||
+      Number.isNaN(playerCount) ||
+      (drill.min_players <= playerCount && playerCount <= drill.max_players);
+    return matchesSearch && matchesDifficulty && matchesStage && matchesPlayers;
   });
 
   if (loading) return <div className="loading">Loading...</div>;
@@ -35,7 +57,7 @@ export default function Drills() {
     <div className="page">
       <PageHeader
         title="Drills"
-        description="Search and filter drills by difficulty and player count. Each drill develops specific skills."
+        description="Search and filter drills by difficulty, training stage, and player range. Each drill develops specific skills."
       />
 
       <div className="search-bar">
@@ -57,15 +79,41 @@ export default function Drills() {
         >
           All Levels
         </button>
-        {difficulties.map((level) => (
+        {DIFFICULTY_LEVELS.map((level) => (
           <button
-            key={level}
-            className={`filter-btn${selectedDifficulty === level ? ' active' : ''}`}
-            onClick={() => setSelectedDifficulty(level)}
+            key={level.value}
+            className={`filter-btn${selectedDifficulty === level.value ? ' active' : ''}`}
+            onClick={() => setSelectedDifficulty(level.value)}
           >
-            {level.charAt(0).toUpperCase() + level.slice(1)}
+            {level.label}
           </button>
         ))}
+      </div>
+
+      <div className="filter-bar">
+        <button
+          className={`filter-btn${selectedStage === 'all' ? ' active' : ''}`}
+          onClick={() => setSelectedStage('all')}
+        >
+          All Stages
+        </button>
+        {TRAINING_STAGES.map((stage) => (
+          <button
+            key={stage.value}
+            className={`filter-btn${selectedStage === stage.value ? ' active' : ''}`}
+            onClick={() => setSelectedStage(stage.value)}
+          >
+            {stage.label}
+          </button>
+        ))}
+        <input
+          type="number"
+          min={1}
+          placeholder="Players"
+          value={playerFilter}
+          onChange={(e) => setPlayerFilter(e.target.value)}
+          aria-label="Filter by player count"
+        />
       </div>
 
       {filteredDrills.length === 0 ? (
