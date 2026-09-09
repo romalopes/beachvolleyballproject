@@ -31,7 +31,9 @@ export default function Sidebar() {
         <span className="sidebar-logo-icon">
           <img src="/ball.png" width="24" height="24" alt="" />
         </span>
-        BVB Project
+        <NavLink to="/" className="logo-text">
+          BVB Project - React
+        </NavLink>
       </div>
       <nav className="sidebar-nav">
         {navItems.map((item) => {
@@ -85,7 +87,9 @@ export default function Sidebar() {
             </span>
             <span className="sidebar-user-roles">
               {user.roles?.map((role) => (
-                <span key={role} className="role-badge">{role}</span>
+                <span key={role} className="role-badge">
+                  {role}
+                </span>
               ))}
             </span>
             <a
