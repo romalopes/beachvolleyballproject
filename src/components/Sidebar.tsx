@@ -63,7 +63,7 @@ export default function Sidebar() {
               <Settings />
               Settings
             </NavLink>
-            <NavLink
+            {/* <NavLink
               to="/admin/users"
               className={({ isActive }) =>
                 `sidebar-link${isActive ? " active" : ""}`
@@ -71,7 +71,7 @@ export default function Sidebar() {
             >
               <Shield />
               Admin
-            </NavLink>
+            </NavLink> */}
           </>
         )}
         {user && (

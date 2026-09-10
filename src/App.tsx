@@ -29,6 +29,8 @@ import CategoryFormPage from "./pages/settings/CategoryFormPage";
 import DrillsSettings from "./pages/settings/Drills";
 import DrillDetailSettings from "./pages/settings/DrillDetail";
 import DrillFormPage from "./pages/settings/DrillFormPage";
+import Logs from "./pages/settings/Logs";
+import LogDetail from "./pages/settings/LogDetail";
 import AccountPage from "./pages/Account";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -220,6 +222,22 @@ export default function App() {
               element={
                 <AdminRoute>
                   <DrillDetailSettings />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/logs"
+              element={
+                <AdminRoute>
+                  <Logs />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/logs/:id"
+              element={
+                <AdminRoute>
+                  <LogDetail />
                 </AdminRoute>
               }
             />

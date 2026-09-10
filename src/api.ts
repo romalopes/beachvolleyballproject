@@ -107,6 +107,41 @@ export interface AdminUser {
   roles: { id: number; name: string }[];
 }
 
+export interface LogObject {
+  type: string;
+  id: number;
+  label?: string | null;
+  exists?: boolean;
+  slug?: string | null;
+}
+
+export interface Log {
+  id: number;
+  description: string;
+  action: string;
+  method: string;
+  path: string | null;
+  status: number | null;
+  user: { id: number; name: string; email_address: string } | null;
+  objects: LogObject[];
+  created_at: string;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  request_id?: string | null;
+}
+
+export interface LogsMeta {
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface LogsResponse {
+  data: Log[];
+  meta: LogsMeta;
+}
+
 export interface AccountAddress {
   street_address: string | null;
   city: string | null;
@@ -261,6 +296,27 @@ export const api = {
       password,
       password_confirmation,
     }, "PUT"),
+
+  // Admin audit logs (read-only)
+  adminLogs: (params: {
+    page?: number;
+    per_page?: number;
+        action_filter?: string;
+    user_id?: string;
+    object_type?: string;
+    object_id?: string;
+    request_id?: string;
+    start_date?: string;
+    end_date?: string;
+  } = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== "") qs.set(k, String(v));
+    });
+    const query = qs.toString();
+    return fetchAPI<LogsResponse>(`/admin/logs${query ? `?${query}` : ""}`);
+  },
+  adminLog: (id: number | string) => fetchAPI<{ data: Log }>(`/admin/logs/${id}`),
 
   // Account
   account: (): Promise<Account> => fetchAPI<Account>("/account"),
