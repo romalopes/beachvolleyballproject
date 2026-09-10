@@ -31,6 +31,7 @@ import DrillDetailSettings from "./pages/settings/DrillDetail";
 import DrillFormPage from "./pages/settings/DrillFormPage";
 import Logs from "./pages/settings/Logs";
 import LogDetail from "./pages/settings/LogDetail";
+import SystemLogs from "./pages/settings/SystemLogs";
 import AccountPage from "./pages/Account";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -238,6 +239,14 @@ export default function App() {
               element={
                 <AdminRoute>
                   <LogDetail />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/system-logs"
+              element={
+                <AdminRoute>
+                  <SystemLogs />
                 </AdminRoute>
               }
             />

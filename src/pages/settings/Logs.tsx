@@ -62,6 +62,9 @@ export default function Logs() {
           <option value="destroy">Delete</option>
           <option value="show">Show</option>
         </select>
+        <Link to="/settings/system-logs" className="admin-btn admin-btn-add">
+          Rails log file
+        </Link>
       </div>
 
       {loading ? (

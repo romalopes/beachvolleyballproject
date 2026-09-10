@@ -318,6 +318,10 @@ export const api = {
   },
   adminLog: (id: number | string) => fetchAPI<{ data: Log }>(`/admin/logs/${id}`),
 
+  // Rails log file tail (read-only)
+  adminSystemLogs: (lines: number = 500) =>
+    fetchAPI<{ lines: string[] }>(`/admin/system_logs?lines=${lines}`),
+
   // Account
   account: (): Promise<Account> => fetchAPI<Account>("/account"),
   updateAccount: (data: {

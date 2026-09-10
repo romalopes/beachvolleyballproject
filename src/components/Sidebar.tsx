@@ -8,7 +8,6 @@ import {
   ClipboardList,
   LogOut,
   LogIn,
-  Shield,
   UserCircle,
   Settings,
 } from "lucide-react";

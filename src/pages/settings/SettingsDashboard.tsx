@@ -4,11 +4,36 @@ import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 
 const RESOURCES = [
-  { to: "/settings/skills", label: "Skills", desc: "Manage skills taught in drills.", icon: Target },
-  { to: "/settings/categories", label: "Categories", desc: "Manage skill categories.", icon: Tags },
-  { to: "/settings/drills", label: "Drills", desc: "Manage drills and their attributes.", icon: Dumbbell },
-  { to: "/settings/logs", label: "Logs", desc: "View audit trail of application activity.", icon: FileText },
-  { to: "/admin/users", label: "Admin", desc: "Manage user accounts and roles.", icon: Shield },
+  {
+    to: "/settings/categories",
+    label: "Categories",
+    desc: "Manage skill categories.",
+    icon: Tags,
+  },
+  {
+    to: "/settings/skills",
+    label: "Skills",
+    desc: "Manage skills taught in drills.",
+    icon: Target,
+  },
+  {
+    to: "/settings/drills",
+    label: "Drills",
+    desc: "Manage drills and their attributes.",
+    icon: Dumbbell,
+  },
+  {
+    to: "/settings/logs",
+    label: "Logs",
+    desc: "View audit trail of application activity.",
+    icon: FileText,
+  },
+  {
+    to: "/admin/users",
+    label: "Admin",
+    desc: "Manage user accounts and roles.",
+    icon: Shield,
+  },
 ];
 
 export default function SettingsDashboard() {
