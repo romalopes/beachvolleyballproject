@@ -6,22 +6,22 @@ import SettingsLayout from "../../components/settings/SettingsLayout";
 import SkillForm from "../../components/settings/resources/skills/SkillForm";
 
 export default function SkillFormPage() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isNew = !id;
+  const isNew = !slug;
   const [initial, setInitial] = useState<Skill | null>(null);
   const [loading, setLoading] = useState(!isNew);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isNew || !id) return;
+    if (isNew || !slug) return;
     api
-      .adminSkill(id)
+      .adminSkill(slug)
       .then(setInitial)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [id, isNew]);
+  }, [slug, isNew]);
 
   if (!user?.roles?.includes("admin")) {
     return (
@@ -31,7 +31,7 @@ export default function SkillFormPage() {
     );
   }
 
-  const backTo = isNew ? "/settings/skills" : `/settings/skills/${id}`;
+  const backTo = isNew ? "/settings/skills" : `/settings/skills/${slug}`;
 
   if (loading) return <div className="loading">Loading...</div>;
 
@@ -46,7 +46,7 @@ export default function SkillFormPage() {
       <SkillForm
         initial={isNew ? null : initial}
         onCancel={() => navigate(backTo)}
-        onSuccess={(saved) => navigate(`/settings/skills/${saved.id}`)}
+        onSuccess={(saved) => navigate(`/settings/skills/${saved.slug}`)}
       />
     </SettingsLayout>
   );

@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import PageHeader from "../PageHeader";
+import BackLink from "./BackLink";
 
 interface SettingsLayoutProps {
   title: string;
   description?: string;
   backTo?: string;
   backLabel?: string;
+  /** Fallback destination for the general back link when no explicit backTo is given. */
+  backFallback?: string;
   actions?: ReactNode;
   children: ReactNode;
 }
@@ -17,18 +18,16 @@ export default function SettingsLayout({
   description,
   backTo,
   backLabel,
+  backFallback,
   actions,
   children,
 }: SettingsLayoutProps) {
-  const navigate = useNavigate();
+  const showBack = backTo || backLabel || backFallback;
 
   return (
     <div className="page">
-      {backTo && (
-        <button className="back-link" onClick={() => navigate(backTo)}>
-          <ArrowLeft size={16} />
-          {backLabel ?? "Back"}
-        </button>
+      {showBack && (
+        <BackLink to={backTo} label={backLabel} fallback={backFallback ?? "/settings"} />
       )}
       <PageHeader title={title} description={description}>
         {actions}

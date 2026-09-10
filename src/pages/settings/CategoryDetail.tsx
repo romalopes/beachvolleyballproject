@@ -1,16 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, type Category } from "../../api";
+import { api, type Category, type Skill } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 import DeleteConfirm from "../../components/settings/DeleteConfirm";
 import EmptyState from "../../components/EmptyState";
+import ResourceTable from "../../components/settings/ResourceTable";
 
 export default function CategoryDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [category, setCategory] = useState<Category | null>(null);
+  const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -18,13 +20,23 @@ export default function CategoryDetail() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
-    api
-      .adminCategory(id)
-      .then(setCategory)
+    if (!slug) return;
+    Promise.all([
+      api.adminCategory(slug),
+      api.adminSkills().catch(() => [] as Skill[]),
+    ])
+      .then(([cat, sk]) => {
+        setCategory(cat);
+        setSkills(sk);
+      })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [slug]);
+
+  const categorySkills = useMemo(
+    () => skills.filter((s) => s.category_id === category?.id),
+    [skills, category]
+  );
 
   if (!user?.roles?.includes("admin")) {
     return (
@@ -71,7 +83,7 @@ export default function CategoryDetail() {
       backLabel="Back to Categories"
       actions={
         <div className="admin-table-actions">
-          <button type="button" className="admin-btn admin-btn-add" onClick={() => navigate(`/settings/categories/${category.id}/edit`)}>
+          <button type="button" className="admin-btn admin-btn-add" onClick={() => navigate(`/settings/categories/${category.slug}/edit`)}>
             Edit
           </button>
           <button type="button" className="admin-btn admin-btn-remove" onClick={() => setConfirming(true)}>
@@ -95,9 +107,36 @@ export default function CategoryDetail() {
       <div className="detail-section">
         <h2>Details</h2>
         <p>Slug: {category.slug}</p>
-        <p>
-          <Link to="/settings/skills">View skills in this category</Link>
-        </p>
+      </div>
+      <div className="detail-section">
+        <h2>Skills in this category</h2>
+        <ResourceTable<Skill>
+          data={categorySkills}
+          emptyTitle="No skills in this category"
+          emptyDescription="Skills assigned to this category will appear here."
+          columns={[
+            {
+              key: "title",
+              label: "Name",
+              render: (s) => (
+                <Link to={`/settings/skills/${s.slug}`} className="admin-table-name">
+                  {s.title}
+                </Link>
+              ),
+            },
+            { key: "category", label: "Category", render: (s) => s.category?.name ?? "—" },
+            {
+              key: "description",
+              label: "Description",
+              render: (s) =>
+                s.description
+                  ? s.description.length > 80
+                    ? `${s.description.slice(0, 80)}…`
+                    : s.description
+                  : "—",
+            },
+          ]}
+        />
       </div>
     </SettingsLayout>
   );

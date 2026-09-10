@@ -6,22 +6,22 @@ import SettingsLayout from "../../components/settings/SettingsLayout";
 import DrillForm from "../../components/settings/resources/drills/DrillForm";
 
 export default function DrillFormPage() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isNew = !id;
+  const isNew = !slug;
   const [initial, setInitial] = useState<Drill | null>(null);
   const [loading, setLoading] = useState(!isNew);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isNew || !id) return;
+    if (isNew || !slug) return;
     api
-      .adminDrill(id)
+      .adminDrill(slug)
       .then(setInitial)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [id, isNew]);
+  }, [slug, isNew]);
 
   if (!user?.roles?.includes("admin")) {
     return (
@@ -31,7 +31,7 @@ export default function DrillFormPage() {
     );
   }
 
-  const backTo = isNew ? "/settings/drills" : `/settings/drills/${id}`;
+  const backTo = isNew ? "/settings/drills" : `/settings/drills/${slug}`;
 
   if (loading) return <div className="loading">Loading...</div>;
 
@@ -46,7 +46,7 @@ export default function DrillFormPage() {
       <DrillForm
         initial={isNew ? null : initial}
         onCancel={() => navigate(backTo)}
-        onSuccess={(saved) => navigate(`/settings/drills/${saved.id}`)}
+        onSuccess={(saved) => navigate(`/settings/drills/${saved.slug}`)}
       />
     </SettingsLayout>
   );

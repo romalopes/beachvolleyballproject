@@ -9,7 +9,7 @@ import Tag from "../../components/Tag";
 import { playerRangeLabel, trainingStageLabel } from "../../utils/drills";
 
 export default function DrillDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [drill, setDrill] = useState<Drill | null>(null);
@@ -20,13 +20,13 @@ export default function DrillDetail() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (!slug) return;
     api
-      .adminDrill(id)
+      .adminDrill(slug)
       .then(setDrill)
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [slug]);
 
   if (!user?.roles?.includes("admin")) {
     return (
@@ -73,7 +73,7 @@ export default function DrillDetail() {
       backLabel="Back to Drills"
       actions={
         <div className="admin-table-actions">
-          <button type="button" className="admin-btn admin-btn-add" onClick={() => navigate(`/settings/drills/${drill.id}/edit`)}>
+          <button type="button" className="admin-btn admin-btn-add" onClick={() => navigate(`/settings/drills/${drill.slug}/edit`)}>
             Edit
           </button>
           <button type="button" className="admin-btn admin-btn-remove" onClick={() => setConfirming(true)}>
@@ -119,7 +119,7 @@ export default function DrillDetail() {
           <ul className="settings-link-list">
             {drill.skills.map((s) => (
               <li key={s.id}>
-                <Link to={`/settings/skills/${s.id}`}>{s.title}</Link>
+                <Link to={`/settings/skills/${s.slug}`}>{s.title}</Link>
               </li>
             ))}
           </ul>

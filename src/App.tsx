@@ -144,7 +144,7 @@ export default function App() {
               }
             />
             <Route
-              path="/settings/skills/:id/edit"
+              path="/settings/skills/:slug/edit"
               element={
                 <AdminRoute>
                   <SkillFormPage />
@@ -152,7 +152,7 @@ export default function App() {
               }
             />
             <Route
-              path="/settings/skills/:id"
+              path="/settings/skills/:slug"
               element={
                 <AdminRoute>
                   <SkillDetailSettings />
@@ -176,7 +176,7 @@ export default function App() {
               }
             />
             <Route
-              path="/settings/categories/:id/edit"
+              path="/settings/categories/:slug/edit"
               element={
                 <AdminRoute>
                   <CategoryFormPage />
@@ -184,7 +184,7 @@ export default function App() {
               }
             />
             <Route
-              path="/settings/categories/:id"
+              path="/settings/categories/:slug"
               element={
                 <AdminRoute>
                   <CategoryDetailSettings />
@@ -208,7 +208,7 @@ export default function App() {
               }
             />
             <Route
-              path="/settings/drills/:id/edit"
+              path="/settings/drills/:slug/edit"
               element={
                 <AdminRoute>
                   <DrillFormPage />
@@ -216,7 +216,7 @@ export default function App() {
               }
             />
             <Route
-              path="/settings/drills/:id"
+              path="/settings/drills/:slug"
               element={
                 <AdminRoute>
                   <DrillDetailSettings />

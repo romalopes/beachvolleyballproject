@@ -1036,6 +1036,43 @@
   text-decoration: none;
 }
 
+.settings-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1.25rem 0 0;
+}
+
+.settings-toolbar-search {
+  margin-bottom: 0;
+}
+
+.settings-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  align-items: center;
+}
+
+.settings-toolbar-row select,
+.settings-toolbar-row input[type="number"] {
+  width: auto;
+  min-width: 140px;
+  flex: 0 1 auto;
+  padding: 0.625rem 0.875rem;
+  font-size: 0.875rem;
+}
+
+.settings-toolbar-row input[type="number"] {
+  max-width: 140px;
+}
+
+.settings-result-count {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-top: 0.75rem;
+}
+
 .admin-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--border);
