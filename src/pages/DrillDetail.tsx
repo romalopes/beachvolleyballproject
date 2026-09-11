@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { api, type Drill } from "../api";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
+import DrillViewer from "../components/drill/DrillViewer";
+import { SAMPLE_DRILL_DEFINITION } from "../components/drill/definition";
 import { ArrowLeft, Target, Users } from "lucide-react";
 import {
   idealLabel,
@@ -63,6 +65,21 @@ export default function DrillDetail() {
       <section className="detail-section">
         <h2>Setup Instructions</h2>
         <p>{drill.setup_instructions || "No instructions available."}</p>
+      </section>
+
+      <section className="detail-section">
+        <h2>Drill Visualisation</h2>
+        <DrillViewer definition={SAMPLE_DRILL_DEFINITION} />
+      </section>
+
+      <section className="detail-section">
+        <h2>Drill Definition (JSON)</h2>
+        <details className="drill-json-details">
+          <summary>Show / hide JSON</summary>
+          <pre className="system-log-viewer drill-json-viewer">
+            {JSON.stringify(SAMPLE_DRILL_DEFINITION, null, 2)}
+          </pre>
+        </details>
       </section>
 
       <section className="detail-section">

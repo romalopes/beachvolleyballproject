@@ -1058,6 +1058,244 @@
   word-break: break-all;
 }
 
+/* ---------- Drill viewer ---------- */
+
+.drill-json-details {
+  margin-top: 0.75rem;
+}
+.drill-json-details summary {
+  cursor: pointer;
+  color: #2563eb;
+  font-weight: 600;
+  padding: 0.25rem 0;
+}
+.drill-json-details[open] summary {
+  margin-bottom: 0.5rem;
+}
+.drill-json-viewer {
+  max-height: 40vh;
+  margin-top: 0;
+}
+
+.drill-viewer {
+  margin-top: 1rem;
+}
+
+.drill-canvas {
+  position: relative;
+}
+
+.drill-court-svg,
+.drill-entities-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* The entity layer floats over the court layer. */
+.drill-entities-svg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.drill-entities-svg g {
+  pointer-events: auto;
+}
+
+.drill-court-boundary {
+  fill: #fafafa;
+  stroke: #94a3b8;
+  stroke-width: 1.5;
+}
+
+.drill-grid-line {
+  stroke: #dbe2ea;
+  stroke-width: 0.75;
+}
+
+.drill-court-label {
+  font-size: 13px;
+  font-weight: 600;
+  fill: #64748b;
+  letter-spacing: 0.08em;
+}
+
+.drill-net {
+  fill: #f1f5f9;
+  stroke: #94a3b8;
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.drill-extended-area {
+  fill: #f8fafc;
+  stroke: #cbd5e1;
+  stroke-width: 1;
+  stroke-dasharray: 6 4;
+}
+
+.drill-participant-shape {
+  fill: #2563eb;
+  stroke: #1e40af;
+  stroke-width: 1.5;
+}
+.drill-participant-coach .drill-participant-shape {
+  fill: #f59e0b;
+  stroke: #b45309;
+}
+.drill-participant-label {
+  font-size: 10px;
+  font-weight: 700;
+  fill: #ffffff;
+  pointer-events: none;
+}
+
+.drill-ball-shape {
+  fill: #fbbf24;
+  stroke: #92400e;
+  stroke-width: 1;
+}
+.drill-ball-label {
+  font-size: 6px;
+  font-weight: 700;
+  fill: #78350f;
+  pointer-events: none;
+}
+
+.drill-object-shape {
+  fill: #ef4444;
+  stroke: #991b1b;
+  stroke-width: 1;
+}
+.drill-object-fallback {
+  fill: none;
+  stroke: #ef4444;
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+}
+.drill-object-label {
+  font-size: 7px;
+  fill: #991b1b;
+  pointer-events: none;
+}
+
+.drill-movement-line {
+  stroke: #0ea5e9;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  fill: none;
+}
+.drill-movement-ball .drill-movement-line {
+  stroke: #f97316;
+}
+.drill-movement-object .drill-movement-line {
+  stroke: #84cc16;
+}
+.drill-movement-head {
+  fill: #0ea5e9;
+}
+.drill-movement-ball .drill-movement-head {
+  fill: #f97316;
+}
+.drill-movement-object .drill-movement-head {
+  fill: #84cc16;
+}
+
+.drill-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.drill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  cursor: pointer;
+}
+.drill-btn:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+.drill-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.drill-btn-play {
+  background: #2563eb;
+  border-color: #1e40af;
+  color: #ffffff;
+}
+.drill-btn-play:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.drill-timeline {
+  display: flex;
+  gap: 0.4rem;
+  margin-left: 0.5rem;
+}
+.drill-timeline-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+.drill-timeline-dot.active {
+  background: #2563eb;
+  border-color: #1e40af;
+  color: #ffffff;
+}
+
+.drill-step-description {
+  margin: 0.6rem 0 0;
+  color: #475569;
+}
+
+.drill-actions {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  color: #475569;
+  font-size: 0.9rem;
+}
+.drill-actions li {
+  margin-bottom: 0.25rem;
+}
+
+.drill-tooltip {
+  position: absolute;
+  transform: translate(-50%, -130%);
+  background: #1e293b;
+  color: #f8fafc;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  z-index: 5;
+  max-width: 260px;
+}
+.drill-tooltip strong {
+  color: #93c5fd;
+}
+
+/* Position the tooltip layer relative to the viewer */
+.drill-viewer {
+  position: relative;
+}
+
 .settings-toolbar-search {
   margin-bottom: 0;
 }
