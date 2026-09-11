@@ -43,8 +43,8 @@ export interface CourtGeometry {
 
 // Layout constants (SVG units)
 const MARGIN = 40;
-const COURT_W = 400;
-const COURT_H = 320;
+/** Courts are square: one constant sizes both axes so they can never diverge. */
+const COURT_SIZE = 400;
 const NET_GAP = 36;
 /**
  * Thickness of an extended-area strip. Fixed display constant, independent
@@ -133,24 +133,24 @@ export function buildCourtGeometry(
 
   if (orientation === "top_down") {
     const width =
-      COURT_W + MARGIN * 2 + (hasLeft ? EXT_SIZE : 0) + (hasRight ? EXT_SIZE : 0);
+      COURT_SIZE + MARGIN * 2 + (hasLeft ? EXT_SIZE : 0) + (hasRight ? EXT_SIZE : 0);
     const height =
-      COURT_H * 2 + NET_GAP + MARGIN * 2 + (hasBase1 ? EXT_SIZE : 0) + (hasBase2 ? EXT_SIZE : 0);
+      COURT_SIZE * 2 + NET_GAP + MARGIN * 2 + (hasBase1 ? EXT_SIZE : 0) + (hasBase2 ? EXT_SIZE : 0);
     const offsetX = MARGIN + (hasLeft ? EXT_SIZE : 0);
     const offsetY = MARGIN + (hasBase1 ? EXT_SIZE : 0);
 
-    const court1: Rect = { x: offsetX, y: offsetY, width: COURT_W, height: COURT_H };
+    const court1: Rect = { x: offsetX, y: offsetY, width: COURT_SIZE, height: COURT_SIZE };
     const net: Rect = {
       x: offsetX,
-      y: offsetY + COURT_H,
-      width: COURT_W,
+      y: offsetY + COURT_SIZE,
+      width: COURT_SIZE,
       height: NET_GAP,
     };
     const court2: Rect = {
       x: offsetX,
-      y: offsetY + COURT_H + NET_GAP,
-      width: COURT_W,
-      height: COURT_H,
+      y: offsetY + COURT_SIZE + NET_GAP,
+      width: COURT_SIZE,
+      height: COURT_SIZE,
     };
 
     return {
@@ -167,22 +167,22 @@ export function buildCourtGeometry(
               x: court1.x - EXT_SIZE,
               y: Math.min(court1.y, court2.y),
               width: EXT_SIZE,
-              height: COURT_H * 2 + NET_GAP,
+              height: COURT_SIZE * 2 + NET_GAP,
             }
           : undefined,
         right: hasRight
           ? {
-              x: court1.x + COURT_W,
+              x: court1.x + COURT_SIZE,
               y: Math.min(court1.y, court2.y),
               width: EXT_SIZE,
-              height: COURT_H * 2 + NET_GAP,
+              height: COURT_SIZE * 2 + NET_GAP,
             }
           : undefined,
         court_1: hasBase1
-          ? { x: court1.x, y: court1.y - EXT_SIZE, width: COURT_W, height: EXT_SIZE }
+          ? { x: court1.x, y: court1.y - EXT_SIZE, width: COURT_SIZE, height: EXT_SIZE }
           : undefined,
         court_2: hasBase2
-          ? { x: court2.x, y: court2.y + COURT_H, width: COURT_W, height: EXT_SIZE }
+          ? { x: court2.x, y: court2.y + COURT_SIZE, width: COURT_SIZE, height: EXT_SIZE }
           : undefined,
       },
       bounds: courtBounds(court),
@@ -192,23 +192,23 @@ export function buildCourtGeometry(
   // lateral: side-by-side, independent boxes, net gap between them.
   // The baseline→net axis (y) is horizontal; the sideline axis (x) is vertical.
   const width =
-    COURT_W * 2 + NET_GAP + MARGIN * 2 + (hasBase1 ? EXT_SIZE : 0) + (hasBase2 ? EXT_SIZE : 0);
-  const height = COURT_H + MARGIN * 2 + (hasLeft ? EXT_SIZE : 0) + (hasRight ? EXT_SIZE : 0);
+    COURT_SIZE * 2 + NET_GAP + MARGIN * 2 + (hasBase1 ? EXT_SIZE : 0) + (hasBase2 ? EXT_SIZE : 0);
+  const height = COURT_SIZE + MARGIN * 2 + (hasLeft ? EXT_SIZE : 0) + (hasRight ? EXT_SIZE : 0);
   const offsetX = MARGIN + (hasBase1 ? EXT_SIZE : 0);
   const offsetY = MARGIN + (hasLeft ? EXT_SIZE : 0);
 
-  const court1: Rect = { x: offsetX, y: offsetY, width: COURT_W, height: COURT_H };
+  const court1: Rect = { x: offsetX, y: offsetY, width: COURT_SIZE, height: COURT_SIZE };
   const net: Rect = {
-    x: offsetX + COURT_W,
+    x: offsetX + COURT_SIZE,
     y: offsetY,
     width: NET_GAP,
-    height: COURT_H,
+    height: COURT_SIZE,
   };
   const court2: Rect = {
-    x: offsetX + COURT_W + NET_GAP,
+    x: offsetX + COURT_SIZE + NET_GAP,
     y: offsetY,
-    width: COURT_W,
-    height: COURT_H,
+    width: COURT_SIZE,
+    height: COURT_SIZE,
   };
 
   return {
@@ -224,23 +224,23 @@ export function buildCourtGeometry(
         ? {
             x: Math.min(court1.x, court2.x),
             y: court1.y - EXT_SIZE,
-            width: COURT_W * 2 + NET_GAP,
+            width: COURT_SIZE * 2 + NET_GAP,
             height: EXT_SIZE,
           }
         : undefined,
       right: hasRight
         ? {
             x: Math.min(court1.x, court2.x),
-            y: court1.y + COURT_H,
-            width: COURT_W * 2 + NET_GAP,
+            y: court1.y + COURT_SIZE,
+            width: COURT_SIZE * 2 + NET_GAP,
             height: EXT_SIZE,
           }
         : undefined,
       court_1: hasBase1
-        ? { x: court1.x - EXT_SIZE, y: court1.y, width: EXT_SIZE, height: COURT_H }
+        ? { x: court1.x - EXT_SIZE, y: court1.y, width: EXT_SIZE, height: COURT_SIZE }
         : undefined,
       court_2: hasBase2
-        ? { x: court2.x + COURT_W, y: court2.y, width: EXT_SIZE, height: COURT_H }
+        ? { x: court2.x + COURT_SIZE, y: court2.y, width: EXT_SIZE, height: COURT_SIZE }
         : undefined,
     },
     bounds: courtBounds(court),

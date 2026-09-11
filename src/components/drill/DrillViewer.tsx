@@ -11,10 +11,7 @@ import type {
   Movement,
   Step,
 } from "./definition";
-import {
-  buildCourtGeometry,
-  locationToSvg,
-} from "./geometry";
+import { buildCourtGeometry, locationToSvg } from "./geometry";
 import DrillCourt from "./DrillCourt";
 import Participant from "./Participant";
 import Ball from "./Ball";
@@ -35,7 +32,11 @@ interface Overlay {
 type StateKey = "participants" | "balls" | "objects";
 type MoveKey = "participant_id" | "ball_id" | "object_id";
 
-export default function DrillViewer({ definition }: { definition: DrillDefinition }) {
+export default function DrillViewer({
+  definition,
+}: {
+  definition: DrillDefinition;
+}) {
   const [stepIndex, setStepIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [playMode, setPlayMode] = useState<"all" | "step">("all");
@@ -44,13 +45,13 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number | null>(null);
 
-    const geometry = useMemo(
+  const geometry = useMemo(
     () =>
       buildCourtGeometry(
         definition.view?.orientation ?? "top_down",
-        definition.court
+        definition.court,
       ),
-    [definition]
+    [definition],
   );
 
   const steps: Step[] = definition.steps ?? [];
@@ -105,7 +106,11 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
   if (!definition || !step) return null;
 
   const statesKey = (key: MoveKey): StateKey =>
-    key === "participant_id" ? "participants" : key === "ball_id" ? "balls" : "objects";
+    key === "participant_id"
+      ? "participants"
+      : key === "ball_id"
+        ? "balls"
+        : "objects";
 
   /** SVG point for an entity at the current animation frame.
    *
@@ -122,7 +127,7 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
     nextStates: EntityState[] | undefined,
     movements: Movement[] | undefined,
     key: MoveKey,
-    id: string
+    id: string,
   ): { x: number; y: number } | null => {
     const current = states.find((s) => s.id === id && s.active);
     if (!current?.location) return null;
@@ -147,7 +152,7 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
     states: EntityState[],
     nextStates: EntityState[] | undefined,
     movements: Movement[] | undefined,
-    key: MoveKey
+    key: MoveKey,
   ) =>
     states.map((s) => {
       if (!s.active || !s.location) return null;
@@ -172,54 +177,113 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
       const handlers = {
         onMouseEnter: () => setOverlay(tooltip),
         onMouseLeave: () => setOverlay(null),
-        onClick: () => setOverlay((o) => (o?.title === tooltip.title ? null : tooltip)),
+        onClick: () =>
+          setOverlay((o) => (o?.title === tooltip.title ? null : tooltip)),
       };
       const titleText = tooltip.lines.join(" · ");
 
       if (key === "participant_id") {
         const p = entityMap.participants[s.id];
         return (
-          <Participant key={s.id} id={s.id} type={p?.type ?? "player"} x={x} y={y} title={titleText} {...handlers} />
+          <Participant
+            key={s.id}
+            id={s.id}
+            type={p?.type ?? "player"}
+            x={x}
+            y={y}
+            title={titleText}
+            {...handlers}
+          />
         );
       }
       if (key === "ball_id") {
-        return <Ball key={s.id} id={s.id} x={x} y={y} title={titleText} {...handlers} />;
+        return (
+          <Ball
+            key={s.id}
+            id={s.id}
+            x={x}
+            y={y}
+            title={titleText}
+            {...handlers}
+          />
+        );
       }
       return (
-        <DrillObject key={s.id} type={entityMap.objects[s.id]?.type ?? "custom"} x={x} y={y} title={titleText} {...handlers} />
+        <DrillObject
+          key={s.id}
+          type={entityMap.objects[s.id]?.type ?? "custom"}
+          x={x}
+          y={y}
+          title={titleText}
+          {...handlers}
+        />
       );
     });
   const renderMovements = (
     movements: Movement[] | undefined,
     kind: "participant" | "ball" | "object",
-    key: MoveKey
+    key: MoveKey,
   ) =>
     (movements ?? []).map((m, i) => {
       const from =
-        m.from ??
-        step[statesKey(key)].find((s) => s.id === m[key])?.location;
+        m.from ?? step[statesKey(key)].find((s) => s.id === m[key])?.location;
       if (!from) return null;
       const f = svg(from);
       const t = svg(m.to);
-      return <MovementArrow key={`${m[key]}-${i}`} from={f} to={t} kind={kind} title={m.description} />;
+      return (
+        <MovementArrow
+          key={`${m[key]}-${i}`}
+          from={f}
+          to={t}
+          kind={kind}
+          title={m.description}
+        />
+      );
     });
 
   return (
     <div className="drill-viewer">
-      <div className="drill-canvas" data-orientation={definition.view.orientation}>
-        <DrillCourt orientation={definition.view.orientation} court={definition.court} />
+      <div
+        className="drill-canvas"
+        data-orientation={definition.view.orientation}
+      >
+        <DrillLegend definition={definition} />
+        <DrillCourt
+          orientation={definition.view.orientation}
+          court={definition.court}
+        />
 
-        <svg viewBox={`0 0 ${geometry.width} ${geometry.height}`} className="drill-entities-svg">
-          {renderMovements(step.participant_movements, "participant", "participant_id")}
+        <svg
+          viewBox={`0 0 ${geometry.width} ${geometry.height}`}
+          className="drill-entities-svg"
+        >
+          {renderMovements(
+            step.participant_movements,
+            "participant",
+            "participant_id",
+          )}
           {renderMovements(step.ball_movements, "ball", "ball_id")}
           {renderMovements(step.object_movements, "object", "object_id")}
-          {renderEntities(step.objects, nextStep?.objects, step.object_movements, "object_id")}
-          {renderEntities(step.participants, nextStep?.participants, step.participant_movements, "participant_id")}
-          {renderEntities(step.balls, nextStep?.balls, step.ball_movements, "ball_id")}
+          {renderEntities(
+            step.objects,
+            nextStep?.objects,
+            step.object_movements,
+            "object_id",
+          )}
+          {renderEntities(
+            step.participants,
+            nextStep?.participants,
+            step.participant_movements,
+            "participant_id",
+          )}
+          {renderEntities(
+            step.balls,
+            nextStep?.balls,
+            step.ball_movements,
+            "ball_id",
+          )}
         </svg>
       </div>
-
-      <DrillLegend definition={definition} />
 
       {overlay && (
         <div
@@ -234,20 +298,6 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
             <span key={i}>{l}</span>
           ))}
         </div>
-      )}
-
-      {step.description && <p className="drill-step-description">{step.description}</p>}
-
-      {step.actions.length > 0 && (
-        <ul className="drill-actions">
-          {step.actions.map((a, i) => (
-            <li key={i}>
-              <span className={`tag tag-${a.action.type}`}>{a.action.type}</span>{" "}
-              <strong>{a.participant_id}</strong>
-              {a.action.description ? ` — ${a.action.description}` : ""}
-            </li>
-          ))}
-        </ul>
       )}
 
       <DrillStepControls
@@ -278,6 +328,23 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
           setStepIndex(i);
         }}
       />
+      {step.description && (
+        <p className="drill-step-description">{step.description}</p>
+      )}
+
+      {step.actions.length > 0 && (
+        <ul className="drill-actions">
+          {step.actions.map((a, i) => (
+            <li key={i}>
+              <span className={`tag tag-${a.action.type}`}>
+                {a.action.type}
+              </span>{" "}
+              <strong>{a.participant_id}</strong>
+              {a.action.description ? ` — ${a.action.description}` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
