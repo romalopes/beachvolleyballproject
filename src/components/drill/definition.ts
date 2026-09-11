@@ -200,7 +200,7 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
   version: 1,
   view: { orientation: "lateral" },
   court: {
-    grid: { columns: 8, rows: 4 },
+    grid: { columns: 5, rows: 4 },
     extended_area: {
       enabled: true,
       left: true,
@@ -341,7 +341,7 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
 
       object_movements: [
         {
-          object_id: "O2",
+          object_id: "O1",
           from: { court: "court_2", x: 4.5, y: 1 },
           to: { court: "court_2", x: 2.5, y: 2.5 },
           description: "O1 moves to P2.",
@@ -370,7 +370,7 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
         {
           id: "P2",
           active: true,
-          location: { court: "court_2", x: 2.5, y: 1.25 },
+          location: { court: "court_2", x: 2.5, y: 2.3 },
         },
         {
           id: "P3",
@@ -436,14 +436,14 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       participant_movements: [
         {
           participant_id: "P1",
-          from: { court: "court_1", x: 3, y: 1 },
-          to: { court: "court_1", x: 2.5, y: 4 },
+          // from: { court: "court_1", x: 3, y: 1 },
+          to: { court: "court_1", x: 3.5, y: 4 },
           description: "P1 crosses the net to block or peel.",
         },
         {
           participant_id: "P2",
-          from: { court: "court_2", x: 2.5, y: 2.5 },
-          to: { court: "court_2", x: 2.5, y: 1.25 },
+          // from: { court: "court_2", x: 2.5, y: 2.5 },
+          to: { court: "court_2", x: 3, y: 3.5 },
           description: "P2 approaches the net to attack.",
         },
       ],

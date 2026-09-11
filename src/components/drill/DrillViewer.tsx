@@ -21,6 +21,7 @@ import Ball from "./Ball";
 import DrillObject from "./DrillObject";
 import MovementArrow from "./MovementArrow";
 import DrillStepControls from "./DrillStepControls";
+import DrillLegend from "./DrillLegend";
 
 const STEP_DURATION_MS = 1500;
 
@@ -37,6 +38,7 @@ type MoveKey = "participant_id" | "ball_id" | "object_id";
 export default function DrillViewer({ definition }: { definition: DrillDefinition }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [playMode, setPlayMode] = useState<"all" | "step">("all");
   const [progress, setProgress] = useState(0); // 0..1 within current step
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -65,11 +67,13 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
     };
   }, [definition]);
 
-  // Reset animation state when navigating between steps.
-  useEffect(() => {
-    setProgress(0);
+  /** Start playback in the given mode, always replaying the current step from 0. */
+  const startPlay = (mode: "all" | "step") => {
+    setPlayMode(mode);
     startRef.current = null;
-  }, [stepIndex]);
+    setProgress(0);
+    setPlaying(true);
+  };
 
   // requestAnimationFrame loop while playing.
   useEffect(() => {
@@ -84,8 +88,9 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
       setProgress(p);
       if (p < 1) {
         rafRef.current = requestAnimationFrame(tick);
-      } else if (stepIndex < steps.length - 1) {
+      } else if (playMode === "all" && stepIndex < steps.length - 1) {
         startRef.current = t;
+        setProgress(0);
         setStepIndex((i) => i + 1);
       } else {
         setPlaying(false);
@@ -95,7 +100,7 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [playing, stepIndex, steps.length]);
+  }, [playing, playMode, stepIndex, steps.length]);
 
   if (!definition || !step) return null;
 
@@ -214,6 +219,8 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
         </svg>
       </div>
 
+      <DrillLegend definition={definition} />
+
       {overlay && (
         <div
           className="drill-tooltip"
@@ -249,15 +256,25 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
         playing={playing}
         onPrev={() => {
           setPlaying(false);
+          startRef.current = null;
+          setProgress(0);
           setStepIndex((i) => Math.max(0, i - 1));
         }}
         onNext={() => {
           setPlaying(false);
+          startRef.current = null;
+          setProgress(0);
           setStepIndex((i) => Math.min(steps.length - 1, i + 1));
         }}
-        onTogglePlay={() => setPlaying((p) => !p)}
+        playMode={playMode}
+        onTogglePlay={() => (playing ? setPlaying(false) : startPlay("all"))}
+        onPlayStep={() =>
+          playing && playMode === "step" ? setPlaying(false) : startPlay("step")
+        }
         onSelect={(i) => {
           setPlaying(false);
+          startRef.current = null;
+          setProgress(0);
           setStepIndex(i);
         }}
       />

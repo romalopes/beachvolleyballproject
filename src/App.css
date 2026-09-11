@@ -1299,6 +1299,53 @@
 .drill-btn-play:hover:not(:disabled) {
   background: #1d4ed8;
 }
+.drill-btn-play.active {
+  background: #1e40af;
+  border-color: #172554;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+}
+
+.drill-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+.drill-legend-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.drill-legend-group-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+}
+.drill-legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+}
+.drill-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: #475569;
+}
+.drill-legend-swatch {
+  flex-shrink: 0;
+  overflow: visible;
+}
+.drill-legend-text strong {
+  color: #1e293b;
+}
 
 .drill-timeline {
   display: flex;
