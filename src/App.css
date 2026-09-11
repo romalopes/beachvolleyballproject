@@ -1118,7 +1118,10 @@
   background: var(--bg-secondary);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 .copy-btn:hover {
   color: var(--charcoal);
@@ -1136,6 +1139,76 @@
 
 .drill-viewer {
   margin-top: 1rem;
+}
+
+/* ---------- Orientation toggle (viewer concern, not part of the definition) ---------- */
+
+.drill-orientation-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.drill-orientation-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.drill-orientation-toggle {
+  display: inline-flex;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.drill-orientation-btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+}
+.drill-orientation-btn + .drill-orientation-btn {
+  border-left: 1px solid #cbd5e1;
+}
+.drill-orientation-btn:hover:not(.active) {
+  background: #f1f5f9;
+}
+.drill-orientation-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+/* ---------- Playback speed (viewer concern; multiplies the base step duration) ---------- */
+
+.drill-speed-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.drill-speed-range {
+  width: 140px;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.drill-speed-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+  /* Keeps the readout from shifting layout between "0.25×" and "3×". */
+  min-width: 3rem;
+  text-align: right;
 }
 
 .drill-canvas {

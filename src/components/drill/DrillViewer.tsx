@@ -1,6 +1,7 @@
 /**
  * DrillViewer — coordinates step state, court rendering, actions, animation
- * and playback. Contains no court geometry calculations of its own.
+ * and playback. Owns the orientation toggle (a viewer concern; definitions
+ * no longer carry orientation). Contains no court geometry calculations.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -9,8 +10,10 @@ import type {
   EntityState,
   Location,
   Movement,
+  Orientation,
   Step,
 } from "./definition";
+import { DEFAULT_ORIENTATION } from "./definition";
 import { buildCourtGeometry, locationToSvg } from "./geometry";
 import DrillCourt from "./DrillCourt";
 import Participant from "./Participant";
@@ -42,17 +45,24 @@ export default function DrillViewer({
   const [playMode, setPlayMode] = useState<"all" | "step">("all");
   const [progress, setProgress] = useState(0); // 0..1 within current step
   const [overlay, setOverlay] = useState<Overlay | null>(null);
+  // Orientation is a viewer concern: defaults to "lateral", toggled by the user.
+  const [orientation, setOrientation] =
+    useState<Orientation>(DEFAULT_ORIENTATION);
+  // Speed is a viewer concern too: multiplier applied to the base step duration.
+  const [speed, setSpeed] = useState(1);
   const rafRef = useRef<number | null>(null);
-  const startRef = useRef<number | null>(null);
+  const lastTickRef = useRef<number | null>(null);
+  // Progress is mirrored in a ref so the RAF loop accumulates deltas without
+  // stale closures — that is what lets the speed slider change mid-playback.
+  const progressRef = useRef(0);
 
   const geometry = useMemo(
-    () =>
-      buildCourtGeometry(
-        definition.view?.orientation ?? "top_down",
-        definition.court,
-      ),
-    [definition],
+    () => buildCourtGeometry(orientation, definition.court),
+    [definition, orientation],
   );
+
+  /** Base step duration divided by the speed multiplier. */
+  const stepDurationMs = STEP_DURATION_MS / speed;
 
   const steps: Step[] = definition.steps ?? [];
   const step = steps[stepIndex];
@@ -71,12 +81,15 @@ export default function DrillViewer({
   /** Start playback in the given mode, always replaying the current step from 0. */
   const startPlay = (mode: "all" | "step") => {
     setPlayMode(mode);
-    startRef.current = null;
+    lastTickRef.current = null;
+    progressRef.current = 0;
     setProgress(0);
     setPlaying(true);
   };
 
-  // requestAnimationFrame loop while playing.
+  // requestAnimationFrame loop while playing. Progress accumulates elapsed
+  // time divided by the speed-adjusted step duration, so changing the speed
+  // mid-playback takes effect smoothly from the next frame.
   useEffect(() => {
     if (!playing) {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
@@ -84,13 +97,16 @@ export default function DrillViewer({
       return;
     }
     const tick = (t: number) => {
-      if (startRef.current === null) startRef.current = t;
-      const p = Math.min(1, (t - startRef.current) / STEP_DURATION_MS);
+      const dt = lastTickRef.current === null ? 0 : t - lastTickRef.current;
+      lastTickRef.current = t;
+      const p = Math.min(1, progressRef.current + dt / stepDurationMs);
+      progressRef.current = p;
       setProgress(p);
       if (p < 1) {
         rafRef.current = requestAnimationFrame(tick);
       } else if (playMode === "all" && stepIndex < steps.length - 1) {
-        startRef.current = t;
+        lastTickRef.current = t;
+        progressRef.current = 0;
         setProgress(0);
         setStepIndex((i) => i + 1);
       } else {
@@ -101,7 +117,7 @@ export default function DrillViewer({
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [playing, playMode, stepIndex, steps.length]);
+  }, [playing, playMode, stepIndex, steps.length, stepDurationMs]);
 
   if (!definition || !step) return null;
 
@@ -244,14 +260,50 @@ export default function DrillViewer({
   return (
     <div className="drill-viewer">
       <DrillLegend definition={definition} />
-      <div
-        className="drill-canvas"
-        data-orientation={definition.view.orientation}
-      >
-        <DrillCourt
-          orientation={definition.view.orientation}
-          court={definition.court}
-        />
+      <div className="drill-orientation-bar">
+        <span className="drill-orientation-label">Orientation</span>
+        <div
+          className="drill-orientation-toggle"
+          role="group"
+          aria-label="Court orientation"
+        >
+          <button
+            type="button"
+            className={`drill-orientation-btn${orientation === "lateral" ? " active" : ""}`}
+            aria-pressed={orientation === "lateral"}
+            onClick={() => setOrientation("lateral")}
+          >
+            Lateral
+          </button>
+          <button
+            type="button"
+            className={`drill-orientation-btn${orientation === "top_down" ? " active" : ""}`}
+            aria-pressed={orientation === "top_down"}
+            onClick={() => setOrientation("top_down")}
+          >
+            Top down
+          </button>
+        </div>
+        <div className="drill-speed-control">
+          <label className="drill-orientation-label" htmlFor="drill-speed-range">
+            Speed
+          </label>
+          <input
+            id="drill-speed-range"
+            type="range"
+            className="drill-speed-range"
+            min={0.25}
+            max={3}
+            step={0.25}
+            value={speed}
+            aria-label="Movement speed"
+            onChange={(e) => setSpeed(Number(e.target.value))}
+          />
+          <span className="drill-speed-value">{speed}×</span>
+        </div>
+      </div>
+      <div className="drill-canvas" data-orientation={orientation}>
+        <DrillCourt orientation={orientation} court={definition.court} />
 
         <svg
           viewBox={`0 0 ${geometry.width} ${geometry.height}`}
@@ -306,13 +358,15 @@ export default function DrillViewer({
         playing={playing}
         onPrev={() => {
           setPlaying(false);
-          startRef.current = null;
+          lastTickRef.current = null;
+          progressRef.current = 0;
           setProgress(0);
           setStepIndex((i) => Math.max(0, i - 1));
         }}
         onNext={() => {
           setPlaying(false);
-          startRef.current = null;
+          lastTickRef.current = null;
+          progressRef.current = 0;
           setProgress(0);
           setStepIndex((i) => Math.min(steps.length - 1, i + 1));
         }}
@@ -323,7 +377,8 @@ export default function DrillViewer({
         }
         onSelect={(i) => {
           setPlaying(false);
-          startRef.current = null;
+          lastTickRef.current = null;
+          progressRef.current = 0;
           setProgress(0);
           setStepIndex(i);
         }}

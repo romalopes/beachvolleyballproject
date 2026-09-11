@@ -10,6 +10,9 @@
  */
 
 export type Orientation = "top_down" | "lateral";
+
+/** Default court orientation used when a definition (or the user) specifies none. */
+export const DEFAULT_ORIENTATION: Orientation = "lateral";
 export type CourtId = "court_1" | "court_2";
 export type ParticipantType =
   | "player"
@@ -69,7 +72,8 @@ export interface ExtendedArea {
 }
 
 export interface ViewConfig {
-  orientation: Orientation;
+  /** Optional — orientation is a viewer concern now; defaults to DEFAULT_ORIENTATION. */
+  orientation?: Orientation;
 }
 
 export interface CourtConfig {
@@ -153,7 +157,8 @@ export interface Step {
 
 export interface DrillDefinition {
   version: 1;
-  view: ViewConfig;
+  /** Optional — the viewer owns orientation via its own toggle. */
+  view?: ViewConfig;
   court: CourtConfig;
   participants: Participant[];
   balls: Ball[];
@@ -174,8 +179,6 @@ export function isDrillDefinition(value: unknown): value is DrillDefinition {
   const d = value as Partial<DrillDefinition>;
   return (
     d.version === 1 &&
-    !!d.view &&
-    (d.view.orientation === "top_down" || d.view.orientation === "lateral") &&
     !!d.court &&
     Array.isArray(d.participants) &&
     Array.isArray(d.balls) &&
@@ -198,7 +201,6 @@ export function resolveDrillDefinition(value: unknown): DrillDefinition | null {
  */
 export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
   version: 1,
-  view: { orientation: "lateral" },
   court: {
     grid: { columns: 5, rows: 4 },
     extended_area: {
