@@ -252,27 +252,42 @@ export function buildCourtGeometry(
  * This is the only place logical→SVG conversion happens.
  *
  * Physical meaning of the logical axes (independent of orientation):
- *   x = sideline-to-sideline (1..columns)
- *   y = baseline-to-net      (1..rows; y=1 is the baseline side)
+ *   x = sideline-to-sideline (1..columns); x=1 is always the same sideline side
+ *   y = baseline-to-net      (1..rows);    y=1 is always the baseline (back)
  *
- * top_down: the long axis (y) is vertical, x is horizontal.
- * lateral:  the court is rotated 90° — the long axis (y) becomes horizontal
- *           (baseline outer edge → net gap), x becomes vertical.
+ * The rule holds identically for both courts. Court 2 is mirrored so its
+ * baseline stays on its outer edge:
+ *
+ * top_down (long axis y is vertical, x is horizontal):
+ *   x=1 → left edge of the rect, both courts
+ *   y=1 → outer edge: top edge of court 1, bottom edge of court 2
+ * lateral (court rotated 90°: long axis y is horizontal, x is vertical):
+ *   x=1 → bottom edge of the rect, both courts
+ *   y=1 → outer edge: left edge of court 1, right edge of court 2
  */
 export function locationToSvg(
   location: Location,
   geometry: CourtGeometry
 ): { x: number; y: number } {
   const rect = location.court === "court_1" ? geometry.court1 : geometry.court2;
+  const mirror = location.court === "court_2";
   const { columns, rows } = geometry.grid;
 
   if (geometry.orientation === "lateral") {
+    // x=1 at the bottom edge, both courts; court 2 mirrored on y.
     const x = rect.x + ((location.y - 1) / (rows - 1)) * rect.width;
-    const y = rect.y + ((location.x - 1) / (columns - 1)) * rect.height;
-    return { x, y };
+    const y = rect.y + rect.height - ((location.x - 1) / (columns - 1)) * rect.height;
+    return {
+      x: mirror ? 2 * rect.x + rect.width - x : x,
+      y,
+    };
   }
 
+  // x=1 at the left edge, both courts; court 2 mirrored on y.
   const x = rect.x + ((location.x - 1) / (columns - 1)) * rect.width;
   const y = rect.y + ((location.y - 1) / (rows - 1)) * rect.height;
-  return { x, y };
+  return {
+    x,
+    y: mirror ? 2 * rect.y + rect.height - y : y,
+  };
 }

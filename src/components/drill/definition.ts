@@ -214,11 +214,11 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       description:
         "Initial setup: P1 ready to toss from court 1; C1 waits behind the baseline with ball B2.",
       participants: [
-        { id: "P1", active: true, location: { court: "court_1", x: 1, y: 1 } },
+        { id: "P1", active: true, location: { court: "court_1", x: 3, y: 1 } },
         {
           id: "P2",
           active: true,
-          location: { court: "court_2", x: 1, y: 4 },
+          location: { court: "court_2", x: 2, y: 2 },
         },
         {
           id: "P3",
@@ -274,7 +274,7 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
         {
           id: "B1",
           active: true,
-          location: { court: "court_2", x: 2.5, y: 2.5 },
+          location: { court: "court_2", x: 1, y: 1 },
         },
         {
           id: "B2",
@@ -306,7 +306,7 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       ball_movements: [
         {
           ball_id: "B1",
-          from: { court: "court_1", x: 3, y: 1 },
+          from: { court: "court_1", x: 4, y: 4 },
           to: { court: "court_2", x: 2.5, y: 2.5 },
           description: "B1 travels over the net to P2.",
         },
