@@ -46,7 +46,12 @@ const MARGIN = 40;
 const COURT_W = 400;
 const COURT_H = 320;
 const NET_GAP = 36;
-const EXT_SIZE = 60; // thickness of an extended area strip
+/**
+ * Thickness of an extended-area strip. Fixed display constant, independent
+ * of the grid step: the grid step measures line spacing inside the court,
+ * the strip is physical space outside it.
+ */
+const EXT_SIZE = 48;
 
 /**
  * Compute the logical coordinate bounds for a court from its configuration.
@@ -97,20 +102,42 @@ export function isWithinBounds(
  * top_down: courts stacked vertically with the net between them.
  * lateral:  courts side-by-side with an explicit net gap — two independent
  *           bounding boxes, never overlapping.
+ *
+ * Physical meaning of the extensions (screen-independent):
+ *   left / right = sideline-side strips (lateral extensions)
+ *   court_1 / court_2 = strips beyond the respective baselines
+ *
+ * Projection onto the screen:
+ *   top_down — sideline axis is horizontal, baseline→net axis is vertical:
+ *     left  → strips along the left edge of each court
+ *     right → strips along the right edge of each court
+ *     court_1 → strip above court 1, court_2 → strip below court 2
+ *   lateral — the court is rotated 90° (baseline→net axis is horizontal):
+ *     left  → strips along the top edge of both courts
+ *     right → strips along the bottom edge of both courts
+ *     court_1 → strip on the outer (left) edge of court 1
+ *     court_2 → strip on the outer (right) edge of court 2
+ *
+ * All strips share one fixed modest thickness (EXT_SIZE); enabling left/right
+ * only adds the side strips and never changes the baseline strips.
  */
 export function buildCourtGeometry(
   orientation: Orientation,
   court: CourtConfig
 ): CourtGeometry {
   const ext: ExtendedArea = court.extended_area ?? { enabled: false };
+  const hasLeft = ext.enabled && ext.left;
+  const hasRight = ext.enabled && ext.right;
+  const hasBase1 = ext.enabled && ext.court_1;
+  const hasBase2 = ext.enabled && ext.court_2;
 
   if (orientation === "top_down") {
-    const innerW = COURT_W;
-    const innerH = COURT_H * 2 + NET_GAP;
-    const width = innerW + MARGIN * 2 + (ext.enabled ? EXT_SIZE * 2 : 0);
-    const height = innerH + MARGIN * 2 + (ext.enabled ? EXT_SIZE * 2 : 0);
-    const offsetX = MARGIN + (ext.enabled ? EXT_SIZE : 0);
-    const offsetY = MARGIN + (ext.enabled ? EXT_SIZE : 0);
+    const width =
+      COURT_W + MARGIN * 2 + (hasLeft ? EXT_SIZE : 0) + (hasRight ? EXT_SIZE : 0);
+    const height =
+      COURT_H * 2 + NET_GAP + MARGIN * 2 + (hasBase1 ? EXT_SIZE : 0) + (hasBase2 ? EXT_SIZE : 0);
+    const offsetX = MARGIN + (hasLeft ? EXT_SIZE : 0);
+    const offsetY = MARGIN + (hasBase1 ? EXT_SIZE : 0);
 
     const court1: Rect = { x: offsetX, y: offsetY, width: COURT_W, height: COURT_H };
     const net: Rect = {
@@ -135,10 +162,26 @@ export function buildCourtGeometry(
       net,
       grid: court.grid,
       extensions: {
-        court_1: ext.enabled && ext.court_1
+        left: hasLeft
+          ? {
+              x: court1.x - EXT_SIZE,
+              y: Math.min(court1.y, court2.y),
+              width: EXT_SIZE,
+              height: COURT_H * 2 + NET_GAP,
+            }
+          : undefined,
+        right: hasRight
+          ? {
+              x: court1.x + COURT_W,
+              y: Math.min(court1.y, court2.y),
+              width: EXT_SIZE,
+              height: COURT_H * 2 + NET_GAP,
+            }
+          : undefined,
+        court_1: hasBase1
           ? { x: court1.x, y: court1.y - EXT_SIZE, width: COURT_W, height: EXT_SIZE }
           : undefined,
-        court_2: ext.enabled && ext.court_2
+        court_2: hasBase2
           ? { x: court2.x, y: court2.y + COURT_H, width: COURT_W, height: EXT_SIZE }
           : undefined,
       },
@@ -146,13 +189,13 @@ export function buildCourtGeometry(
     };
   }
 
-  // lateral: side-by-side, independent boxes, net gap between them
-  const innerW = COURT_W * 2 + NET_GAP;
-  const innerH = COURT_H;
-  const width = innerW + MARGIN * 2;
-  const height = innerH + MARGIN * 2 + (ext.enabled ? EXT_SIZE * 2 : 0);
-  const offsetX = MARGIN;
-  const offsetY = MARGIN + (ext.enabled ? EXT_SIZE : 0);
+  // lateral: side-by-side, independent boxes, net gap between them.
+  // The baseline→net axis (y) is horizontal; the sideline axis (x) is vertical.
+  const width =
+    COURT_W * 2 + NET_GAP + MARGIN * 2 + (hasBase1 ? EXT_SIZE : 0) + (hasBase2 ? EXT_SIZE : 0);
+  const height = COURT_H + MARGIN * 2 + (hasLeft ? EXT_SIZE : 0) + (hasRight ? EXT_SIZE : 0);
+  const offsetX = MARGIN + (hasBase1 ? EXT_SIZE : 0);
+  const offsetY = MARGIN + (hasLeft ? EXT_SIZE : 0);
 
   const court1: Rect = { x: offsetX, y: offsetY, width: COURT_W, height: COURT_H };
   const net: Rect = {
@@ -177,10 +220,26 @@ export function buildCourtGeometry(
     net,
     grid: court.grid,
     extensions: {
-      court_1: ext.enabled && ext.court_1
+      left: hasLeft
+        ? {
+            x: Math.min(court1.x, court2.x),
+            y: court1.y - EXT_SIZE,
+            width: COURT_W * 2 + NET_GAP,
+            height: EXT_SIZE,
+          }
+        : undefined,
+      right: hasRight
+        ? {
+            x: Math.min(court1.x, court2.x),
+            y: court1.y + COURT_H,
+            width: COURT_W * 2 + NET_GAP,
+            height: EXT_SIZE,
+          }
+        : undefined,
+      court_1: hasBase1
         ? { x: court1.x - EXT_SIZE, y: court1.y, width: EXT_SIZE, height: COURT_H }
         : undefined,
-      court_2: ext.enabled && ext.court_2
+      court_2: hasBase2
         ? { x: court2.x + COURT_W, y: court2.y, width: EXT_SIZE, height: COURT_H }
         : undefined,
     },

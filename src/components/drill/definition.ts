@@ -171,11 +171,11 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
   version: 1,
   view: { orientation: "lateral" },
   court: {
-    grid: { columns: 8, rows: 4 },
+    grid: { columns: 5, rows: 4 },
     extended_area: {
       enabled: true,
-      left: false,
-      right: false,
+      left: true,
+      right: true,
       court_1: true,
       court_2: true,
     },
@@ -214,11 +214,11 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       description:
         "Initial setup: P1 ready to toss from court 1; C1 waits behind the baseline with ball B2.",
       participants: [
-        { id: "P1", active: true, location: { court: "court_1", x: 3, y: 1 } },
+        { id: "P1", active: true, location: { court: "court_1", x: 1, y: 1 } },
         {
           id: "P2",
           active: true,
-          location: { court: "court_2", x: 2.5, y: 2.5 },
+          location: { court: "court_2", x: 1, y: 4 },
         },
         {
           id: "P3",

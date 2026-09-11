@@ -73,13 +73,12 @@ export default function DrillCourt({ orientation, court }: DrillCourtProps) {
       role="img"
       aria-label="Drill courts"
     >
-      {/* Extended areas (visually subordinate, dashed) */}
-      {geometry.extensions.court_1 && (
-        <rect {...geometry.extensions.court_1} className="drill-extended-area" />
-      )}
-      {geometry.extensions.court_2 && (
-        <rect {...geometry.extensions.court_2} className="drill-extended-area" />
-      )}
+      {/* Extended areas (visually subordinate, dashed); only enabled sides exist. */}
+      {Object.values(geometry.extensions)
+        .filter(Boolean)
+        .map((rect, i) => (
+          <rect key={i} {...(rect as CourtGeometry["court1"])} className="drill-extended-area" />
+        ))}
 
       {renderCourt(geometry.court1, "COURT 1")}
       {renderCourt(geometry.court2, "COURT 2")}
