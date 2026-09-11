@@ -301,13 +301,17 @@ export const api = {
   adminLogs: (params: {
     page?: number;
     per_page?: number;
-        action_filter?: string;
+    action?: string;
+    action_filter?: string;
     user_id?: string;
     object_type?: string;
     object_id?: string;
     request_id?: string;
+    date_from?: string;
+    date_to?: string;
     start_date?: string;
     end_date?: string;
+    search?: string;
   } = {}) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {

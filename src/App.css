@@ -1508,3 +1508,57 @@
 .settings-link-list a:hover {
   color: var(--amber-500);
 }
+
+/* Audit log filter form: spread across the available page width instead of
+ * collapsing to the narrow default admin-form column. */
+.audit-log-form {
+  max-width: none;
+  width: 100%;
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.audit-log-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.audit-log-fieldset legend {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--charcoal);
+  margin-bottom: 0.75rem;
+  padding: 0;
+}
+
+.audit-log-form .admin-field-row {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.audit-log-form .admin-field input,
+.audit-log-form .admin-field select {
+  width: 100%;
+}
+
+.audit-log-form .admin-form-actions {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.audit-log-form .admin-form-actions label {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.audit-log-form .admin-form-actions select {
+  width: auto;
+}
