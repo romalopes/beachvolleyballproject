@@ -274,7 +274,7 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
         {
           id: "B1",
           active: true,
-          location: { court: "court_2", x: 1, y: 1 },
+          location: { court: "court_1", x: 3, y: 2 },
         },
         {
           id: "B2",
@@ -306,7 +306,7 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       ball_movements: [
         {
           ball_id: "B1",
-          from: { court: "court_1", x: 4, y: 4 },
+          from: { court: "court_1", x: 3, y: 2 },
           to: { court: "court_2", x: 2.5, y: 2.5 },
           description: "B1 travels over the net to P2.",
         },
@@ -405,7 +405,7 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       ball_movements: [
         {
           ball_id: "B1",
-          from: { court: "court_2", x: 2.5, y: 2.5 },
+          from: { court: "court_2", x: 2.5, y: 1.25 },
           to: { court: "court_2", x: 2.5, y: 1.25 },
           description: "B1 is set then attacked along the line.",
         },

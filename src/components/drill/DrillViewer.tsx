@@ -13,7 +13,6 @@ import type {
 } from "./definition";
 import {
   buildCourtGeometry,
-  isWithinBounds,
   locationToSvg,
 } from "./geometry";
 import DrillCourt from "./DrillCourt";
@@ -99,26 +98,37 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
   const statesKey = (key: MoveKey): StateKey =>
     key === "participant_id" ? "participants" : key === "ball_id" ? "balls" : "objects";
 
-  /** Interpolated position for an entity given its current/next state and movements. */
-  const frameLocation = (
+  /** SVG point for an entity at the current animation frame.
+   *
+   * At rest (paused or progress 0) this is exactly the current step state's
+   * location. While playing it interpolates movement.from → movement.to,
+   * converting each endpoint through locationToSvg() with its OWN court
+   * first and then lerping the SVG pixels. A Location cannot represent
+   * "between courts", so cross-court flights must interpolate in SVG space —
+   * pinning the whole trajectory to the target court flattens the launch
+   * point into the wrong court.
+   */
+  const framePoint = (
     states: EntityState[],
     nextStates: EntityState[] | undefined,
     movements: Movement[] | undefined,
     key: MoveKey,
     id: string
-  ): Location | null => {
+  ): { x: number; y: number } | null => {
     const current = states.find((s) => s.id === id && s.active);
     if (!current?.location) return null;
-    const target =
-      nextStates?.find((s) => s.id === id && s.active)?.location ?? current.location;
     const movement = movements?.find((m) => m[key] === id);
-    if (!movement || !target) return current.location;
-    const from = movement.from ?? current.location;
-    const p = playing ? progress : 0;
+    if (!movement || !playing || progress === 0) return svg(current.location);
+    const fromLoc = movement.from ?? current.location;
+    const toLoc =
+      movement.to ??
+      nextStates?.find((s) => s.id === id && s.active)?.location ??
+      current.location;
+    const fromSvg = svg(fromLoc);
+    const toSvg = svg(toLoc);
     return {
-      court: target.court,
-      x: from.x + (target.x - from.x) * p,
-      y: from.y + (target.y - from.y) * p,
+      x: fromSvg.x + (toSvg.x - fromSvg.x) * progress,
+      y: fromSvg.y + (toSvg.y - fromSvg.y) * progress,
     };
   };
 
@@ -132,10 +142,9 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
   ) =>
     states.map((s) => {
       if (!s.active || !s.location) return null;
-      const loc = frameLocation(states, nextStates, movements, key, s.id);
-      if (!loc) return null;
-      if (!isWithinBounds(loc, geometry.bounds)) return null;
-      const { x, y } = svg(loc);
+      const point = framePoint(states, nextStates, movements, key, s.id);
+      if (!point) return null;
+      const { x, y } = point;
       const meta = entityMap[statesKey(key)][s.id];
       const actions = step.actions
         .filter((a) => a.participant_id === s.id)
@@ -148,7 +157,7 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
           meta && "role" in meta && meta.role ? `Role: ${meta.role}` : "",
           meta?.description ?? "",
           actions.length ? `Actions: ${actions.join(", ")}` : "",
-          `Pos: ${loc.court} (${loc.x.toFixed(2)}, ${loc.y.toFixed(2)})`,
+          `Pos: ${s.location.court} (${s.location.x.toFixed(2)}, ${s.location.y.toFixed(2)})`,
         ].filter(Boolean),
       };
       const handlers = {
