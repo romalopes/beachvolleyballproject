@@ -1186,10 +1186,17 @@
 }
 
 .drill-net {
-  fill: #f1f5f9;
+  fill: #e2e8f0;
   stroke: #94a3b8;
+  stroke-width: 1.5;
+}
+.drill-net-stripe {
+  stroke: #cbd5e1;
   stroke-width: 1;
-  stroke-dasharray: 4 4;
+}
+.drill-net-center {
+  stroke: #64748b;
+  stroke-width: 2;
 }
 
 .drill-extended-area {

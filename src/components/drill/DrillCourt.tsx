@@ -25,12 +25,26 @@ export default function DrillCourt({ orientation, court }: DrillCourtProps) {
       if (lateral) {
         const sy = rect.y + f * rect.height;
         lines.push(
-          <line key={`c${label}${c}`} x1={rect.x} y1={sy} x2={rect.x + rect.width} y2={sy} className="drill-grid-line" />
+          <line
+            key={`c${label}${c}`}
+            x1={rect.x}
+            y1={sy}
+            x2={rect.x + rect.width}
+            y2={sy}
+            className="drill-grid-line"
+          />,
         );
       } else {
         const sx = rect.x + f * rect.width;
         lines.push(
-          <line key={`c${label}${c}`} x1={sx} y1={rect.y} x2={sx} y2={rect.y + rect.height} className="drill-grid-line" />
+          <line
+            key={`c${label}${c}`}
+            x1={sx}
+            y1={rect.y}
+            x2={sx}
+            y2={rect.y + rect.height}
+            className="drill-grid-line"
+          />,
         );
       }
     }
@@ -41,12 +55,26 @@ export default function DrillCourt({ orientation, court }: DrillCourtProps) {
       if (lateral) {
         const sx = rect.x + f * rect.width;
         lines.push(
-          <line key={`r${label}${r}`} x1={sx} y1={rect.y} x2={sx} y2={rect.y + rect.height} className="drill-grid-line" />
+          <line
+            key={`r${label}${r}`}
+            x1={sx}
+            y1={rect.y}
+            x2={sx}
+            y2={rect.y + rect.height}
+            className="drill-grid-line"
+          />,
         );
       } else {
         const sy = rect.y + f * rect.height;
         lines.push(
-          <line key={`r${label}${r}`} x1={rect.x} y1={sy} x2={rect.x + rect.width} y2={sy} className="drill-grid-line" />
+          <line
+            key={`r${label}${r}`}
+            x1={rect.x}
+            y1={sy}
+            x2={rect.x + rect.width}
+            y2={sy}
+            className="drill-grid-line"
+          />,
         );
       }
     }
@@ -66,6 +94,65 @@ export default function DrillCourt({ orientation, court }: DrillCourtProps) {
     );
   };
 
+  /** Net band between the courts: rails (band border) + rung stripes + center mark. */
+  const renderNet = () => {
+    const n = geometry.net;
+    const horizontal = geometry.orientation === "lateral";
+    // Rungs every ~32 units, perpendicular to the band's long axis.
+    const stripeCount = Math.max(
+      0,
+      Math.floor((horizontal ? n.width : n.height) / 32) - 1,
+    );
+    const stripes = Array.from({ length: stripeCount }, (_, i) => {
+      const f = (i + 1) / (stripeCount + 1);
+      return horizontal ? (
+        <line
+          key={`ns${i}`}
+          x1={n.x + f * n.width}
+          y1={n.y}
+          x2={n.x + f * n.width}
+          y2={n.y + n.height}
+          className="drill-net-stripe"
+        />
+      ) : (
+        <line
+          key={`ns${i}`}
+          x1={n.x}
+          y1={n.y + f * n.height}
+          x2={n.x + n.width}
+          y2={n.y + f * n.height}
+          className="drill-net-stripe"
+        />
+      );
+    });
+    // Center mark: slightly stronger rung at the net's midpoint.
+    const midF = 0.5;
+    const center = horizontal ? (
+      <line
+        x1={n.x + midF * n.width}
+        y1={n.y}
+        x2={n.x + midF * n.width}
+        y2={n.y + n.height}
+        className="drill-net-center"
+      />
+    ) : (
+      <line
+        x1={n.x}
+        y1={n.y + midF * n.height}
+        x2={n.x + n.width}
+        y2={n.y + midF * n.height}
+        className="drill-net-center"
+      />
+    );
+    return (
+      <g>
+        <rect {...n} className="drill-net" />
+        {stripes}
+        {center}
+      </g>
+    );
+  };
+
   return (
     <svg
       viewBox={`0 0 ${geometry.width} ${geometry.height}`}
@@ -77,14 +164,18 @@ export default function DrillCourt({ orientation, court }: DrillCourtProps) {
       {Object.values(geometry.extensions)
         .filter(Boolean)
         .map((rect, i) => (
-          <rect key={i} {...(rect as CourtGeometry["court1"])} className="drill-extended-area" />
+          <rect
+            key={i}
+            {...(rect as CourtGeometry["court1"])}
+            className="drill-extended-area"
+          />
         ))}
 
-      {renderCourt(geometry.court1, "COURT 1")}
-      {renderCourt(geometry.court2, "COURT 2")}
+      {renderCourt(geometry.court1, "SIDE 1")}
+      {renderCourt(geometry.court2, "SIDE 2")}
 
       {/* Net */}
-      <rect {...geometry.net} className="drill-net" />
+      {renderNet()}
     </svg>
   );
 }
