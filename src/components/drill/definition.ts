@@ -169,11 +169,11 @@ export interface DrillDefinition {
  */
 export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
   version: 1,
-  view: { orientation: "lateral" },
+  view: { orientation: "top_down" },
   court: {
     grid: { columns: 5, rows: 4 },
     extended_area: {
-      enabled: false,
+      enabled: true,
       left: false,
       right: false,
       court_1: true,

@@ -16,39 +16,44 @@ export default function DrillCourt({ orientation, court }: DrillCourtProps) {
   const { grid } = geometry;
 
   const renderCourt = (rect: CourtGeometry["court1"], label: string) => {
-    const colLines = [];
+    const lateral = geometry.orientation === "lateral";
+    const lines = [];
+    // Column lines (constant x, sideline axis):
+    //   top_down → vertical lines at screen-x;  lateral → horizontal lines at screen-y.
     for (let c = 1; c <= grid.columns; c++) {
-      const x = rect.x + ((c - 1) / (grid.columns - 1)) * rect.width;
-      colLines.push(
-        <line
-          key={`c${label}${c}`}
-          x1={x}
-          y1={rect.y}
-          x2={x}
-          y2={rect.y + rect.height}
-          className="drill-grid-line"
-        />
-      );
+      const f = (c - 1) / (grid.columns - 1);
+      if (lateral) {
+        const sy = rect.y + f * rect.height;
+        lines.push(
+          <line key={`c${label}${c}`} x1={rect.x} y1={sy} x2={rect.x + rect.width} y2={sy} className="drill-grid-line" />
+        );
+      } else {
+        const sx = rect.x + f * rect.width;
+        lines.push(
+          <line key={`c${label}${c}`} x1={sx} y1={rect.y} x2={sx} y2={rect.y + rect.height} className="drill-grid-line" />
+        );
+      }
     }
-    const rowLines = [];
+    // Row lines (constant y, baseline→net axis):
+    //   top_down → horizontal lines at screen-y;  lateral → vertical lines at screen-x.
     for (let r = 1; r <= grid.rows; r++) {
-      const y = rect.y + ((r - 1) / (grid.rows - 1)) * rect.height;
-      rowLines.push(
-        <line
-          key={`r${label}${r}`}
-          x1={rect.x}
-          y1={y}
-          x2={rect.x + rect.width}
-          y2={y}
-          className="drill-grid-line"
-        />
-      );
+      const f = (r - 1) / (grid.rows - 1);
+      if (lateral) {
+        const sx = rect.x + f * rect.width;
+        lines.push(
+          <line key={`r${label}${r}`} x1={sx} y1={rect.y} x2={sx} y2={rect.y + rect.height} className="drill-grid-line" />
+        );
+      } else {
+        const sy = rect.y + f * rect.height;
+        lines.push(
+          <line key={`r${label}${r}`} x1={rect.x} y1={sy} x2={rect.x + rect.width} y2={sy} className="drill-grid-line" />
+        );
+      }
     }
     return (
       <g>
         <rect {...rect} className="drill-court-boundary" />
-        {colLines}
-        {rowLines}
+        {lines}
         <text
           x={rect.x + rect.width / 2}
           y={rect.y - 8}

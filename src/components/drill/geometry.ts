@@ -191,6 +191,14 @@ export function buildCourtGeometry(
 /**
  * Convert a logical location into SVG coordinates.
  * This is the only place logical→SVG conversion happens.
+ *
+ * Physical meaning of the logical axes (independent of orientation):
+ *   x = sideline-to-sideline (1..columns)
+ *   y = baseline-to-net      (1..rows; y=1 is the baseline side)
+ *
+ * top_down: the long axis (y) is vertical, x is horizontal.
+ * lateral:  the court is rotated 90° — the long axis (y) becomes horizontal
+ *           (baseline outer edge → net gap), x becomes vertical.
  */
 export function locationToSvg(
   location: Location,
@@ -198,7 +206,13 @@ export function locationToSvg(
 ): { x: number; y: number } {
   const rect = location.court === "court_1" ? geometry.court1 : geometry.court2;
   const { columns, rows } = geometry.grid;
-  // x: 1..columns maps across the court width; y: 1..rows maps down its height.
+
+  if (geometry.orientation === "lateral") {
+    const x = rect.x + ((location.y - 1) / (rows - 1)) * rect.width;
+    const y = rect.y + ((location.x - 1) / (columns - 1)) * rect.height;
+    return { x, y };
+  }
+
   const x = rect.x + ((location.x - 1) / (columns - 1)) * rect.width;
   const y = rect.y + ((location.y - 1) / (rows - 1)) * rect.height;
   return { x, y };
