@@ -243,11 +243,11 @@ export default function DrillViewer({
 
   return (
     <div className="drill-viewer">
+      <DrillLegend definition={definition} />
       <div
         className="drill-canvas"
         data-orientation={definition.view.orientation}
       >
-        <DrillLegend definition={definition} />
         <DrillCourt
           orientation={definition.view.orientation}
           court={definition.court}
