@@ -17,8 +17,14 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Sidebar */
@@ -410,9 +416,18 @@
   border-radius: 999px;
 }
 
-.difficulty.beginner { background: var(--teal-50); color: var(--teal-600); }
-.difficulty.intermediate { background: var(--amber-50); color: var(--amber-600); }
-.difficulty.advanced { background: var(--charcoal); color: var(--white); }
+.difficulty.beginner {
+  background: var(--teal-50);
+  color: var(--teal-600);
+}
+.difficulty.intermediate {
+  background: var(--amber-50);
+  color: var(--amber-600);
+}
+.difficulty.advanced {
+  background: var(--charcoal);
+  color: var(--white);
+}
 
 /* Tags */
 .tags {
@@ -551,7 +566,7 @@
 }
 
 .video-thumbnail::after {
-  content: '';
+  content: "";
   width: 56px;
   height: 56px;
   background: var(--bg-secondary);
@@ -767,7 +782,9 @@
   margin-bottom: 1.5rem;
 }
 
-.auth-logo .sidebar-logo-icon { color: var(--amber-500); }
+.auth-logo .sidebar-logo-icon {
+  color: var(--amber-500);
+}
 
 .auth-card h2 {
   margin-bottom: 0.375rem;
@@ -829,7 +846,9 @@
   transition: background var(--transition);
 }
 
-.auth-submit:hover { background: var(--amber-600); }
+.auth-submit:hover {
+  background: var(--amber-600);
+}
 
 .auth-submit:disabled {
   opacity: 0.6;
@@ -852,7 +871,9 @@
   color: var(--amber-600);
 }
 
-.auth-links a:hover { color: var(--amber-500); }
+.auth-links a:hover {
+  color: var(--amber-500);
+}
 
 .sidebar-user {
   padding: 1rem 1.25rem;
@@ -893,7 +914,7 @@
   letter-spacing: 0.04em;
   padding: 0.125rem 0.5rem;
   background: var(--amber-50);
-    color: var(--amber-600);
+  color: var(--amber-600);
   border: 1px solid var(--amber-100);
   border-radius: 999px;
 }
@@ -1083,6 +1104,14 @@
 
 .drill-canvas {
   position: relative;
+}
+
+/* top_down is tall — cap its displayed width and center it so both
+   courts stay visible with less scrolling. lateral stays full width. */
+.drill-canvas[data-orientation="top_down"] {
+  max-width: 540px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .drill-court-svg,

@@ -188,7 +188,7 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
 
   return (
     <div className="drill-viewer">
-      <div className="drill-canvas">
+      <div className="drill-canvas" data-orientation={definition.view.orientation}>
         <DrillCourt orientation={definition.view.orientation} court={definition.court} />
 
         <svg viewBox={`0 0 ${geometry.width} ${geometry.height}`} className="drill-entities-svg">

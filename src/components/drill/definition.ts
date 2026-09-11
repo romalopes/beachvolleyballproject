@@ -169,9 +169,9 @@ export interface DrillDefinition {
  */
 export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
   version: 1,
-  view: { orientation: "top_down" },
+  view: { orientation: "lateral" },
   court: {
-    grid: { columns: 5, rows: 4 },
+    grid: { columns: 8, rows: 4 },
     extended_area: {
       enabled: true,
       left: false,
@@ -317,7 +317,11 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       description:
         "P3 sets for P2, who attacks the line. P1 crosses to block or peel; C1 feeds B2 to keep the drill flowing.",
       participants: [
-        { id: "P1", active: true, location: { court: "court_2", x: 4, y: 1 } },
+        {
+          id: "P1",
+          active: true,
+          location: { court: "court_1", x: 2, y: 1 },
+        },
         {
           id: "P2",
           active: true,
@@ -388,7 +392,7 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
         {
           participant_id: "P1",
           from: { court: "court_1", x: 3, y: 1 },
-          to: { court: "court_2", x: 4, y: 1 },
+          to: { court: "court_1", x: 2.5, y: 4 },
           description: "P1 crosses the net to block or peel.",
         },
         {
