@@ -50,6 +50,9 @@ export default function DrillViewer({
     useState<Orientation>(DEFAULT_ORIENTATION);
   // Speed is a viewer concern too: multiplier applied to the base step duration.
   const [speed, setSpeed] = useState(1);
+  // Court display size: percentage of the container width; height follows the
+  // fixed aspect ratio, so one slider scales the whole court. Purely visual.
+  const [courtScale, setCourtScale] = useState(100);
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef<number | null>(null);
   // Progress is mirrored in a ref so the RAF loop accumulates deltas without
@@ -284,6 +287,23 @@ export default function DrillViewer({
             Top down
           </button>
         </div>
+        <div className="drill-size-control">
+          <label className="drill-orientation-label" htmlFor="drill-size-range">
+            Size
+          </label>
+          <input
+            id="drill-size-range"
+            type="range"
+            className="drill-size-range"
+            min={50}
+            max={150}
+            step={5}
+            value={courtScale}
+            aria-label="Court size"
+            onChange={(e) => setCourtScale(Number(e.target.value))}
+          />
+          <span className="drill-speed-value">{courtScale}%</span>
+        </div>
         <div className="drill-speed-control">
           <label className="drill-orientation-label" htmlFor="drill-speed-range">
             Speed
@@ -302,7 +322,18 @@ export default function DrillViewer({
           <span className="drill-speed-value">{speed}×</span>
         </div>
       </div>
-      <div className="drill-canvas" data-orientation={orientation}>
+      <div
+        className="drill-canvas"
+        data-orientation={orientation}
+        style={{
+          width: `${courtScale}%`,
+          // The CSS top_down cap scales with the slider (100% → 540px).
+          maxWidth:
+            orientation === "top_down"
+              ? `${Math.round(540 * (courtScale / 100))}px`
+              : undefined,
+        }}
+      >
         <DrillCourt orientation={orientation} court={definition.court} />
 
         <svg

@@ -1188,13 +1188,20 @@
 
 /* ---------- Playback speed (viewer concern; multiplies the base step duration) ---------- */
 
-.drill-speed-control {
+.drill-size-control {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-left: auto;
 }
 
+.drill-speed-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.drill-size-range,
 .drill-speed-range {
   width: 140px;
   accent-color: #2563eb;
