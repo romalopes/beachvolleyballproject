@@ -1098,6 +1098,42 @@
   margin-top: 0;
 }
 
+/* ---------- Copy-to-clipboard ---------- */
+
+.log-copy-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.copy-btn:hover {
+  color: var(--charcoal);
+  border-color: var(--border-light);
+  background: var(--sand-100);
+}
+.copy-btn-copied {
+  color: var(--teal-600);
+  border-color: var(--teal-100);
+  background: var(--teal-50);
+}
+.copy-btn svg {
+  pointer-events: none;
+}
+
 .drill-viewer {
   margin-top: 1rem;
 }

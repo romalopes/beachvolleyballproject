@@ -162,35 +162,6 @@ export interface DrillDefinition {
 }
 
 /**
- * Runtime guard for a usable v1 drill definition.
- *
- * The API returns `definition: {}` (the JSONB column default) for drills that
- * have no visualisation yet, and `null`/`undefined` for older shapes. This
- * guard lets callers safely fall back to a sample definition instead of
- * crashing inside the renderer.
- */
-export function isDrillDefinition(value: unknown): value is DrillDefinition {
-  if (!value || typeof value !== "object") return false;
-  const d = value as Partial<DrillDefinition>;
-  return (
-    d.version === 1 &&
-    !!d.view &&
-    (d.view.orientation === "top_down" || d.view.orientation === "lateral") &&
-    !!d.court &&
-    Array.isArray(d.participants) &&
-    Array.isArray(d.balls) &&
-    Array.isArray(d.objects) &&
-    Array.isArray(d.steps) &&
-    d.steps.length > 0
-  );
-}
-
-/** Returns the definition if it is a valid v1 definition, otherwise `null`. */
-export function resolveDrillDefinition(value: unknown): DrillDefinition | null {
-  return isDrillDefinition(value) ? value : null;
-}
-
-/**
  * Sample definition modeled on real Drill 5:
  * P1 tosses to the other side, P2 passes, P3 sets, P2 hits hard-driven line,
  * P1 runs to block/peel. Coach C1 feeds the second ball; a cone marks the
@@ -200,7 +171,7 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
   version: 1,
   view: { orientation: "lateral" },
   court: {
-    grid: { columns: 8, rows: 4 },
+    grid: { columns: 5, rows: 4 },
     extended_area: {
       enabled: true,
       left: true,
@@ -236,7 +207,6 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
   ],
   objects: [
     { id: "O1", type: "cone", description: "Defensive target on court 2." },
-    { id: "O2", type: "cone", description: "Defensive target on court 1." },
   ],
   steps: [
     {
@@ -244,7 +214,7 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       description:
         "Initial setup: P1 ready to toss from court 1; C1 waits behind the baseline with ball B2.",
       participants: [
-        { id: "P1", active: true, location: { court: "court_1", x: 4, y: 1 } },
+        { id: "P1", active: true, location: { court: "court_1", x: 3, y: 1 } },
         {
           id: "P2",
           active: true,
@@ -258,7 +228,7 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
         {
           id: "C1",
           active: true,
-          location: { court: "court_1", x: 4, y: 0.5 },
+          location: { court: "court_1", x: 3, y: 0.5 },
         },
       ],
       balls: [
@@ -274,11 +244,6 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
           id: "O1",
           active: true,
           location: { court: "court_2", x: 4.5, y: 1 },
-        },
-        {
-          id: "O2",
-          active: true,
-          location: { court: "court_1", x: 2, y: 2 },
         },
       ],
       actions: [],
@@ -338,16 +303,6 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
           action: { type: "pass", description: "Passes toward P3." },
         },
       ],
-
-      object_movements: [
-        {
-          object_id: "O2",
-          from: { court: "court_2", x: 4.5, y: 1 },
-          to: { court: "court_2", x: 2.5, y: 2.5 },
-          description: "O1 moves to P2.",
-        },
-      ],
-
       ball_movements: [
         {
           ball_id: "B1",

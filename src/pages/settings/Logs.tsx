@@ -4,6 +4,7 @@ import { api, type Log, type LogsMeta } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 import EmptyState from "../../components/EmptyState";
+import CopyButton from "../../components/CopyButton";
 
 // Audit actions the system can emit.
 // To support a new action, just append its value here (and an optional
@@ -126,7 +127,12 @@ function LogFileViewer() {
       ) : lines.length === 0 ? (
         <div className="auth-flash">No log entries found.</div>
       ) : (
-        <pre className="system-log-viewer">{lines.join("")}</pre>
+        <>
+          <div className="log-copy-row">
+            <CopyButton text={lines.join("")} label="Copy log" />
+          </div>
+          <pre className="system-log-viewer">{lines.join("")}</pre>
+        </>
       )}
     </section>
   );

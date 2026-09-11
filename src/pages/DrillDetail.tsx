@@ -4,7 +4,8 @@ import { api, type Drill } from "../api";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
 import DrillViewer from "../components/drill/DrillViewer";
-import { SAMPLE_DRILL_DEFINITION } from "../components/drill/definition";
+import CopyButton from "../components/CopyButton";
+import { resolveDrillDefinition, SAMPLE_DRILL_DEFINITION } from "../components/drill/definition";
 import { ArrowLeft, Target, Users } from "lucide-react";
 import {
   idealLabel,
@@ -38,6 +39,9 @@ export default function DrillDetail() {
     );
   }
 
+    const definition =
+    resolveDrillDefinition(drill.definition) ?? SAMPLE_DRILL_DEFINITION;
+
   return (
     <div className="page">
       <div className="detail-header">
@@ -69,15 +73,23 @@ export default function DrillDetail() {
 
       <section className="detail-section">
         <h2>Drill Visualisation</h2>
-        <DrillViewer definition={SAMPLE_DRILL_DEFINITION} />
+        <DrillViewer definition={definition} />
       </section>
 
-      <section className="detail-section">
+                  <section className="detail-section">
         <h2>Drill Definition (JSON)</h2>
         <details className="drill-json-details">
-          <summary>Show / hide JSON</summary>
+          <summary>
+            Show / hide JSON
+            {/* stopPropagation so the copy button doesn't toggle the details */}
+            <CopyButton
+              text={JSON.stringify(definition, null, 2)}
+              label="Copy JSON"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </summary>
           <pre className="system-log-viewer drill-json-viewer">
-            {JSON.stringify(SAMPLE_DRILL_DEFINITION, null, 2)}
+            {JSON.stringify(definition, null, 2)}
           </pre>
         </details>
       </section>

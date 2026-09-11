@@ -42,12 +42,16 @@ export default function DrillViewer({ definition }: { definition: DrillDefinitio
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number | null>(null);
 
-  const geometry = useMemo(
-    () => buildCourtGeometry(definition.view.orientation, definition.court),
+    const geometry = useMemo(
+    () =>
+      buildCourtGeometry(
+        definition.view?.orientation ?? "top_down",
+        definition.court
+      ),
     [definition]
   );
 
-  const steps: Step[] = definition.steps;
+  const steps: Step[] = definition.steps ?? [];
   const step = steps[stepIndex];
   const nextStep = steps[stepIndex + 1];
 

@@ -4,6 +4,8 @@
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
+import type { DrillDefinition } from "./components/drill/definition";
+
 // ---------- API token (bearer auth for cross-origin SPA) ----------
 const TOKEN_KEY = "bvb_api_token";
 
@@ -64,6 +66,7 @@ export interface Drill {
   min_players: number;
   max_players: number;
   ideal_num_players: number;
+  definition?: DrillDefinition | null;
   skills?: Skill[];
   media_assets?: MediaAsset[];
 }
