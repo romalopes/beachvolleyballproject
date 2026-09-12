@@ -1,7 +1,9 @@
 // API base URL:
 //   - In development via Vite proxy:  falls back to "/api/v1"
 //   - On Vercel / deployed:           set VITE_API_BASE_URL (e.g. "https://api.example.com/api/v1")
-const API_BASE =
+// Base URL of the JSON API. Exported so the health-check runner can issue
+// raw requests (it needs status codes + payloads, not throwing helpers).
+export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 import type { DrillDefinition } from "./components/drill/definition";
@@ -26,6 +28,25 @@ export function setToken(token: string | null): void {
   }
 }
 
+// Raw bearer token for the health-check runner. The Authorization header is
+// redacted before display.
+export function getApiToken(): string | null {
+  return getToken();
+}
+
+export interface HealthDetailed {
+  status: string;
+  service: string;
+  database: string;
+  environment: string;
+  version: string;
+  timestamp: string;
+  database_details: Record<string, string | number | boolean | null>;
+  server: Record<string, string | number | boolean | null>;
+  endpoint: Record<string, string | number | boolean | null>;
+  counts: Record<string, number>;
+}
+
 function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const token = getToken();
   const headers: Record<string, string> = { ...extra };
@@ -34,7 +55,7 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
 }
 
 async function fetchAPI<T>(endpoint: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: authHeaders({ "Content-Type": "application/json" }),
   });
   if (!response.ok) throw new Error(`API Error: ${response.status}`);
@@ -164,7 +185,7 @@ export interface Account {
 
 
 async function postJSON<T>(endpoint: string, body: unknown, method = "POST"): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method,
     headers: authHeaders({ "Content-Type": "application/json" }),
     credentials: "same-origin",
@@ -271,7 +292,11 @@ export const api = {
     postJSON<void>(`/admin/drills/${encodeURIComponent(String(id))}`, {}, "DELETE"),
 
 
-  // Auth (bearer-token based for cross-origin; the token is cached in localStorage)
+  // ---------- Health diagnostics (admin) ----------
+health: () => fetchAPI<{ status: string }>("/health"),
+healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
+
+
   me: () => fetchAPI<User | null>("/me"),
   login: (email_address: string, password: string) =>
     postJSON<UserWithToken>("/sessions", { email_address, password, api: true })

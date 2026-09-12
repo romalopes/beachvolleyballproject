@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Target, Tags, Dumbbell, FileText, Shield } from "lucide-react";
+import { Target, Tags, Dumbbell, FileText, Shield, Activity } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 
@@ -27,6 +27,12 @@ const RESOURCES = [
     label: "Logs",
     desc: "View audit trail of application activity.",
     icon: FileText,
+  },
+  {
+    to: "/settings/api-health",
+    label: "API Health",
+    desc: "Probe the Rails API: system, auth, security guards and domain data.",
+    icon: Activity,
   },
   {
     to: "/admin/users",

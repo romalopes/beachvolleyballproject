@@ -32,6 +32,8 @@ import DrillFormPage from "./pages/settings/DrillFormPage";
 import Logs from "./pages/settings/Logs";
 import LogDetail from "./pages/settings/LogDetail";
 import SystemLogs from "./pages/settings/SystemLogs";
+import ApiHealth from "./pages/settings/ApiHealth";
+
 import AccountPage from "./pages/Account";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -247,6 +249,14 @@ export default function App() {
               element={
                 <AdminRoute>
                   <SystemLogs />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/api-health"
+              element={
+                <AdminRoute>
+                  <ApiHealth />
                 </AdminRoute>
               }
             />
