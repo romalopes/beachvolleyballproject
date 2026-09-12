@@ -23,7 +23,7 @@ const navItems = [
 ];
 
 export default function Sidebar() {
-  const { user, logout } = useAuth();
+  const { user, logout, impersonation, stopImpersonating } = useAuth();
 
   return (
     <>
@@ -90,6 +90,22 @@ export default function Sidebar() {
         <br />
         Organise. Understand. Train.
       </div>
+      {impersonation.active && impersonation.realAdmin && (
+        <div className="sidebar-impersonation">
+          <div className="sidebar-impersonation-title">Acting as {user?.name || user?.email_address}</div>
+          <div className="sidebar-impersonation-sub">Return to your admin account</div>
+          <button
+            type="button"
+            className="sidebar-impersonation-btn"
+            onClick={(e) => {
+              e.preventDefault();
+              stopImpersonating();
+            }}
+          >
+            Return to Admin
+          </button>
+        </div>
+      )}
       <div className="sidebar-user">
         {user ? (
           <>

@@ -3,12 +3,13 @@ import { api, type AdminUser } from "../api";
 import { useAuth } from "../auth/AuthContext";
 
 export default function AdminUsers() {
-  const { user } = useAuth();
-  const isAdmin = user?.roles?.includes("admin");
+  const { user, startImpersonating } = useAuth();
+  const isAdmin = user?.roles?.includes("admin") && !(user as { real_admin?: unknown }).real_admin;
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [loading, setLoading] = useState(isAdmin);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Record<number, boolean>>({});
+  const [actingBusy, setActingBusy] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     if (isAdmin) loadUsers();
@@ -100,6 +101,26 @@ export default function AdminUsers() {
                     </button>
                   );
                 })}
+                {isAdmin && !hasRole(u, "admin") && u.id !== user?.id && (
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn-add"
+                    disabled={actingBusy[u.id]}
+                    onClick={async () => {
+                      if (!window.confirm(`Act as ${u.name || u.email_address}? You will operate the app as that user until you return.`)) return;
+                      setActingBusy((prev) => ({ ...prev, [u.id]: true }));
+                      try {
+                        await startImpersonating(u.id);
+                      } catch (e: any) {
+                        setError(e.message);
+                      } finally {
+                        setActingBusy((prev) => ({ ...prev, [u.id]: false }));
+                      }
+                    }}
+                  >
+                    Act as User
+                  </button>
+                )}
               </div>
             </div>
           ))}

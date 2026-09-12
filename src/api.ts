@@ -292,6 +292,20 @@ export const api = {
     postJSON<void>(`/admin/drills/${encodeURIComponent(String(id))}`, {}, "DELETE"),
 
 
+  // ---------- Admin "Act as User" impersonation ----------
+  startImpersonation: (userId: number) =>
+    postJSON<{
+      impersonating: boolean;
+      effective_user: { id: number; name: string; email_address: string; roles: string[] } | null;
+      real_admin: { id: number; name: string; email_address: string };
+    }>("/admin/impersonations", { user_id: userId }),
+  stopImpersonation: () =>
+    postJSON<{
+      impersonating: boolean;
+      effective_user: { id: number; name: string; email_address: string; roles: string[] } | null;
+      real_admin: { id: number; name: string; email_address: string };
+    }>("/admin/impersonations", {}, "DELETE"),
+
   // ---------- Health diagnostics (admin) ----------
 health: () => fetchAPI<{ status: string }>("/health"),
 healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
