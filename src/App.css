@@ -1222,12 +1222,10 @@
   position: relative;
 }
 
-/* top_down is tall — cap its displayed width and center it so both
-   courts stay visible with less scrolling. lateral stays full width. */
+/* top_down is tall — cap its displayed width and anchor it to the left
+   edge so both courts stay visible with less scrolling. lateral stays full width. */
 .drill-canvas[data-orientation="top_down"] {
   max-width: 540px;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 .drill-court-svg,

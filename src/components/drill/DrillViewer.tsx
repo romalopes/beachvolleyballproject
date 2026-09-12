@@ -305,7 +305,10 @@ export default function DrillViewer({
           <span className="drill-speed-value">{courtScale}%</span>
         </div>
         <div className="drill-speed-control">
-          <label className="drill-orientation-label" htmlFor="drill-speed-range">
+          <label
+            className="drill-orientation-label"
+            htmlFor="drill-speed-range"
+          >
             Speed
           </label>
           <input
