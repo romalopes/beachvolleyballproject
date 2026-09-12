@@ -36,6 +36,11 @@ export interface ApiCheck {
   url: string;
   expectedStatus: number;
   requiresAuth: boolean;
+  // Send the request with credentials: "omit" so the browser does not attach
+  // session cookies. Used by "expect 401" guard checks — the health runner runs
+  // inside an authenticated cookie session, so without this a request would
+  // authenticate via the cookie and return 200 instead of the expected 401.
+  omitCredentials?: boolean;
   requiresManualTrigger?: boolean;
   description?: string;
   timeoutMs?: number;
@@ -146,6 +151,7 @@ export const API_CHECKS: ApiCheck[] = [
     url: "/me",
     expectedStatus: 401,
     requiresAuth: false,
+    omitCredentials: true,
     validate: () => true,
   },
   {
@@ -156,6 +162,7 @@ export const API_CHECKS: ApiCheck[] = [
     url: "/health/detailed",
     expectedStatus: 401,
     requiresAuth: false,
+    omitCredentials: true,
     validate: () => true,
   },
   {
@@ -166,6 +173,7 @@ export const API_CHECKS: ApiCheck[] = [
     url: "/admin/skills",
     expectedStatus: 401,
     requiresAuth: false,
+    omitCredentials: true,
     validate: () => true,
   },
   listCheck({

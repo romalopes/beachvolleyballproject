@@ -84,23 +84,30 @@ export default function AdminUsers() {
               </div>
               <div className="admin-user-actions">
                 {(["guest", "player", "coach", "admin"] as const).map((role) => {
-                  const present = hasRole(u, role);
-                  return (
-                    <button
-                      key={role}
-                      type="button"
-                      className={
-                        present
-                          ? "admin-btn admin-btn-remove"
-                          : "admin-btn admin-btn-add"
-                      }
-                      disabled={busy[u.id]}
-                      onClick={() => toggleRole(u, role)}
-                    >
-                      {present ? `Remove ${role}` : `Add ${role}`}
-                    </button>
-                  );
-                })}
+                    const present = hasRole(u, role);
+                    const isOwnAdminRole =
+                      role === "admin" && u.id === user?.id;
+                    return (
+                      <button
+                        key={role}
+                        type="button"
+                        className={
+                          present
+                            ? "admin-btn admin-btn-remove"
+                            : "admin-btn admin-btn-add"
+                        }
+                        disabled={busy[u.id] || isOwnAdminRole}
+                        title={
+                          isOwnAdminRole
+                            ? "You cannot remove your own admin role"
+                            : undefined
+                        }
+                        onClick={() => toggleRole(u, role)}
+                      >
+                        {present ? `Remove ${role}` : `Add ${role}`}
+                      </button>
+                    );
+                  })}
                 {isAdmin && !hasRole(u, "admin") && u.id !== user?.id && (
                   <button
                     type="button"

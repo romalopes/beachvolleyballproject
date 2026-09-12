@@ -72,7 +72,7 @@ async function attemptRequest(
     const response = await fetch(`${API_BASE_URL}${check.url}`, {
       method: check.method,
       headers,
-      credentials: "same-origin",
+      credentials: check.omitCredentials ? "omit" : "same-origin",
       signal: controller.signal,
     });
     const contentType = response.headers.get("content-type") || "";
