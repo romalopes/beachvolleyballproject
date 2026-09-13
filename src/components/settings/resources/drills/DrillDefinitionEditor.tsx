@@ -6,7 +6,7 @@
  * renders the text, the derived feedback, and the format action.
  */
 
-import { useRef, type UIEvent } from "react";
+import { useEffect, useRef, type UIEvent } from "react";
 import {
   formatIssue,
   type DrillSchemaIssue,
@@ -30,6 +30,7 @@ export default function DrillDefinitionEditor({
   onFormat,
 }: DrillDefinitionEditorProps) {
   const gutterRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasIssues = !parseError && issues.length > 0;
   const isEmpty = value.trim() === "";
 
@@ -43,6 +44,23 @@ export default function DrillDefinitionEditor({
       gutterRef.current.scrollTop = e.currentTarget.scrollTop;
     }
   };
+
+  // Keep the gutter exactly as tall as the textarea, including when the user
+  // drags the native resize handle. (jsdom has no ResizeObserver; the guard
+  // keeps tests running — the CSS flex stretch is the fallback there.)
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    const gutter = gutterRef.current;
+    if (!textarea || !gutter || typeof ResizeObserver === "undefined") return;
+
+    const syncHeight = () => {
+      gutter.style.height = `${textarea.clientHeight}px`;
+    };
+    syncHeight();
+    const observer = new ResizeObserver(syncHeight);
+    observer.observe(textarea);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className="admin-field drill-definition-field">
@@ -61,12 +79,13 @@ export default function DrillDefinitionEditor({
           {Array.from({ length: lineCount }, (_, i) => i + 1).join("\n")}
         </div>
         <textarea
+          ref={textareaRef}
           id="drill-definition"
           className="drill-definition-input"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onScroll={handleScroll}
-          rows={8}
+          rows={6}
           wrap="off"
           spellCheck={false}
           aria-invalid={Boolean(parseError) || hasIssues}

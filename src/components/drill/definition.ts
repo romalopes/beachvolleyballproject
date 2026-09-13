@@ -204,7 +204,7 @@ export function resolveDrillDefinition(value: unknown): DrillDefinition | null {
  * P1 runs to block/peel. Coach C1 feeds the second ball; a cone marks the
  * defensive target.
  */
-export const SAMPLE_DRILL_DEFINITION_0: DrillDefinition = {
+export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
   version: 1,
   description:
     "Serve-and-attack drill: P1 tosses over the net, P2 passes, P3 sets, P2 hits hard-driven line. P1 crosses to block or peel.",
