@@ -21,13 +21,11 @@ import Schedule from "./pages/Schedule";
 import AdminUsers from "./pages/AdminUsers";
 import SettingsDashboard from "./pages/settings/SettingsDashboard";
 import SkillsSettings from "./pages/settings/Skills";
-import SkillDetailSettings from "./pages/settings/SkillDetail";
 import SkillFormPage from "./pages/settings/SkillFormPage";
 import CategoriesSettings from "./pages/settings/Categories";
 import CategoryDetailSettings from "./pages/settings/CategoryDetail";
 import CategoryFormPage from "./pages/settings/CategoryFormPage";
 import DrillsSettings from "./pages/settings/Drills";
-import DrillDetailSettings from "./pages/settings/DrillDetail";
 import DrillFormPage from "./pages/settings/DrillFormPage";
 import Logs from "./pages/settings/Logs";
 import LogDetail from "./pages/settings/LogDetail";
@@ -109,9 +107,9 @@ export default function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/" element={<Home />} />
             <Route path="/skills" element={<Skills />} />
-            <Route path="/skills/:id" element={<SkillDetail />} />
+            <Route path="/skills/:slug" element={<SkillDetail />} />
             <Route path="/drills" element={<Drills />} />
-            <Route path="/drills/:id" element={<DrillDetail />} />
+            <Route path="/drills/:slug" element={<DrillDetail />} />
             <Route path="/videos" element={<Videos />} />
             <Route path="/training" element={<Training />} />
             <Route path="/training/:id" element={<TrainingDetail />} />
@@ -153,14 +151,6 @@ export default function App() {
               element={
                 <AdminRoute>
                   <SkillFormPage />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/skills/:slug"
-              element={
-                <AdminRoute>
-                  <SkillDetailSettings />
                 </AdminRoute>
               }
             />
@@ -217,14 +207,6 @@ export default function App() {
               element={
                 <AdminRoute>
                   <DrillFormPage />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/drills/:slug"
-              element={
-                <AdminRoute>
-                  <DrillDetailSettings />
                 </AdminRoute>
               }
             />

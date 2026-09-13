@@ -257,7 +257,7 @@ export default function Skills() {
             key: "title",
             label: "Name",
             render: (s) => (
-              <Link to={`/settings/skills/${s.slug}`} className="admin-table-name">
+              <Link to={`/skills/${s.slug}`} className="admin-table-name">
                 {s.title}
               </Link>
             ),

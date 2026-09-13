@@ -315,7 +315,7 @@ export default function Drills() {
             key: "title",
             label: "Name",
             render: (d) => (
-              <Link to={`/settings/drills/${d.slug}`} className="admin-table-name">
+              <Link to={`/drills/${d.slug}`} className="admin-table-name">
                 {d.title}
               </Link>
             ),

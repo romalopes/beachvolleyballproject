@@ -5,6 +5,8 @@ import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
 import DrillViewer from "../components/drill/DrillViewer";
 import CopyButton from "../components/CopyButton";
+import { useAuth } from "../auth/AuthContext";
+import DeleteConfirm from "../components/settings/DeleteConfirm";
 import { resolveDrillDefinition, SAMPLE_DRILL_DEFINITION } from "../components/drill/definition";
 import { ArrowLeft, Target, Users } from "lucide-react";
 import {
@@ -14,19 +16,39 @@ import {
 } from "../utils/drills";
 
 export default function DrillDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [drill, setDrill] = useState<Drill | null>(null);
   const [loading, setLoading] = useState(true);
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const isAdmin = user?.roles?.includes("admin");
 
   useEffect(() => {
-    if (!id) return;
+    if (!slug) return;
     api
-      .drill(id)
+      .drill(slug)
       .then(setDrill)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [slug]);
+
+  const handleDelete = async () => {
+    if (!drill) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.adminDestroyDrill(drill.id);
+      navigate("/drills");
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Failed to delete drill.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) return <div className="loading">Loading...</div>;
   if (!drill) return <EmptyState title="Drill not found" />;
@@ -45,9 +67,9 @@ export default function DrillDetail() {
   return (
     <div className="page">
       <div className="detail-header">
-        <button className="back-link" onClick={() => navigate("/drills")}>
+        <button className="back-link" onClick={() => navigate(-1)}>
           <ArrowLeft size={16} />
-          Back to Drills
+          Back
         </button>
         <span className="section-label">Drill</span>
         <h1>{drill.title}</h1>
@@ -65,6 +87,40 @@ export default function DrillDetail() {
           <Tag>{idealLabel(drill.ideal_num_players)}</Tag>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="admin-actions-bar">
+          <div className="admin-table-actions">
+            <button
+              type="button"
+              className="admin-btn admin-btn-add"
+              onClick={() => navigate(`/settings/drills/${drill.slug}/edit`)}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className="admin-btn admin-btn-remove"
+              onClick={() => setConfirming(true)}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirming && (
+        <DeleteConfirm
+          entityName={drill.title}
+          onCancel={() => {
+            setConfirming(false);
+            setDeleteError(null);
+          }}
+          onConfirm={handleDelete}
+          deleting={deleting}
+          error={deleteError}
+        />
+      )}
 
       <section className="detail-section">
         <h2>Setup Instructions</h2>
@@ -122,6 +178,19 @@ export default function DrillDetail() {
               </Link>
             ))}
           </div>
+        )}
+      </section>
+
+      <section className="detail-section">
+        <h2>Media Assets ({drill.media_assets?.length ?? 0})</h2>
+        {!drill.media_assets || drill.media_assets.length === 0 ? (
+          <EmptyState title="No media assets" />
+        ) : (
+          <ul className="settings-link-list">
+            {drill.media_assets.map((m) => (
+              <li key={m.id}>{m.title}</li>
+            ))}
+          </ul>
         )}
       </section>
     </div>

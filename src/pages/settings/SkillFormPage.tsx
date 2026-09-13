@@ -31,7 +31,7 @@ export default function SkillFormPage() {
     );
   }
 
-  const backTo = isNew ? "/settings/skills" : `/settings/skills/${slug}`;
+  const backTo = isNew ? "/settings/skills" : `/skills/${slug}`;
 
   if (loading) return <div className="loading">Loading...</div>;
 
@@ -46,7 +46,7 @@ export default function SkillFormPage() {
       <SkillForm
         initial={isNew ? null : initial}
         onCancel={() => navigate(backTo)}
-        onSuccess={(saved) => navigate(`/settings/skills/${saved.slug}`)}
+        onSuccess={(saved) => navigate(`/skills/${saved.slug}`)}
       />
     </SettingsLayout>
   );

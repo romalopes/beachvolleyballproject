@@ -98,13 +98,13 @@ export default function LogDetail() {
             {log.objects.map((o) => (
               <li key={`${o.type}-${o.id}`}>
                                  {o.exists && o.type === "Skill" && (
-                  <Link to={`/settings/skills/${o.slug ?? o.id}`}>
+                  <Link to={`/skills/${o.slug ?? o.id}`}>
                     {o.type} #{o.id}
                     {o.label ? ` — ${o.label}` : ""}
                   </Link>
                 )}
                 {o.exists && o.type === "Drill" && (
-                  <Link to={`/settings/drills/${o.slug ?? o.id}`}>
+                  <Link to={`/drills/${o.slug ?? o.id}`}>
                     {o.type} #{o.id}
                     {o.label ? ` — ${o.label}` : ""}
                   </Link>

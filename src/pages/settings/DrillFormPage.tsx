@@ -31,7 +31,7 @@ export default function DrillFormPage() {
     );
   }
 
-  const backTo = isNew ? "/settings/drills" : `/settings/drills/${slug}`;
+  const backTo = isNew ? "/settings/drills" : `/drills/${slug}`;
 
   if (loading) return <div className="loading">Loading...</div>;
 
@@ -46,7 +46,7 @@ export default function DrillFormPage() {
       <DrillForm
         initial={isNew ? null : initial}
         onCancel={() => navigate(backTo)}
-        onSuccess={(saved) => navigate(`/settings/drills/${saved.slug}`)}
+        onSuccess={(saved) => navigate(`/drills/${saved.slug}`)}
       />
     </SettingsLayout>
   );
