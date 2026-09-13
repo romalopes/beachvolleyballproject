@@ -23,11 +23,13 @@ export default function CategoryDetail() {
     if (!slug) return;
     Promise.all([
       api.adminCategory(slug),
-      api.adminSkills().catch(() => [] as Skill[]),
+      api.adminSkills({ per_page: 1000 }).catch(() => {
+        return { data: [] as Skill[], meta: { page: 1, per_page: 1000, total: 0, total_pages: 1 } };
+      }),
     ])
-      .then(([cat, sk]) => {
+      .then(([cat, skRes]) => {
         setCategory(cat);
-        setSkills(sk);
+        setSkills(skRes.data);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));

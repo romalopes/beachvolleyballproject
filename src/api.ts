@@ -78,6 +78,21 @@ async function fetchAPI<T>(endpoint: string): Promise<T> {
   return response.json();
 }
 
+function normalizePaginatedResponse<T>(response: T[] | PaginatedResponse<T>): PaginatedResponse<T> {
+  if (Array.isArray(response)) {
+    return {
+      data: response,
+      meta: {
+        page: 1,
+        per_page: response.length,
+        total: response.length,
+        total_pages: 1,
+      },
+    };
+  }
+  return response;
+}
+
 export interface Category {
   id: number;
   name: string;
@@ -182,6 +197,18 @@ export interface LogsResponse {
   meta: LogsMeta;
 }
 
+export interface PaginationMeta {
+  page: number;
+  per_page: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  meta: PaginationMeta;
+}
+
 export interface AccountAddress {
   street_address: string | null;
   city: string | null;
@@ -230,7 +257,14 @@ export const api = {
 
 
   // Admin
-  adminUsers: () => fetchAPI<AdminUser[]>("/admin/users"),
+  adminUsers: async (params?: { page?: number; per_page?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.per_page) qs.set("per_page", String(params.per_page));
+    const query = qs.toString();
+    const response = await fetchAPI<AdminUser[] | PaginatedResponse<AdminUser>>(`/admin/users${query ? `?${query}` : ""}`);
+    return normalizePaginatedResponse(response);
+  },
   adminAddRole: (userId: number, role: string) =>
     postJSON<{ roles: string[] }>(`/admin/users/${userId}/roles`, { role }),
   adminRemoveRole: (userId: number, role: string) =>
@@ -241,7 +275,14 @@ export const api = {
     ),
 
   // Admin Settings — Skills (admin-only endpoints, authorize_admin! on backend)
-  adminSkills: () => fetchAPI<Skill[]>("/admin/skills"),
+  adminSkills: async (params?: { page?: number; per_page?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.per_page) qs.set("per_page", String(params.per_page));
+    const query = qs.toString();
+    const response = await fetchAPI<Skill[] | PaginatedResponse<Skill>>(`/admin/skills${query ? `?${query}` : ""}`);
+    return normalizePaginatedResponse(response);
+  },
   adminSkill: (id: string | number) =>
     fetchAPI<Skill>(`/admin/skills/${encodeURIComponent(String(id))}`),
   adminCreateSkill: (data: { title: string; category_id: number; description?: string | null }) =>
@@ -254,7 +295,14 @@ export const api = {
     postJSON<void>(`/admin/skills/${encodeURIComponent(String(id))}`, {}, "DELETE"),
 
   // Admin Settings — Categories
-  adminCategories: () => fetchAPI<Category[]>("/admin/categories"),
+  adminCategories: async (params?: { page?: number; per_page?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.per_page) qs.set("per_page", String(params.per_page));
+    const query = qs.toString();
+    const response = await fetchAPI<Category[] | PaginatedResponse<Category>>(`/admin/categories${query ? `?${query}` : ""}`);
+    return normalizePaginatedResponse(response);
+  },
   adminCategory: (id: string | number) =>
     fetchAPI<Category>(`/admin/categories/${encodeURIComponent(String(id))}`),
   adminCreateCategory: (data: { name: string }) =>
@@ -275,7 +323,14 @@ export const api = {
     ),
 
   // Admin Settings — Drills
-  adminDrills: () => fetchAPI<Drill[]>("/admin/drills"),
+  adminDrills: async (params?: { page?: number; per_page?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.per_page) qs.set("per_page", String(params.per_page));
+    const query = qs.toString();
+    const response = await fetchAPI<Drill[] | PaginatedResponse<Drill>>(`/admin/drills${query ? `?${query}` : ""}`);
+    return normalizePaginatedResponse(response);
+  },
   adminDrill: (id: string | number) =>
     fetchAPI<Drill>(`/admin/drills/${encodeURIComponent(String(id))}`),
   adminCreateDrill: (data: {

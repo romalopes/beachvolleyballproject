@@ -6,6 +6,7 @@ import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 import AdminTable from "../../components/settings/AdminTable";
 import DeleteConfirm from "../../components/settings/DeleteConfirm";
+import Pagination from "../../components/settings/Pagination";
 import {
   DIFFICULTY_LEVELS,
   TRAINING_STAGES,
@@ -15,6 +16,7 @@ import {
   type TrainingStage,
 } from "../../utils/drills";
 
+const PER_PAGE = 20;
 type SortKey = "name-asc" | "name-desc" | "stage" | "difficulty";
 
 const STAGE_ORDER: TrainingStage[] = TRAINING_STAGES.map((s) => s.value);
@@ -60,11 +62,12 @@ export default function Drills() {
   const [minFilter, setMinFilter] = useState("");
   const [maxFilter, setMaxFilter] = useState("");
   const [sort, setSort] = useState<SortKey>("name-asc");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     api
       .adminDrills()
-      .then(setDrills)
+      .then((response) => setDrills(response.data))
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
@@ -147,6 +150,7 @@ export default function Drills() {
     setMinFilter("");
     setMaxFilter("");
     setSort("name-asc");
+    setPage(1);
   };
 
   if (!user?.roles?.includes("admin")) {
@@ -226,7 +230,10 @@ export default function Drills() {
         <div className="settings-toolbar-row">
           <select
             value={stage}
-            onChange={(e) => setStage(e.target.value as "all" | TrainingStage)}
+            onChange={(e) => {
+              setStage(e.target.value as "all" | TrainingStage);
+              setPage(1);
+            }}
             aria-label="Filter by training stage"
           >
             <option value="all">All stages</option>
@@ -238,7 +245,10 @@ export default function Drills() {
           </select>
           <select
             value={difficulty}
-            onChange={(e) => setDifficulty(e.target.value as "all" | DifficultyLevel)}
+            onChange={(e) => {
+              setDifficulty(e.target.value as "all" | DifficultyLevel);
+              setPage(1);
+            }}
             aria-label="Filter by difficulty level"
           >
             <option value="all">All levels</option>
@@ -253,7 +263,10 @@ export default function Drills() {
             min={1}
             placeholder="Min players"
             value={minFilter}
-            onChange={(e) => setMinFilter(e.target.value)}
+            onChange={(e) => {
+              setMinFilter(e.target.value);
+              setPage(1);
+            }}
             aria-label="Filter by min players"
           />
           <input
@@ -261,12 +274,18 @@ export default function Drills() {
             min={1}
             placeholder="Max players"
             value={maxFilter}
-            onChange={(e) => setMaxFilter(e.target.value)}
+            onChange={(e) => {
+              setMaxFilter(e.target.value);
+              setPage(1);
+            }}
             aria-label="Filter by max players"
           />
           <select
             value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
+            onChange={(e) => {
+              setSort(e.target.value as SortKey);
+              setPage(1);
+            }}
             aria-label="Sort drills"
           >
             <option value="name-asc">Name A–Z</option>
@@ -283,12 +302,11 @@ export default function Drills() {
       </div>
 
       <p className="settings-result-count">
-        {drills.length} {drills.length === 1 ? "drill" : "drills"}
+        {visibleDrills.length} {visibleDrills.length === 1 ? "drill" : "drills"}
       </p>
-      {filtersActive && (
+      {filtersActive && visibleDrills.length > PER_PAGE && (
         <p className="settings-result-count">
-          Showing {visibleDrills.length} of {drills.length} drill
-          {drills.length === 1 ? "" : "s"}
+          Page {page} of {Math.ceil(visibleDrills.length / PER_PAGE)}
         </p>
       )}
       {rangeError && (
@@ -297,7 +315,7 @@ export default function Drills() {
         </div>
       )}
       <AdminTable<Drill>
-        data={visibleDrills}
+        data={visibleDrills.slice((page - 1) * PER_PAGE, page * PER_PAGE)}
         loading={loading}
         emptyTitle={filtersActive ? "No drills match these filters" : "No drills"}
         emptyDescription={
@@ -329,6 +347,15 @@ export default function Drills() {
           },
         ]}
       />
+      {visibleDrills.length > PER_PAGE && (
+        <Pagination
+          currentPage={page}
+          totalPages={Math.ceil(visibleDrills.length / PER_PAGE)}
+          totalItems={visibleDrills.length}
+          itemsPerPage={PER_PAGE}
+          onPageChange={setPage}
+        />
+      )}
     </SettingsLayout>
   );
 }

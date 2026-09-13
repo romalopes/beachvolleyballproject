@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { api, type AdminUser } from "../api";
+import { api, type AdminUser, type PaginationMeta } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import Pagination from "../components/settings/Pagination";
+
+const PER_PAGE = 20;
 
 export default function AdminUsers() {
   const { user, startImpersonating } = useAuth();
@@ -10,16 +13,20 @@ export default function AdminUsers() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Record<number, boolean>>({});
   const [actingBusy, setActingBusy] = useState<Record<number, boolean>>({});
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
 
   useEffect(() => {
     if (isAdmin) loadUsers();
-  }, [isAdmin]);
+  }, [isAdmin, page]);
 
   const loadUsers = async () => {
     setLoading(true);
     setError(null);
     try {
-      setUsers(await api.adminUsers());
+      const response = await api.adminUsers({ page, per_page: PER_PAGE });
+      setUsers(response.data);
+      setMeta(response.meta);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -134,10 +141,23 @@ export default function AdminUsers() {
         </div>
       )}
 
+      {meta && (
+        <Pagination
+          currentPage={meta.page}
+          totalPages={meta.total_pages}
+          totalItems={meta.total}
+          itemsPerPage={PER_PAGE}
+          onPageChange={setPage}
+        />
+      )}
+
       <button
         type="button"
         className="admin-btn admin-btn-add"
-        onClick={loadUsers}
+        onClick={() => {
+          setPage(1);
+          loadUsers();
+        }}
         disabled={loading}
       >
         Refresh

@@ -5,6 +5,9 @@ import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 import EmptyState from "../../components/EmptyState";
 import CopyButton from "../../components/CopyButton";
+import Pagination from "../../components/settings/Pagination";
+
+const PER_PAGE = 20;
 
 // Audit actions the system can emit.
 // To support a new action, just append its value here (and an optional
@@ -370,29 +373,13 @@ function AuditLogTable() {
             </table>
           </div>
 
-          {meta && meta.total_pages > 1 && (
-            <div className="pagination">
-              <button
-                type="button"
-                className="admin-btn"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                Previous
-              </button>
-              <span className="pagination-info">
-                Page {meta.page} of {meta.total_pages} ({meta.total} total)
-              </span>
-              <button
-                type="button"
-                className="admin-btn"
-                disabled={page >= meta.total_pages}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next
-              </button>
-            </div>
-          )}
+          <Pagination
+            currentPage={meta?.page ?? page}
+            totalPages={meta?.total_pages ?? 1}
+            totalItems={meta?.total ?? logs.length}
+            itemsPerPage={PER_PAGE}
+            onPageChange={setPage}
+          />
         </>
       )}
     </section>

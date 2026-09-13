@@ -6,7 +6,9 @@ import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 import AdminTable from "../../components/settings/AdminTable";
 import DeleteConfirm from "../../components/settings/DeleteConfirm";
+import Pagination from "../../components/settings/Pagination";
 
+const PER_PAGE = 20;
 type SortKey = "name-asc" | "name-desc" | "category";
 
 interface CategoryOrigin {
@@ -29,6 +31,7 @@ export default function Skills() {
   const [pendingDelete, setPendingDelete] = useState<Skill | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<number | "all">(() => {
@@ -43,12 +46,12 @@ export default function Skills() {
       api.adminSkills(),
       api.adminDrills().catch(() => {
         setDrillsFailed(true);
-        return [] as Drill[];
+        return { data: [] as Drill[], meta: { page: 1, per_page: 0, total: 0, total_pages: 1 } };
       }),
     ])
-      .then(([sk, dr]) => {
-        setSkills(sk);
-        setDrills(dr);
+      .then(([skRes, drRes]) => {
+        setSkills(skRes.data);
+        setDrills(drRes.data);
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
@@ -121,6 +124,7 @@ export default function Skills() {
     setSearch("");
     setCategoryFilter("all");
     setSort("name-asc");
+    setPage(1);
   };
 
   if (!user?.roles?.includes("admin")) {
@@ -200,9 +204,10 @@ export default function Skills() {
         <div className="settings-toolbar-row">
           <select
             value={categoryFilter}
-            onChange={(e) =>
-              setCategoryFilter(e.target.value === "all" ? "all" : Number(e.target.value))
-            }
+            onChange={(e) => {
+              setCategoryFilter(e.target.value === "all" ? "all" : Number(e.target.value));
+              setPage(1);
+            }}
             aria-label="Filter by category"
           >
             <option value="all">All categories</option>
@@ -214,7 +219,10 @@ export default function Skills() {
           </select>
           <select
             value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
+            onChange={(e) => {
+              setSort(e.target.value as SortKey);
+              setPage(1);
+            }}
             aria-label="Sort skills"
           >
             <option value="name-asc">Name A–Z</option>
@@ -230,16 +238,15 @@ export default function Skills() {
       </div>
 
       <p className="settings-result-count">
-        {skills.length} {skills.length === 1 ? "skill" : "skills"}
+        {visibleSkills.length} {visibleSkills.length === 1 ? "skill" : "skills"}
       </p>
-      {filtersActive && (
+      {filtersActive && visibleSkills.length > PER_PAGE && (
         <p className="settings-result-count">
-          Showing {visibleSkills.length} of {skills.length} skill
-          {skills.length === 1 ? "" : "s"}
+          Page {page} of {Math.ceil(visibleSkills.length / PER_PAGE)}
         </p>
       )}
       <AdminTable<Skill>
-        data={visibleSkills}
+        data={visibleSkills.slice((page - 1) * PER_PAGE, page * PER_PAGE)}
         loading={loading}
         emptyTitle={filtersActive ? "No skills match these filters" : "No skills"}
         emptyDescription={
@@ -291,6 +298,15 @@ export default function Skills() {
           },
         ]}
       />
+      {visibleSkills.length > PER_PAGE && (
+        <Pagination
+          currentPage={page}
+          totalPages={Math.ceil(visibleSkills.length / PER_PAGE)}
+          totalItems={visibleSkills.length}
+          itemsPerPage={PER_PAGE}
+          onPageChange={setPage}
+        />
+      )}
     </SettingsLayout>
   );
 }
