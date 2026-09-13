@@ -262,6 +262,9 @@ export default function DrillViewer({
 
   return (
     <div className="drill-viewer">
+      {definition.description && (
+        <p className="drill-definition-description">{definition.description}</p>
+      )}
       <DrillLegend definition={definition} />
       <div className="drill-orientation-bar">
         <span className="drill-orientation-label">Orientation</span>
@@ -325,6 +328,7 @@ export default function DrillViewer({
           <span className="drill-speed-value">{speed}×</span>
         </div>
       </div>
+
       <div
         className="drill-canvas"
         data-orientation={orientation}

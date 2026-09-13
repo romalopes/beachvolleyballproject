@@ -1141,6 +1141,14 @@
   margin-top: 1rem;
 }
 
+/* Optional definition-level description, rendered above the court. */
+.drill-definition-description {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #475569;
+}
+
 /* ---------- Orientation toggle (viewer concern, not part of the definition) ---------- */
 
 .drill-orientation-bar {
@@ -1659,6 +1667,102 @@
   display: flex;
   gap: 0.5rem;
   margin-top: 0.5rem;
+}
+
+/* ---------- Drill definition (JSON) editor ---------- */
+
+.drill-definition-field {
+  margin-top: 0.25rem;
+}
+
+.drill-definition-hint {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.drill-definition-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  min-height: 120px;
+  resize: vertical;
+  tab-size: 2;
+}
+
+/* Line-number gutter: shares font metrics + top padding with the textarea
+   (global input padding is 0.875rem 1.125rem) so gutter row N always aligns
+   with text row N. The gutter is overflow: hidden; its scroll is mirrored
+   from the textarea via onScroll. */
+.drill-definition-editor-wrap {
+  display: flex;
+  align-items: stretch;
+}
+
+.drill-definition-gutter {
+  flex: none;
+  width: 3rem;
+  overflow: hidden;
+  white-space: pre;
+  text-align: right;
+  user-select: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  padding: 0.875rem 0.5rem;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+  tab-size: 2;
+}
+
+.drill-definition-editor-wrap .drill-definition-input {
+  flex: 1;
+  min-width: 0;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+}
+
+.drill-definition-input[aria-invalid="true"] {
+  border-color: var(--amber-600);
+}
+
+.drill-definition-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.drill-definition-issues {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--amber-50);
+  border: 1px solid var(--amber-100);
+  font-size: 0.8rem;
+  color: var(--amber-600);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.drill-definition-issue {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  word-break: break-word;
+}
+
+.drill-definition-issue-parse {
+  font-weight: 600;
+}
+
+.drill-definition-ok {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--teal-600);
 }
 
 .settings-link-list {

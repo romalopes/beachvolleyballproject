@@ -26,26 +26,48 @@ const definition: DrillDefinition = {
 afterEach(cleanup);
 
 describe("DrillViewer — orientation toggle", () => {
-  it("starts in the default orientation and toggles on click", () => {
+  it("starts in the default orientation (lateral) and toggles on click", () => {
     const { container } = render(<DrillViewer definition={definition} />);
     const canvas = container.querySelector(".drill-canvas")!;
-    expect(canvas.getAttribute("data-orientation")).toBe("top_down");
-
-    fireEvent.click(screen.getByRole("button", { name: "Lateral" }));
     expect(canvas.getAttribute("data-orientation")).toBe("lateral");
 
     fireEvent.click(screen.getByRole("button", { name: "Top down" }));
     expect(canvas.getAttribute("data-orientation")).toBe("top_down");
+
+    fireEvent.click(screen.getByRole("button", { name: "Lateral" }));
+    expect(canvas.getAttribute("data-orientation")).toBe("lateral");
   });
 
   it("re-renders the court geometry when the orientation changes", () => {
     const { container } = render(<DrillViewer definition={definition} />);
     const courtSvg = container.querySelector("svg.drill-court-svg")!;
-    const topDownBox = courtSvg.getAttribute("viewBox")!;
-
-    fireEvent.click(screen.getByRole("button", { name: "Lateral" }));
     const lateralBox = courtSvg.getAttribute("viewBox")!;
 
-    expect(lateralBox).not.toBe(topDownBox);
+    fireEvent.click(screen.getByRole("button", { name: "Top down" }));
+    const topDownBox = courtSvg.getAttribute("viewBox")!;
+
+    expect(topDownBox).not.toBe(lateralBox);
+  });
+
+  it("renders the definition description above the court", () => {
+    const { container } = render(
+      <DrillViewer
+        definition={{ ...definition, description: "Short drill summary." }}
+      />
+    );
+    const desc = container.querySelector(".drill-definition-description")!;
+    expect(desc.textContent).toBe("Short drill summary.");
+    // "Above the court": the description node must precede the court canvas.
+    const canvas = container.querySelector(".drill-canvas")!;
+    expect(
+      desc.compareDocumentPosition(canvas) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it("renders no description element when the definition has none", () => {
+    const { container } = render(<DrillViewer definition={definition} />);
+    expect(
+      container.querySelector(".drill-definition-description")
+    ).toBeNull();
   });
 });

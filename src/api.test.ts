@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, setToken } from "./api";
+import { api, ApiValidationError, setToken } from "./api";
 
 const TOKEN_KEY = "bvb_api_token";
 
@@ -136,5 +136,77 @@ describe("postJSON (auth + mutations)", () => {
   it("falls back to the HTTP status when the error body is empty", async () => {
     mockFetchOnce({ ok: false, status: 500 });
     await expect(api.account()).rejects.toThrow("API Error: 500");
+  });
+});
+
+describe("ApiValidationError", () => {
+  it("carries the individual error strings for structured mapping", async () => {
+    const errors = ["Title can't be blank", "Definition schema: /court — bad"];
+    mockFetchOnce({ ok: false, status: 422, body: { errors } });
+    const rejection = await api.requestPasswordReset("x@example.com").catch(
+      (e: unknown) => e
+    );
+    expect(rejection).toBeInstanceOf(ApiValidationError);
+    expect((rejection as ApiValidationError).errors).toEqual(errors);
+    expect((rejection as ApiValidationError).name).toBe("ApiValidationError");
+  });
+
+  it("joins the errors into the message for plain `String(err)` display", async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 422,
+      body: { errors: ["A", "B"] },
+    });
+    await expect(api.requestPasswordReset("x@example.com")).rejects.toThrow("A. B");
+  });
+
+  it("is not thrown for a singular { error } body", async () => {
+    mockFetchOnce({ ok: false, status: 404, body: { error: "Drill not found" } });
+    const rejection = await api.drill("nope").catch((e: unknown) => e);
+    expect(rejection).toBeInstanceOf(Error);
+    expect(rejection).not.toBeInstanceOf(ApiValidationError);
+  });
+});
+
+describe("admin drill definition payloads", () => {
+  const definition = {
+    version: 1 as const,
+    court: { grid: { columns: 5, rows: 4 } },
+    participants: [],
+    balls: [],
+    objects: [],
+    steps: [],
+  };
+
+  it("includes the definition when creating a drill", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 201,
+      body: { id: 1, slug: "d" },
+    });
+    await api.adminCreateDrill({
+      title: "Drill",
+      training_stage: "warmup",
+      difficulty_level: "beginner",
+      min_players: 2,
+      max_players: 4,
+      ideal_num_players: 2,
+      definition,
+    });
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      drill: expect.objectContaining({ definition }),
+    });
+  });
+
+  it("forwards a null definition as an explicit clear", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      body: { id: 1, slug: "d" },
+    });
+    await api.adminUpdateDrill(1, { definition: null });
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ drill: { definition: null } });
   });
 });

@@ -8,6 +8,22 @@ export const API_BASE_URL =
 
 import type { DrillDefinition } from "./components/drill/definition";
 
+// ---------- API error types ----------
+/**
+ * Thrown when the API responds 4xx/5xx with a `{ errors: string[] }` body
+ * (Rails' standard validation-error shape). Carries the raw messages so callers
+ * can map them into structured issues instead of only showing a joined string.
+ */
+export class ApiValidationError extends Error {
+  readonly errors: string[];
+
+  constructor(errors: string[]) {
+    super(errors.join(". "));
+    this.name = "ApiValidationError";
+    this.errors = errors;
+  }
+}
+
 // ---------- API token (bearer auth for cross-origin SPA) ----------
 const TOKEN_KEY = "bvb_api_token";
 
@@ -193,7 +209,7 @@ async function postJSON<T>(endpoint: string, body: unknown, method = "POST"): Pr
   });
   if (!response.ok) {
     const data = await response.json().catch(() => null);
-    if (data?.errors) throw new Error(data.errors.join(". "));
+    if (Array.isArray(data?.errors)) throw new ApiValidationError(data.errors);
     if (data?.error) throw new Error(data.error);
     throw new Error(`API Error: ${response.status}`);
   }
@@ -270,6 +286,7 @@ export const api = {
     min_players: number;
     max_players: number;
     ideal_num_players: number;
+    definition?: DrillDefinition | null;
   }) => postJSON<Drill>("/admin/drills", { drill: data }),
   adminUpdateDrill: (
     id: string | number,
@@ -281,6 +298,7 @@ export const api = {
       min_players?: number;
       max_players?: number;
       ideal_num_players?: number;
+      definition?: DrillDefinition | null;
     }
   ) =>
     postJSON<Drill>(

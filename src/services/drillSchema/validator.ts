@@ -51,8 +51,13 @@ export function validateDrillDefinition(
   if (ok) {
     return { valid: true, issues: [] };
   }
-  const issues: DrillSchemaIssue[] =
-    (ajv as unknown as { errors: DrillSchemaIssue[] }).errors ??
-    [];
+  // Ajv stores the current error list on the compiled validate function
+  // (`validate.errors`), NOT on the Ajv instance. Each entry is an
+  // ErrorObject with at least instancePath/keyword/message.
+  const issues: DrillSchemaIssue[] = (validate.errors ?? []).map((e) => ({
+    instancePath: e.instancePath,
+    keyword: e.keyword,
+    message: e.message ?? "is invalid",
+  }));
   return { valid: false, issues };
 }

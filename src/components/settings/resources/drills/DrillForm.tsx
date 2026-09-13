@@ -1,10 +1,17 @@
-import { useEffect, useState } from "react";
-import { api, type Drill } from "../../../../api";
+import { useEffect, useMemo, useState } from "react";
+import { api, ApiValidationError, type Drill } from "../../../../api";
+import type { DrillDefinition } from "../../../drill/definition";
 import {
   TRAINING_STAGES,
   DIFFICULTY_LEVELS,
   isValidDrillRange,
 } from "../../../../utils/drills";
+import {
+  mapServerErrors,
+  parseAndValidateDefinition,
+  type DrillSchemaIssue,
+} from "../../../../services/drillSchema";
+import DrillDefinitionEditor from "./DrillDefinitionEditor";
 
 export interface DrillFormValues {
   title: string;
@@ -14,6 +21,8 @@ export interface DrillFormValues {
   min_players: string;
   max_players: string;
   ideal_num_players: string;
+  /** Raw JSON text for the definition column; "" means "no definition". */
+  definition: string;
 }
 
 interface DrillFormProps {
@@ -30,12 +39,17 @@ const EMPTY: DrillFormValues = {
   min_players: "",
   max_players: "",
   ideal_num_players: "",
+  definition: "",
 };
 
 export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormProps) {
   const [values, setValues] = useState<DrillFormValues>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [serverFeedback, setServerFeedback] = useState<{
+    definition: string;
+    issues: DrillSchemaIssue[];
+  } | null>(null);
 
   useEffect(() => {
     if (initial) {
@@ -47,6 +61,9 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
         min_players: String(initial.min_players),
         max_players: String(initial.max_players),
         ideal_num_players: String(initial.ideal_num_players),
+        definition: initial.definition
+          ? JSON.stringify(initial.definition, null, 2)
+          : "",
       });
     }
   }, [initial]);
@@ -54,9 +71,39 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
   const set = (key: keyof DrillFormValues, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
+  /** Pretty-print the definition text in place; a no-op when JSON is malformed. */
+  const formatDefinition = () => {
+    try {
+      const parsed = JSON.parse(values.definition);
+      set("definition", JSON.stringify(parsed, null, 2));
+    } catch {
+      // Leave the text untouched so the user can fix the syntax.
+    }
+  };
+
+  // Live feedback while typing: parse + schema-check the definition text.
+  const parseResult = useMemo(
+    () => parseAndValidateDefinition(values.definition),
+    [values.definition],
+  );
+
+  // Server-reported issues are stored with the definition text they were
+  // reported for, so they go stale (and disappear) as soon as the user edits
+  // the definition — no synchronising effect required.
+  const serverIssues =
+    serverFeedback && serverFeedback.definition === values.definition
+      ? serverFeedback.issues
+      : [];
+
+  // Prefer authoritative server feedback when present; otherwise show the
+  // live client-side schema issues for the text currently in the editor.
+  const displayIssues =
+    serverIssues.length > 0 ? serverIssues : parseResult.issues;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setServerFeedback(null);
 
     if (!values.title.trim()) {
       setError("Title is required.");
@@ -88,6 +135,17 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
       return;
     }
 
+    // Client-side pre-check against the shared v1 schema. Blank definitions are
+    // allowed (Rails skips validation for them). Rails remains the authority.
+    if (!parseResult.valid) {
+      setError(
+        parseResult.parseError
+          ? "Definition is not valid JSON."
+          : "Definition does not satisfy the v1 schema. See the issues below.",
+      );
+      return;
+    }
+
     const payload = {
       title: values.title.trim(),
       setup_instructions: values.setup_instructions.trim() || null,
@@ -96,6 +154,7 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
       min_players: min,
       max_players: max,
       ideal_num_players: ideal,
+      definition: parseResult.definition as DrillDefinition | null,
     };
 
     setSaving(true);
@@ -105,13 +164,34 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
         : await api.adminCreateDrill(payload);
       onSuccess(saved);
     } catch (err) {
+      if (err instanceof ApiValidationError) {
+        // Rails is the authority: surface its errors in the same issue list,
+        // tagged with the definition text they apply to.
+        setServerFeedback({
+          definition: values.definition,
+          issues: mapServerErrors(err.errors),
+        });
+      }
       setError(err instanceof Error ? err.message : "Failed to save drill.");
     } finally {
       setSaving(false);
     }
   };
 
-  return <DrillFormFields values={values} set={set} error={error} saving={saving} isNew={!initial} onCancel={onCancel} onSubmit={handleSubmit} />;
+  return (
+    <DrillFormFields
+      values={values}
+      set={set}
+      error={error}
+      saving={saving}
+      isNew={!initial}
+      onCancel={onCancel}
+      onSubmit={handleSubmit}
+      parseError={parseResult.parseError}
+      issues={displayIssues}
+      onFormat={formatDefinition}
+    />
+  );
 }
 
 /* __FIELDS__ */
@@ -123,6 +203,9 @@ function DrillFormFields({
   isNew,
   onCancel,
   onSubmit,
+  parseError,
+  issues,
+  onFormat,
 }: {
   values: DrillFormValues;
   set: (key: keyof DrillFormValues, value: string) => void;
@@ -131,6 +214,9 @@ function DrillFormFields({
   isNew: boolean;
   onCancel: () => void;
   onSubmit: (e: React.FormEvent) => void;
+  parseError: string | null;
+  issues: DrillSchemaIssue[];
+  onFormat: () => void;
 }) {
   return (
     <form onSubmit={onSubmit} className="admin-form">
@@ -194,6 +280,14 @@ function DrillFormFields({
           <input id="drill-ideal" type="number" min={1} value={values.ideal_num_players} onChange={(e) => set("ideal_num_players", e.target.value)} />
         </div>
       </div>
+
+      <DrillDefinitionEditor
+        value={values.definition}
+        onChange={(value) => set("definition", value)}
+        parseError={parseError}
+        issues={issues}
+        onFormat={onFormat}
+      />
 
       <div className="admin-form-actions">
         <button type="button" className="admin-btn" onClick={onCancel} disabled={saving}>
