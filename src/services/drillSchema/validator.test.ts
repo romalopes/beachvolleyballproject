@@ -19,7 +19,7 @@ import {
 function minimal(): Record<string, unknown> {
   return {
     version: 1,
-    court: { grid: { columns: 5, rows: 4 } },
+    side: { grid: { columns: 5, rows: 4 } },
     participants: [
       { id: "p1", type: "player" },
       { id: "coach", type: "coach" },
@@ -30,13 +30,13 @@ function minimal(): Record<string, unknown> {
       {
         id: "step1",
         participants: [
-          { id: "p1", active: true, location: { court: "court_1", x: 2, y: 2 } },
+          { id: "p1", active: true, location: { side: "side_1", x: 2, y: 2 } },
         ],
         balls: [
-          { id: "ball1", active: true, location: { court: "court_1", x: 3, y: 2 } },
+          { id: "ball1", active: true, location: { side: "side_1", x: 3, y: 2 } },
         ],
         objects: [
-          { id: "cone1", active: true, location: { court: "court_1", x: 4, y: 4 } },
+          { id: "cone1", active: true, location: { side: "side_1", x: 4, y: 4 } },
         ],
         actions: [
           { participant_id: "p1", action: { type: "serve", description: "Serve" } },
@@ -125,20 +125,20 @@ describe("validateDrillDefinition — valid definitions", () => {
     }
   });
 
-  it("accepts both court IDs", () => {
-    for (const c of ["court_1", "court_2"]) {
+  it("accepts both side IDs", () => {
+    for (const c of ["side_1", "side_2"]) {
       const def = {
         ...minimal(),
         steps: [
           {
             ...step0(),
             participants: [
-              { id: "p1", active: true, location: { court: c, x: 2, y: 2 } },
+              { id: "p1", active: true, location: { side: c, x: 2, y: 2 } },
             ],
           },
         ],
       } as Record<string, unknown>;
-      expect(validateDrillDefinition(def).valid, `court "${c}"`).toBe(true);
+      expect(validateDrillDefinition(def).valid, `side "${c}"`).toBe(true);
     }
   });
 
@@ -171,18 +171,18 @@ describe("validateDrillDefinition — valid definitions (cont.)", () => {
         {
           id: "step2",
           participants: [
-            { id: "p1", active: true, location: { court: "court_2", x: 3, y: 3 } },
+            { id: "p1", active: true, location: { side: "side_2", x: 3, y: 3 } },
           ],
           balls: [
-            { id: "ball1", active: true, location: { court: "court_2", x: 2, y: 4 } },
+            { id: "ball1", active: true, location: { side: "side_2", x: 2, y: 4 } },
           ],
           objects: [],
           actions: [],
           participant_movements: [
             {
               participant_id: "p1",
-              from: { court: "court_1", x: 2, y: 2 },
-              to: { court: "court_2", x: 3, y: 3 },
+              from: { side: "side_1", x: 2, y: 2 },
+              to: { side: "side_2", x: 3, y: 3 },
             },
           ],
           ball_movements: [],
@@ -206,19 +206,19 @@ describe("validateDrillDefinition — valid definitions (cont.)", () => {
           ...step0(),
           description: "First step",
           participants: [
-            { id: "p1", active: true, location: { court: "court_1", x: 2.5, y: 1.75 } },
+            { id: "p1", active: true, location: { side: "side_1", x: 2.5, y: 1.75 } },
           ],
           actions: [
             { participant_id: "p1", action: { type: "serve", description: "Jump serve" } },
           ],
           participant_movements: [
-            { participant_id: "p1", to: { court: "court_1", x: 3, y: 3 }, description: "Shuffle" },
+            { participant_id: "p1", to: { side: "side_1", x: 3, y: 3 }, description: "Shuffle" },
           ],
           ball_movements: [
-            { ball_id: "ball1", to: { court: "court_2", x: 2, y: 4 }, description: "Toss" },
+            { ball_id: "ball1", to: { side: "side_2", x: 2, y: 4 }, description: "Toss" },
           ],
           object_movements: [
-            { object_id: "cone1", to: { court: "court_1", x: 5, y: 4 }, description: "Reset" },
+            { object_id: "cone1", to: { side: "side_1", x: 5, y: 4 }, description: "Reset" },
           ],
         },
       ],
@@ -226,17 +226,17 @@ describe("validateDrillDefinition — valid definitions (cont.)", () => {
     expect(validateDrillDefinition(def).valid).toBe(true);
   });
 
-  it("accepts a court extended_area with all flags", () => {
+  it("accepts a side extended_area with all flags", () => {
     const def = {
       ...minimal(),
-      court: {
+      side: {
         grid: { columns: 5, rows: 4 },
         extended_area: {
           enabled: true,
           left: true,
           right: false,
-          court_1: true,
-          court_2: false,
+          side_1: true,
+          side_2: false,
         },
       },
     } as Record<string, unknown>;
@@ -247,7 +247,7 @@ describe("validateDrillDefinition — valid definitions (cont.)", () => {
 describe("root object", () => {
   const required = [
     "version",
-    "court",
+    "side",
     "participants",
     "balls",
     "objects",
@@ -278,44 +278,44 @@ describe("root object", () => {
   });
 });
 
-describe("court", () => {
-  it("rejects court not an object", () => {
-    expect(validateDrillDefinition({ ...minimal(), court: "x" }).valid).toBe(false);
+describe("side", () => {
+  it("rejects side not an object", () => {
+    expect(validateDrillDefinition({ ...minimal(), side: "x" }).valid).toBe(false);
   });
 
-  it("rejects court missing grid", () => {
-    expectKeyword({ ...minimal(), court: {} }, "required");
+  it("rejects side missing grid", () => {
+    expectKeyword({ ...minimal(), side: {} }, "required");
   });
 
   it("rejects grid missing columns/rows", () => {
-    expectKeyword({ ...minimal(), court: { grid: { columns: 5 } } }, "required");
-    expectKeyword({ ...minimal(), court: { grid: { rows: 4 } } }, "required");
+    expectKeyword({ ...minimal(), side: { grid: { columns: 5 } } }, "required");
+    expectKeyword({ ...minimal(), side: { grid: { rows: 4 } } }, "required");
   });
 
   it("rejects grid columns/rows below minimum 1", () => {
-    expectKeyword({ ...minimal(), court: { grid: { columns: 0, rows: 4 } } }, "minimum");
-    expectKeyword({ ...minimal(), court: { grid: { columns: 5, rows: 0 } } }, "minimum");
+    expectKeyword({ ...minimal(), side: { grid: { columns: 0, rows: 4 } } }, "minimum");
+    expectKeyword({ ...minimal(), side: { grid: { columns: 5, rows: 0 } } }, "minimum");
   });
 
   it("rejects grid columns/rows as non-integer", () => {
-    expect(validateDrillDefinition({ ...minimal(), court: { grid: { columns: 1.5, rows: 4 } } }).valid).toBe(false);
-    expect(validateDrillDefinition({ ...minimal(), court: { grid: { columns: "5", rows: 4 } } }).valid).toBe(false);
+    expect(validateDrillDefinition({ ...minimal(), side: { grid: { columns: 1.5, rows: 4 } } }).valid).toBe(false);
+    expect(validateDrillDefinition({ ...minimal(), side: { grid: { columns: "5", rows: 4 } } }).valid).toBe(false);
   });
 
   it("rejects extended_area missing enabled or with bad flags", () => {
     expectKeyword(
-      { ...minimal(), court: { grid: { columns: 5, rows: 4 }, extended_area: { left: true } } },
+      { ...minimal(), side: { grid: { columns: 5, rows: 4 }, extended_area: { left: true } } },
       "required"
     );
     expect(validateDrillDefinition({
       ...minimal(),
-      court: { grid: { columns: 5, rows: 4 }, extended_area: { enabled: "yes" } },
+      side: { grid: { columns: 5, rows: 4 }, extended_area: { enabled: "yes" } },
     }).valid).toBe(false);
   });
 
-  it("rejects extra court properties", () => {
+  it("rejects extra side properties", () => {
     expectKeyword(
-      { ...minimal(), court: { grid: { columns: 5, rows: 4 }, color: "blue" } },
+      { ...minimal(), side: { grid: { columns: 5, rows: 4 }, color: "blue" } },
       "additionalProperties"
     );
   });
@@ -480,29 +480,29 @@ describe("entityState (in-step)", () => {
     );
   });
 
-  it("rejects location with invalid court", () => {
+  it("rejects location with invalid side", () => {
     expectKeyword(
-      withParticipants({ id: "p1", active: true, location: { court: "court_3", x: 1, y: 1 } }),
+      withParticipants({ id: "p1", active: true, location: { side: "side_3", x: 1, y: 1 } }),
       "enum"
     );
   });
 
-  it("rejects location missing court/x/y", () => {
+  it("rejects location missing side/x/y", () => {
     expectKeyword(withParticipants({ id: "p1", active: true, location: { x: 1, y: 1 } }), "required");
-    expectKeyword(withParticipants({ id: "p1", active: true, location: { court: "court_1", y: 1 } }), "required");
-    expectKeyword(withParticipants({ id: "p1", active: true, location: { court: "court_1", x: 1 } }), "required");
+    expectKeyword(withParticipants({ id: "p1", active: true, location: { side: "side_1", y: 1 } }), "required");
+    expectKeyword(withParticipants({ id: "p1", active: true, location: { side: "side_1", x: 1 } }), "required");
   });
 
   it("rejects location with extra properties", () => {
     expectKeyword(
-      withParticipants({ id: "p1", active: true, location: { court: "court_1", x: 1, y: 1, rotation: 90 } }),
+      withParticipants({ id: "p1", active: true, location: { side: "side_1", x: 1, y: 1, rotation: 90 } }),
       "additionalProperties"
     );
   });
 
   it("rejects location x/y as non-number", () => {
-    expectKeyword(withParticipants({ id: "p1", active: true, location: { court: "court_1", x: "1", y: 1 } }), "type");
-    expectKeyword(withParticipants({ id: "p1", active: true, location: { court: "court_1", x: 1, y: "1" } }), "type");
+    expectKeyword(withParticipants({ id: "p1", active: true, location: { side: "side_1", x: "1", y: 1 } }), "type");
+    expectKeyword(withParticipants({ id: "p1", active: true, location: { side: "side_1", x: 1, y: "1" } }), "type");
   });
 });
 
@@ -552,7 +552,7 @@ describe("participant_movements", () => {
   }
 
   it("rejects missing participant_id", () => {
-    expectKeyword(withMovements([{ to: { court: "court_1", x: 1, y: 1 } }]), "required");
+    expectKeyword(withMovements([{ to: { side: "side_1", x: 1, y: 1 } }]), "required");
   });
 
   it("rejects missing to", () => {
@@ -562,7 +562,7 @@ describe("participant_movements", () => {
   it("rejects from as non-location", () => {
     expectKeyword(
       withMovements([
-        { participant_id: "p1", from: { bad: true }, to: { court: "court_1", x: 1, y: 1 } },
+        { participant_id: "p1", from: { bad: true }, to: { side: "side_1", x: 1, y: 1 } },
       ]),
       "required"
     );
@@ -571,7 +571,7 @@ describe("participant_movements", () => {
   it("rejects extra properties", () => {
     expectKeyword(
       withMovements([
-        { participant_id: "p1", to: { court: "court_1", x: 1, y: 1 }, velocity: 5 },
+        { participant_id: "p1", to: { side: "side_1", x: 1, y: 1 }, velocity: 5 },
       ]),
       "additionalProperties"
     );
@@ -584,7 +584,7 @@ describe("ball_movements", () => {
   }
 
   it("rejects missing ball_id", () => {
-    expectKeyword(withMovements([{ to: { court: "court_1", x: 1, y: 1 } }]), "required");
+    expectKeyword(withMovements([{ to: { side: "side_1", x: 1, y: 1 } }]), "required");
   });
 
   it("rejects missing to", () => {
@@ -594,7 +594,7 @@ describe("ball_movements", () => {
   it("rejects extra properties", () => {
     expectKeyword(
       withMovements([
-        { ball_id: "ball1", to: { court: "court_1", x: 1, y: 1 }, spin: 1000 },
+        { ball_id: "ball1", to: { side: "side_1", x: 1, y: 1 }, spin: 1000 },
       ]),
       "additionalProperties"
     );
@@ -607,7 +607,7 @@ describe("object_movements", () => {
   }
 
   it("rejects missing object_id", () => {
-    expectKeyword(withMovements([{ to: { court: "court_1", x: 1, y: 1 } }]), "required");
+    expectKeyword(withMovements([{ to: { side: "side_1", x: 1, y: 1 } }]), "required");
   });
 
   it("rejects missing to", () => {
@@ -617,7 +617,7 @@ describe("object_movements", () => {
   it("rejects extra properties", () => {
     expectKeyword(
       withMovements([
-        { object_id: "cone1", to: { court: "court_1", x: 1, y: 1 }, force: 50 },
+        { object_id: "cone1", to: { side: "side_1", x: 1, y: 1 }, force: 50 },
       ]),
       "additionalProperties"
     );
@@ -628,7 +628,7 @@ describe("allErrors mode", () => {
   it("reports multiple independent issues in one pass", () => {
     const def = {
       version: "1",
-      court: { grid: { columns: 0, rows: 0 } },
+      side: { grid: { columns: 0, rows: 0 } },
       participants: [{ id: "", type: "referee" }],
       balls: "not-array",
       objects: "not-array",

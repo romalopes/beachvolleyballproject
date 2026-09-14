@@ -61,7 +61,7 @@ describe("mapServerErrors — other server errors", () => {
   it("preserves order and length for a mixed list", () => {
     const raw = [
       "Title can't be blank",
-      "Definition schema: /court — must be object",
+      "Definition schema: /side — must be object",
       "Definition domain: duplicate ball id 'B1'",
     ];
     const issues = mapServerErrors(raw);

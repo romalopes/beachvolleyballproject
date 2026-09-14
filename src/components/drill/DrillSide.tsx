@@ -1,21 +1,21 @@
 /**
- * DrillCourt — renders the two logical courts, the net, the 5x4 reference
+ * DrillSide — renders the two logical sides, the net, the 5x4 reference
  * grid (thin continuous lines, not boxes) and the extended areas.
  */
 
-import type { CourtConfig, Orientation } from "./definition";
-import { buildCourtGeometry, type CourtGeometry } from "./geometry";
+import type { SideConfig, Orientation } from "./definition";
+import { buildSideGeometry, type SideGeometry } from "./geometry";
 
-interface DrillCourtProps {
+interface DrillSideProps {
   orientation: Orientation;
-  court: CourtConfig;
+  side: SideConfig;
 }
 
-export default function DrillCourt({ orientation, court }: DrillCourtProps) {
-  const geometry: CourtGeometry = buildCourtGeometry(orientation, court);
+export default function DrillSide({ orientation, side }: DrillSideProps) {
+  const geometry: SideGeometry = buildSideGeometry(orientation, side);
   const { grid } = geometry;
 
-  const renderCourt = (rect: CourtGeometry["court1"], label: string) => {
+  const renderSide = (rect: SideGeometry["side1"], label: string) => {
     const lateral = geometry.orientation === "lateral";
     const lines = [];
     // Column lines (constant x, sideline axis):
@@ -80,13 +80,13 @@ export default function DrillCourt({ orientation, court }: DrillCourtProps) {
     }
     return (
       <g>
-        <rect {...rect} className="drill-court-boundary" />
+        <rect {...rect} className="drill-side-boundary" />
         {lines}
         <text
           x={rect.x + rect.width / 2}
           y={rect.y - 8}
           textAnchor="middle"
-          className="drill-court-label"
+          className="drill-side-label"
         >
           {label}
         </text>
@@ -94,7 +94,7 @@ export default function DrillCourt({ orientation, court }: DrillCourtProps) {
     );
   };
 
-  /** Net band between the courts: rails (band border) + rung stripes + center mark. */
+  /** Net band between the sides: rails (band border) + rung stripes + center mark. */
   const renderNet = () => {
     const n = geometry.net;
     const horizontal = geometry.orientation === "lateral";
@@ -156,9 +156,9 @@ export default function DrillCourt({ orientation, court }: DrillCourtProps) {
   return (
     <svg
       viewBox={`0 0 ${geometry.width} ${geometry.height}`}
-      className="drill-court-svg"
+      className="drill-side-svg"
       role="img"
-      aria-label="Drill courts"
+      aria-label="Drill sides"
     >
       {/* Extended areas (visually subordinate, dashed); only enabled sides exist. */}
       {Object.values(geometry.extensions)
@@ -166,13 +166,13 @@ export default function DrillCourt({ orientation, court }: DrillCourtProps) {
         .map((rect, i) => (
           <rect
             key={i}
-            {...(rect as CourtGeometry["court1"])}
+            {...(rect as SideGeometry["side1"])}
             className="drill-extended-area"
           />
         ))}
 
-      {renderCourt(geometry.court1, "SIDE 1")}
-      {renderCourt(geometry.court2, "SIDE 2")}
+      {renderSide(geometry.side1, "SIDE 1")}
+      {renderSide(geometry.side2, "SIDE 2")}
 
       {/* Net */}
       {renderNet()}

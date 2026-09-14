@@ -19,8 +19,8 @@
 /** @see $defs/orientation */
 export type Orientation = "top_down" | "lateral";
 
-/** @see $defs/courtId */
-export type CourtId = "court_1" | "court_2";
+/** @see $defs/sideId */
+export type SideId = "side_1" | "side_2";
 
 /** @see $defs/participantType */
 export type ParticipantType =
@@ -83,12 +83,12 @@ export interface ExtendedArea {
   enabled: boolean;
   left?: boolean;
   right?: boolean;
-  court_1?: boolean;
-  court_2?: boolean;
+  side_1?: boolean;
+  side_2?: boolean;
 }
 
-/** @see $defs/court */
-export interface Court {
+/** @see $defs/side */
+export interface Side {
   grid: Grid;
   extended_area?: ExtendedArea;
 }
@@ -100,7 +100,7 @@ export interface ViewConfig {
 
 /** @see $defs/location */
 export interface Location {
-  court: CourtId;
+  side: SideId;
   x: number;
   y: number;
 }
@@ -188,10 +188,10 @@ export interface Step {
 /** Mirror of the schema root object (version is the literal `1` per `$defs` const). */
 export interface DrillDefinition {
   version: 1;
-  /** Optional — human-readable summary of the drill, shown above the court. */
+  /** Optional — human-readable summary of the drill, shown above the side. */
   description?: string;
   view?: ViewConfig;
-  court: Court;
+  side: Side;
   participants: Participant[];
   balls: Ball[];
   objects: DrillObject[];

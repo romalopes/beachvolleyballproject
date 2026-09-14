@@ -1,7 +1,7 @@
 /**
  * DrillLegend — legend of every participant, ball and object in the drill
  * definition. Reuses the real entity components as swatches so shapes,
- * colors and labels always match the court rendering.
+ * colors and labels always match the side rendering.
  */
 
 import type { ReactNode } from "react";
@@ -14,7 +14,7 @@ interface DrillLegendProps {
   definition: DrillDefinition;
 }
 
-/** Swatch SVG hosting an entity component with the same visuals as the court. */
+/** Swatch SVG hosting an entity component with the same visuals as the side. */
 function LegendSwatch({ children, title }: { children: ReactNode; title?: string }) {
   return (
     <svg viewBox="-14 -14 28 32" width={30} height={30} className="drill-legend-swatch" aria-hidden="true">
@@ -31,7 +31,7 @@ export default function DrillLegend({ definition }: DrillLegendProps) {
   const balls = definition.balls ?? [];
   const objects = definition.objects ?? [];
 
-  // Objects are labeled by type on the court, so the legend groups instances
+  // Objects are labeled by type on the side, so the legend groups instances
   // by type instead of listing every id individually.
   const objectTypes = objects.reduce<{ type: string; count: number; description?: string }[]>(
     (acc, o) => {

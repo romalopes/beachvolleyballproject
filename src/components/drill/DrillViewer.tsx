@@ -1,7 +1,7 @@
 /**
- * DrillViewer — coordinates step state, court rendering, actions, animation
+ * DrillViewer — coordinates step state, side rendering, actions, animation
  * and playback. Owns the orientation toggle (a viewer concern; definitions
- * no longer carry orientation). Contains no court geometry calculations.
+ * no longer carry orientation). Contains no side geometry calculations.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -14,8 +14,8 @@ import type {
   Step,
 } from "./definition";
 import { DEFAULT_ORIENTATION } from "./definition";
-import { buildCourtGeometry, locationToSvg } from "./geometry";
-import DrillCourt from "./DrillCourt";
+import { buildSideGeometry, locationToSvg } from "./geometry";
+import DrillSide from "./DrillSide";
 import Participant from "./Participant";
 import Ball from "./Ball";
 import DrillObject from "./DrillObject";
@@ -50,9 +50,9 @@ export default function DrillViewer({
     useState<Orientation>(DEFAULT_ORIENTATION);
   // Speed is a viewer concern too: multiplier applied to the base step duration.
   const [speed, setSpeed] = useState(1);
-  // Court display size: percentage of the container width; height follows the
-  // fixed aspect ratio, so one slider scales the whole court. Purely visual.
-  const [courtScale, setCourtScale] = useState(100);
+  // Side display size: percentage of the container width; height follows the
+  // fixed aspect ratio, so one slider scales the whole side. Purely visual.
+  const [sideScale, setSideScale] = useState(100);
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef<number | null>(null);
   // Progress is mirrored in a ref so the RAF loop accumulates deltas without
@@ -60,7 +60,7 @@ export default function DrillViewer({
   const progressRef = useRef(0);
 
   const geometry = useMemo(
-    () => buildCourtGeometry(orientation, definition.court),
+    () => buildSideGeometry(orientation, definition.side),
     [definition, orientation],
   );
 
@@ -135,11 +135,11 @@ export default function DrillViewer({
    *
    * At rest (paused or progress 0) this is exactly the current step state's
    * location. While playing it interpolates movement.from → movement.to,
-   * converting each endpoint through locationToSvg() with its OWN court
+   * converting each endpoint through locationToSvg() with its OWN side
    * first and then lerping the SVG pixels. A Location cannot represent
-   * "between courts", so cross-court flights must interpolate in SVG space —
-   * pinning the whole trajectory to the target court flattens the launch
-   * point into the wrong court.
+   * "between sides", so cross-side flights must interpolate in SVG space —
+   * pinning the whole trajectory to the target side flattens the launch
+   * point into the wrong side.
    */
   const framePoint = (
     states: EntityState[],
@@ -190,7 +190,7 @@ export default function DrillViewer({
           meta && "role" in meta && meta.role ? `Role: ${meta.role}` : "",
           meta?.description ?? "",
           actions.length ? `Actions: ${actions.join(", ")}` : "",
-          `Pos: ${s.location.court} (${s.location.x.toFixed(2)}, ${s.location.y.toFixed(2)})`,
+          `Pos: ${s.location.side} (${s.location.x.toFixed(2)}, ${s.location.y.toFixed(2)})`,
         ].filter(Boolean),
       };
       const handlers = {
@@ -271,7 +271,7 @@ export default function DrillViewer({
         <div
           className="drill-orientation-toggle"
           role="group"
-          aria-label="Court orientation"
+          aria-label="Side orientation"
         >
           <button
             type="button"
@@ -301,11 +301,11 @@ export default function DrillViewer({
             min={50}
             max={150}
             step={5}
-            value={courtScale}
-            aria-label="Court size"
-            onChange={(e) => setCourtScale(Number(e.target.value))}
+            value={sideScale}
+            aria-label="Side size"
+            onChange={(e) => setSideScale(Number(e.target.value))}
           />
-          <span className="drill-speed-value">{courtScale}%</span>
+          <span className="drill-speed-value">{sideScale}%</span>
         </div>
         <div className="drill-speed-control">
           <label
@@ -333,15 +333,15 @@ export default function DrillViewer({
         className="drill-canvas"
         data-orientation={orientation}
         style={{
-          width: `${courtScale}%`,
+          width: `${sideScale}%`,
           // The CSS top_down cap scales with the slider (100% → 540px).
           maxWidth:
             orientation === "top_down"
-              ? `${Math.round(540 * (courtScale / 100))}px`
+              ? `${Math.round(540 * (sideScale / 100))}px`
               : undefined,
         }}
       >
-        <DrillCourt orientation={orientation} court={definition.court} />
+        <DrillSide orientation={orientation} side={definition.side} />
 
         <svg
           viewBox={`0 0 ${geometry.width} ${geometry.height}`}

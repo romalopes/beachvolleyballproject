@@ -38,7 +38,7 @@ describe("drill-definition-v1 schema synchronization", () => {
     expect(parsed.type).toBe("object");
     expect(parsed.properties?.version).toEqual({ const: 1 });
     expect(parsed.required).toContain("version");
-    expect(parsed.required).toContain("court");
+    expect(parsed.required).toContain("side");
     expect(parsed.required).toContain("participants");
     expect(parsed.required).toContain("balls");
     expect(parsed.required).toContain("objects");

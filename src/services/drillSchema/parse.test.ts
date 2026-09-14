@@ -10,7 +10,7 @@ import { parseAndValidateDefinition } from "./parse";
 /** Minimal definition that satisfies the shared v1 schema. */
 const validDefinition = {
   version: 1,
-  court: { grid: { columns: 5, rows: 4 } },
+  side: { grid: { columns: 5, rows: 4 } },
   participants: [{ id: "p1", type: "player" }],
   balls: [{ id: "ball1", type: "volleyball" }],
   objects: [{ id: "cone1", type: "cone" }],
@@ -18,13 +18,13 @@ const validDefinition = {
     {
       id: "step1",
       participants: [
-        { id: "p1", active: true, location: { court: "court_1", x: 2, y: 2 } },
+        { id: "p1", active: true, location: { side: "side_1", x: 2, y: 2 } },
       ],
       balls: [
-        { id: "ball1", active: true, location: { court: "court_1", x: 3, y: 2 } },
+        { id: "ball1", active: true, location: { side: "side_1", x: 3, y: 2 } },
       ],
       objects: [
-        { id: "cone1", active: true, location: { court: "court_1", x: 4, y: 4 } },
+        { id: "cone1", active: true, location: { side: "side_1", x: 4, y: 4 } },
       ],
       actions: [],
       participant_movements: [],

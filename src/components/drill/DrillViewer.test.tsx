@@ -16,7 +16,7 @@ const emptyStep = {
 
 const definition: DrillDefinition = {
   version: 1,
-  court: { grid: { columns: 5, rows: 4 } },
+  side: { grid: { columns: 5, rows: 4 } },
   participants: [],
   balls: [],
   objects: [],
@@ -38,18 +38,18 @@ describe("DrillViewer — orientation toggle", () => {
     expect(canvas.getAttribute("data-orientation")).toBe("lateral");
   });
 
-  it("re-renders the court geometry when the orientation changes", () => {
+  it("re-renders the side geometry when the orientation changes", () => {
     const { container } = render(<DrillViewer definition={definition} />);
-    const courtSvg = container.querySelector("svg.drill-court-svg")!;
-    const lateralBox = courtSvg.getAttribute("viewBox")!;
+    const sideSvg = container.querySelector("svg.drill-side-svg")!;
+    const lateralBox = sideSvg.getAttribute("viewBox")!;
 
     fireEvent.click(screen.getByRole("button", { name: "Top down" }));
-    const topDownBox = courtSvg.getAttribute("viewBox")!;
+    const topDownBox = sideSvg.getAttribute("viewBox")!;
 
     expect(topDownBox).not.toBe(lateralBox);
   });
 
-  it("renders the definition description above the court", () => {
+  it("renders the definition description above the side", () => {
     const { container } = render(
       <DrillViewer
         definition={{ ...definition, description: "Short drill summary." }}
@@ -57,7 +57,7 @@ describe("DrillViewer — orientation toggle", () => {
     );
     const desc = container.querySelector(".drill-definition-description")!;
     expect(desc.textContent).toBe("Short drill summary.");
-    // "Above the court": the description node must precede the court canvas.
+    // "Above the side": the description node must precede the side canvas.
     const canvas = container.querySelector(".drill-canvas")!;
     expect(
       desc.compareDocumentPosition(canvas) & Node.DOCUMENT_POSITION_FOLLOWING

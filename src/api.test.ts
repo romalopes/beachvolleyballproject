@@ -141,7 +141,7 @@ describe("postJSON (auth + mutations)", () => {
 
 describe("ApiValidationError", () => {
   it("carries the individual error strings for structured mapping", async () => {
-    const errors = ["Title can't be blank", "Definition schema: /court — bad"];
+    const errors = ["Title can't be blank", "Definition schema: /side — bad"];
     mockFetchOnce({ ok: false, status: 422, body: { errors } });
     const rejection = await api.requestPasswordReset("x@example.com").catch(
       (e: unknown) => e
@@ -171,7 +171,7 @@ describe("ApiValidationError", () => {
 describe("admin drill definition payloads", () => {
   const definition = {
     version: 1 as const,
-    court: { grid: { columns: 5, rows: 4 } },
+    side: { grid: { columns: 5, rows: 4 } },
     participants: [],
     balls: [],
     objects: [],

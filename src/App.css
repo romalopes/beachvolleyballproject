@@ -1141,7 +1141,7 @@
   margin-top: 1rem;
 }
 
-/* Optional definition-level description, rendered above the court. */
+/* Optional definition-level description, rendered above the side. */
 .drill-definition-description {
   margin: 0 0 0.75rem;
   font-size: 0.9rem;
@@ -1231,19 +1231,19 @@
 }
 
 /* top_down is tall — cap its displayed width and anchor it to the left
-   edge so both courts stay visible with less scrolling. lateral stays full width. */
+   edge so both sides stay visible with less scrolling. lateral stays full width. */
 .drill-canvas[data-orientation="top_down"] {
   max-width: 540px;
 }
 
-.drill-court-svg,
+.drill-side-svg,
 .drill-entities-svg {
   width: 100%;
   height: auto;
   display: block;
 }
 
-/* The entity layer floats over the court layer. */
+/* The entity layer floats over the side layer. */
 .drill-entities-svg {
   position: absolute;
   inset: 0;
@@ -1253,7 +1253,7 @@
   pointer-events: auto;
 }
 
-.drill-court-boundary {
+.drill-side-boundary {
   fill: #fafafa;
   stroke: #94a3b8;
   stroke-width: 1.5;
@@ -1264,7 +1264,7 @@
   stroke-width: 0.75;
 }
 
-.drill-court-label {
+.drill-side-label {
   font-size: 13px;
   font-weight: 600;
   fill: #64748b;

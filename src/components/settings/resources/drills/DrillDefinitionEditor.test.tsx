@@ -45,13 +45,13 @@ describe("DrillDefinitionEditor", () => {
         onChange={noop}
         parseError={null}
         issues={[
-          { instancePath: "/court", keyword: "required", message: "must have required property 'court'" },
+          { instancePath: "/side", keyword: "required", message: "must have required property 'side'" },
         ]}
         onFormat={noop}
       />,
     );
     expect(
-      screen.getByText("/court: must have required property 'court'"),
+      screen.getByText("/side: must have required property 'side'"),
     ).toBeInTheDocument();
   });
 
@@ -130,7 +130,7 @@ describe("DrillDefinitionEditor", () => {
         value="{}"
         onChange={noop}
         parseError={null}
-        issues={[{ instancePath: "/court", keyword: "required", message: "missing" }]}
+        issues={[{ instancePath: "/side", keyword: "required", message: "missing" }]}
         onFormat={noop}
       />,
     );

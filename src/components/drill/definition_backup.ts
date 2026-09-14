@@ -2,7 +2,7 @@
  * Drill definition model — v1.
  *
  * The definition describes the drill in logical terms only:
- * two courts, a 5x4 reference grid, fractional coordinates,
+ * two sides, a 5x4 reference grid, fractional coordinates,
  * participants/balls/objects, ordered steps with full entity state,
  * separate actions and movements.
  *
@@ -10,7 +10,7 @@
  */
 
 export type Orientation = "top_down" | "lateral";
-export type CourtId = "court_1" | "court_2";
+export type SideId = "side_1" | "side_2";
 export type ParticipantType =
   | "player"
   | "coach"
@@ -60,29 +60,29 @@ export type ActionType = (typeof ACTION_TYPES)[number];
 
 export interface ExtendedArea {
   enabled: boolean;
-  /** Lateral (sideline) extensions of the physical court. */
+  /** Lateral (sideline) extensions of the physical side. */
   left?: boolean;
   right?: boolean;
   /** Areas beyond the respective baselines. */
-  court_1?: boolean;
-  court_2?: boolean;
+  side_1?: boolean;
+  side_2?: boolean;
 }
 
 export interface ViewConfig {
   orientation: Orientation;
 }
 
-export interface CourtConfig {
+export interface SideConfig {
   grid: { columns: number; rows: number };
   extended_area?: ExtendedArea;
 }
 
 /**
- * Logical location on one of the two courts.
+ * Logical location on one of the two sides.
  * x/y are fractional reference-grid coordinates, not pixels.
  */
 export interface Location {
-  court: CourtId;
+  side: SideId;
   x: number;
   y: number;
 }
@@ -154,7 +154,7 @@ export interface Step {
 export interface DrillDefinition {
   version: 1;
   view: ViewConfig;
-  court: CourtConfig;
+  side: SideConfig;
   participants: Participant[];
   balls: Ball[];
   objects: DrillObject[];
@@ -170,14 +170,14 @@ export interface DrillDefinition {
 export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
   version: 1,
   view: { orientation: "lateral" },
-  court: {
+  side: {
     grid: { columns: 5, rows: 4 },
     extended_area: {
       enabled: true,
       left: true,
       right: true,
-      court_1: true,
-      court_2: true,
+      side_1: true,
+      side_2: true,
     },
   },
   participants: [
@@ -206,44 +206,44 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
     { id: "B2", type: "volleyball", description: "Coach's second ball." },
   ],
   objects: [
-    { id: "O1", type: "cone", description: "Defensive target on court 2." },
+    { id: "O1", type: "cone", description: "Defensive target on side 2." },
   ],
   steps: [
     {
       id: "S1",
       description:
-        "Initial setup: P1 ready to toss from court 1; C1 waits behind the baseline with ball B2.",
+        "Initial setup: P1 ready to toss from side 1; C1 waits behind the baseline with ball B2.",
       participants: [
-        { id: "P1", active: true, location: { court: "court_1", x: 3, y: 1 } },
+        { id: "P1", active: true, location: { side: "side_1", x: 3, y: 1 } },
         {
           id: "P2",
           active: true,
-          location: { court: "court_2", x: 2, y: 2 },
+          location: { side: "side_2", x: 2, y: 2 },
         },
         {
           id: "P3",
           active: true,
-          location: { court: "court_2", x: 3.5, y: 2 },
+          location: { side: "side_2", x: 3.5, y: 2 },
         },
         {
           id: "C1",
           active: true,
-          location: { court: "court_1", x: 3, y: 0.5 },
+          location: { side: "side_1", x: 3, y: 0.5 },
         },
       ],
       balls: [
-        { id: "B1", active: true, location: { court: "court_1", x: 3, y: 1 } },
+        { id: "B1", active: true, location: { side: "side_1", x: 3, y: 1 } },
         {
           id: "B2",
           active: true,
-          location: { court: "court_1", x: 3, y: 0.5 },
+          location: { side: "side_1", x: 3, y: 0.5 },
         },
       ],
       objects: [
         {
           id: "O1",
           active: true,
-          location: { court: "court_2", x: 4.5, y: 1 },
+          location: { side: "side_2", x: 4.5, y: 1 },
         },
       ],
       actions: [],
@@ -253,40 +253,40 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       description:
         "P1 tosses B1 over the net; P2 receives and passes toward P3.",
       participants: [
-        { id: "P1", active: true, location: { court: "court_1", x: 3, y: 1 } },
+        { id: "P1", active: true, location: { side: "side_1", x: 3, y: 1 } },
         {
           id: "P2",
           active: true,
-          location: { court: "court_2", x: 2.5, y: 2.5 },
+          location: { side: "side_2", x: 2.5, y: 2.5 },
         },
         {
           id: "P3",
           active: true,
-          location: { court: "court_2", x: 3.5, y: 2 },
+          location: { side: "side_2", x: 3.5, y: 2 },
         },
         {
           id: "C1",
           active: true,
-          location: { court: "court_1", x: 3, y: 0.5 },
+          location: { side: "side_1", x: 3, y: 0.5 },
         },
       ],
       balls: [
         {
           id: "B1",
           active: true,
-          location: { court: "court_1", x: 3, y: 2 },
+          location: { side: "side_1", x: 3, y: 2 },
         },
         {
           id: "B2",
           active: true,
-          location: { court: "court_1", x: 3, y: 0.5 },
+          location: { side: "side_1", x: 3, y: 0.5 },
         },
       ],
       objects: [
         {
           id: "O1",
           active: true,
-          location: { court: "court_2", x: 4.5, y: 1 },
+          location: { side: "side_2", x: 4.5, y: 1 },
         },
       ],
       actions: [
@@ -306,8 +306,8 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       ball_movements: [
         {
           ball_id: "B1",
-          from: { court: "court_1", x: 3, y: 2 },
-          to: { court: "court_2", x: 2.5, y: 2.5 },
+          from: { side: "side_1", x: 3, y: 2 },
+          to: { side: "side_2", x: 2.5, y: 2.5 },
           description: "B1 travels over the net to P2.",
         },
       ],
@@ -320,41 +320,41 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
         {
           id: "P1",
           active: true,
-          location: { court: "court_1", x: 2, y: 1 },
+          location: { side: "side_1", x: 2, y: 1 },
         },
         {
           id: "P2",
           active: true,
-          location: { court: "court_2", x: 2.5, y: 1.25 },
+          location: { side: "side_2", x: 2.5, y: 1.25 },
         },
         {
           id: "P3",
           active: true,
-          location: { court: "court_2", x: 3.5, y: 2 },
+          location: { side: "side_2", x: 3.5, y: 2 },
         },
         {
           id: "C1",
           active: true,
-          location: { court: "court_1", x: 3, y: 0.5 },
+          location: { side: "side_1", x: 3, y: 0.5 },
         },
       ],
       balls: [
         {
           id: "B1",
           active: true,
-          location: { court: "court_2", x: 2.5, y: 1.25 },
+          location: { side: "side_2", x: 2.5, y: 1.25 },
         },
         {
           id: "B2",
           active: true,
-          location: { court: "court_2", x: 3.5, y: 2 },
+          location: { side: "side_2", x: 3.5, y: 2 },
         },
       ],
       objects: [
         {
           id: "O1",
           active: true,
-          location: { court: "court_2", x: 4.5, y: 1 },
+          location: { side: "side_2", x: 4.5, y: 1 },
         },
       ],
       actions: [
@@ -391,28 +391,28 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       participant_movements: [
         {
           participant_id: "P1",
-          from: { court: "court_1", x: 3, y: 1 },
-          to: { court: "court_1", x: 2.5, y: 4 },
+          from: { side: "side_1", x: 3, y: 1 },
+          to: { side: "side_1", x: 2.5, y: 4 },
           description: "P1 crosses the net to block or peel.",
         },
         {
           participant_id: "P2",
-          from: { court: "court_2", x: 2.5, y: 2.5 },
-          to: { court: "court_2", x: 2.5, y: 1.25 },
+          from: { side: "side_2", x: 2.5, y: 2.5 },
+          to: { side: "side_2", x: 2.5, y: 1.25 },
           description: "P2 approaches the net to attack.",
         },
       ],
       ball_movements: [
         {
           ball_id: "B1",
-          from: { court: "court_2", x: 2.5, y: 1.25 },
-          to: { court: "court_2", x: 2.5, y: 1.25 },
+          from: { side: "side_2", x: 2.5, y: 1.25 },
+          to: { side: "side_2", x: 2.5, y: 1.25 },
           description: "B1 is set then attacked along the line.",
         },
         {
           ball_id: "B2",
-          from: { court: "court_1", x: 3, y: 0.5 },
-          to: { court: "court_2", x: 3.5, y: 2 },
+          from: { side: "side_1", x: 3, y: 0.5 },
+          to: { side: "side_2", x: 3.5, y: 2 },
           description: "B2 is fed across to P3.",
         },
       ],

@@ -90,7 +90,7 @@ export default function DrillDefinitionEditor({
           spellCheck={false}
           aria-invalid={Boolean(parseError) || hasIssues}
           aria-describedby="drill-definition-feedback"
-          placeholder={'{ "version": 1, "court": { "grid": { "columns": 5, "rows": 4 } } }'}
+          placeholder={'{ "version": 1, "side": { "grid": { "columns": 5, "rows": 4 } } }'}
         />
       </div>
 

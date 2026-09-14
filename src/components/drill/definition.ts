@@ -2,7 +2,7 @@
  * Drill definition model — v1.
  *
  * The definition describes the drill in logical terms only:
- * two courts, a 5x4 reference grid, fractional coordinates,
+ * two sides, a 5x4 reference grid, fractional coordinates,
  * participants/balls/objects, ordered steps with full entity state,
  * separate actions and movements.
  *
@@ -11,9 +11,9 @@
 
 export type Orientation = "top_down" | "lateral";
 
-/** Default court orientation used when a definition (or the user) specifies none. */
+/** Default side orientation used when a definition (or the user) specifies none. */
 export const DEFAULT_ORIENTATION: Orientation = "lateral";
-export type CourtId = "court_1" | "court_2";
+export type SideId = "side_1" | "side_2";
 export type ParticipantType =
   | "player"
   | "coach"
@@ -63,12 +63,12 @@ export type ActionType = (typeof ACTION_TYPES)[number];
 
 export interface ExtendedArea {
   enabled: boolean;
-  /** Lateral (sideline) extensions of the physical court. */
+  /** Lateral (sideline) extensions of the physical side. */
   left?: boolean;
   right?: boolean;
   /** Areas beyond the respective baselines. */
-  court_1?: boolean;
-  court_2?: boolean;
+  side_1?: boolean;
+  side_2?: boolean;
 }
 
 export interface ViewConfig {
@@ -76,17 +76,17 @@ export interface ViewConfig {
   orientation?: Orientation;
 }
 
-export interface CourtConfig {
+export interface SideConfig {
   grid: { columns: number; rows: number };
   extended_area?: ExtendedArea;
 }
 
 /**
- * Logical location on one of the two courts.
+ * Logical location on one of the two sides.
  * x/y are fractional reference-grid coordinates, not pixels.
  */
 export interface Location {
-  court: CourtId;
+  side: SideId;
   x: number;
   y: number;
 }
@@ -160,11 +160,11 @@ export interface Step {
 
 export interface DrillDefinition {
   version: 1;
-  /** Optional — human-readable summary of the drill, shown above the court. */
+  /** Optional — human-readable summary of the drill, shown above the side. */
   description?: string;
   /** Optional — the viewer owns orientation via its own toggle. */
   view?: ViewConfig;
-  court: CourtConfig;
+  side: SideConfig;
   participants: Participant[];
   balls: Ball[];
   objects: DrillObject[];
@@ -184,7 +184,7 @@ export function isDrillDefinition(value: unknown): value is DrillDefinition {
   const d = value as Partial<DrillDefinition>;
   return (
     d.version === 1 &&
-    !!d.court &&
+    !!d.side &&
     Array.isArray(d.participants) &&
     Array.isArray(d.balls) &&
     Array.isArray(d.objects) &&
@@ -208,14 +208,14 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
   version: 1,
   description:
     "Serve-and-attack drill: P1 tosses over the net, P2 passes, P3 sets, P2 hits hard-driven line. P1 crosses to block or peel.",
-  court: {
+  side: {
     grid: { columns: 5, rows: 4 },
     extended_area: {
       enabled: true,
       left: true,
       right: true,
-      court_1: true,
-      court_2: true,
+      side_1: true,
+      side_2: true,
     },
   },
   participants: [
@@ -244,50 +244,50 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
     { id: "B2", type: "volleyball", description: "Coach's second ball." },
   ],
   objects: [
-    { id: "O1", type: "cone", description: "Defensive target on court 2." },
-    { id: "O2", type: "cone", description: "Defensive target on court 1." },
+    { id: "O1", type: "cone", description: "Defensive target on side 2." },
+    { id: "O2", type: "cone", description: "Defensive target on side 1." },
   ],
   steps: [
     {
       id: "S1",
       description:
-        "Initial setup: P1 ready to toss from court 1; C1 waits behind the baseline with ball B2.",
+        "Initial setup: P1 ready to toss from side 1; C1 waits behind the baseline with ball B2.",
       participants: [
-        { id: "P1", active: true, location: { court: "court_1", x: 4, y: 1 } },
+        { id: "P1", active: true, location: { side: "side_1", x: 4, y: 1 } },
         {
           id: "P2",
           active: true,
-          location: { court: "court_2", x: 2, y: 2 },
+          location: { side: "side_2", x: 2, y: 2 },
         },
         {
           id: "P3",
           active: true,
-          location: { court: "court_2", x: 3.5, y: 2 },
+          location: { side: "side_2", x: 3.5, y: 2 },
         },
         {
           id: "C1",
           active: true,
-          location: { court: "court_1", x: 4, y: 0.5 },
+          location: { side: "side_1", x: 4, y: 0.5 },
         },
       ],
       balls: [
-        { id: "B1", active: true, location: { court: "court_1", x: 3, y: 1 } },
+        { id: "B1", active: true, location: { side: "side_1", x: 3, y: 1 } },
         {
           id: "B2",
           active: true,
-          location: { court: "court_1", x: 3, y: 0.5 },
+          location: { side: "side_1", x: 3, y: 0.5 },
         },
       ],
       objects: [
         {
           id: "O1",
           active: true,
-          location: { court: "court_2", x: 4.5, y: 1 },
+          location: { side: "side_2", x: 4.5, y: 1 },
         },
         {
           id: "O2",
           active: true,
-          location: { court: "court_1", x: 2, y: 2 },
+          location: { side: "side_1", x: 2, y: 2 },
         },
       ],
       actions: [],
@@ -300,40 +300,40 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       description:
         "P1 tosses B1 over the net; P2 receives and passes toward P3.",
       participants: [
-        { id: "P1", active: true, location: { court: "court_1", x: 3, y: 1 } },
+        { id: "P1", active: true, location: { side: "side_1", x: 3, y: 1 } },
         {
           id: "P2",
           active: true,
-          location: { court: "court_2", x: 2.5, y: 2.5 },
+          location: { side: "side_2", x: 2.5, y: 2.5 },
         },
         {
           id: "P3",
           active: true,
-          location: { court: "court_2", x: 3.5, y: 2 },
+          location: { side: "side_2", x: 3.5, y: 2 },
         },
         {
           id: "C1",
           active: true,
-          location: { court: "court_1", x: 3, y: 0.5 },
+          location: { side: "side_1", x: 3, y: 0.5 },
         },
       ],
       balls: [
         {
           id: "B1",
           active: true,
-          location: { court: "court_1", x: 3, y: 2 },
+          location: { side: "side_1", x: 3, y: 2 },
         },
         {
           id: "B2",
           active: true,
-          location: { court: "court_1", x: 3, y: 0.5 },
+          location: { side: "side_1", x: 3, y: 0.5 },
         },
       ],
       objects: [
         {
           id: "O1",
           active: true,
-          location: { court: "court_2", x: 4.5, y: 1 },
+          location: { side: "side_2", x: 4.5, y: 1 },
         },
       ],
       actions: [
@@ -355,14 +355,14 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       ball_movements: [
         {
           ball_id: "B1",
-          from: { court: "court_1", x: 3, y: 2 },
-          to: { court: "court_2", x: 2.5, y: 1.25 },
+          from: { side: "side_1", x: 3, y: 2 },
+          to: { side: "side_2", x: 2.5, y: 1.25 },
           description: "B1 travels over the net to P2.",
         },
         {
           ball_id: "B2",
-          from: { court: "court_1", x: 3, y: 0.5 },
-          to: { court: "court_2", x: 3.5, y: 2 },
+          from: { side: "side_1", x: 3, y: 0.5 },
+          to: { side: "side_2", x: 3.5, y: 2 },
           description: "B2 is fed across to P3.",
         },
       ],
@@ -376,41 +376,41 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
         {
           id: "P1",
           active: true,
-          location: { court: "court_1", x: 2, y: 1 },
+          location: { side: "side_1", x: 2, y: 1 },
         },
         {
           id: "P2",
           active: true,
-          location: { court: "court_2", x: 2.5, y: 2.3 },
+          location: { side: "side_2", x: 2.5, y: 2.3 },
         },
         {
           id: "P3",
           active: true,
-          location: { court: "court_2", x: 3.5, y: 2 },
+          location: { side: "side_2", x: 3.5, y: 2 },
         },
         {
           id: "C1",
           active: true,
-          location: { court: "court_1", x: 3, y: 0.5 },
+          location: { side: "side_1", x: 3, y: 0.5 },
         },
       ],
       balls: [
         {
           id: "B1",
           active: true,
-          location: { court: "court_2", x: 2.5, y: 1.25 },
+          location: { side: "side_2", x: 2.5, y: 1.25 },
         },
         {
           id: "B2",
           active: true,
-          location: { court: "court_2", x: 3.5, y: 2 },
+          location: { side: "side_2", x: 3.5, y: 2 },
         },
       ],
       objects: [
         {
           id: "O1",
           active: true,
-          location: { court: "court_2", x: 4.5, y: 1 },
+          location: { side: "side_2", x: 4.5, y: 1 },
         },
       ],
       actions: [
@@ -447,22 +447,22 @@ export const SAMPLE_DRILL_DEFINITION: DrillDefinition = {
       participant_movements: [
         {
           participant_id: "P1",
-          // from: { court: "court_1", x: 3, y: 1 },
-          to: { court: "court_1", x: 3.5, y: 4 },
+          // from: { side: "side_1", x: 3, y: 1 },
+          to: { side: "side_1", x: 3.5, y: 4 },
           description: "P1 crosses the net to block or peel.",
         },
         {
           participant_id: "P2",
-          // from: { court: "court_2", x: 2.5, y: 2.5 },
-          to: { court: "court_2", x: 3, y: 3.5 },
+          // from: { side: "side_2", x: 2.5, y: 2.5 },
+          to: { side: "side_2", x: 3, y: 3.5 },
           description: "P2 approaches the net to attack.",
         },
       ],
       ball_movements: [
         {
           ball_id: "B1",
-          from: { court: "court_2", x: 2.5, y: 1.25 },
-          to: { court: "court_1", x: 2, y: 3 },
+          from: { side: "side_2", x: 2.5, y: 1.25 },
+          to: { side: "side_1", x: 2, y: 3 },
           description: "B1 is set then attacked down the line.",
         },
       ],
@@ -481,7 +481,7 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
   view: {
     orientation: "top_down",
   },
-  court: {
+  side: {
     grid: {
       columns: 10,
       rows: 20,
@@ -526,7 +526,7 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
           id: "p1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 1,
           },
@@ -535,7 +535,7 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
           id: "p2",
           active: true,
           location: {
-            court: "court_2",
+            side: "side_2",
             x: 3,
             y: 15,
           },
@@ -544,7 +544,7 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
           id: "p3",
           active: true,
           location: {
-            court: "court_2",
+            side: "side_2",
             x: 7,
             y: 15,
           },
@@ -553,7 +553,7 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
           id: "p4",
           active: false,
           location: {
-            court: "court_2",
+            side: "side_2",
             x: 5,
             y: 18,
           },
@@ -564,7 +564,7 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
           id: "b1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 1,
           },
@@ -585,12 +585,12 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
         {
           ball_id: "b1",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 1,
           },
           to: {
-            court: "court_2",
+            side: "side_2",
             x: 3,
             y: 15,
           },
@@ -607,7 +607,7 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
           id: "p1",
           active: false,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 1,
           },
@@ -616,7 +616,7 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
           id: "p2",
           active: true,
           location: {
-            court: "court_2",
+            side: "side_2",
             x: 3,
             y: 15,
           },
@@ -625,7 +625,7 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
           id: "p3",
           active: true,
           location: {
-            court: "court_2",
+            side: "side_2",
             x: 7,
             y: 15,
           },
@@ -636,7 +636,7 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
           id: "b1",
           active: true,
           location: {
-            court: "court_2",
+            side: "side_2",
             x: 3,
             y: 15,
           },
@@ -663,12 +663,12 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
         {
           participant_id: "p3",
           from: {
-            court: "court_2",
+            side: "side_2",
             x: 7,
             y: 15,
           },
           to: {
-            court: "court_2",
+            side: "side_2",
             x: 5,
             y: 12,
           },
@@ -679,12 +679,12 @@ export const SAMPLE_DRILL_DEFINITION_1: DrillDefinition = {
         {
           ball_id: "b1",
           from: {
-            court: "court_2",
+            side: "side_2",
             x: 3,
             y: 15,
           },
           to: {
-            court: "court_2",
+            side: "side_2",
             x: 5,
             y: 12,
           },
@@ -701,7 +701,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
   view: {
     orientation: "top_down",
   },
-  court: {
+  side: {
     grid: {
       columns: 10,
       rows: 20,
@@ -751,7 +751,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "p1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 6,
           },
@@ -760,7 +760,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "p2",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 12,
           },
@@ -769,7 +769,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "p3",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 7,
             y: 5,
           },
@@ -778,7 +778,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "p4",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 7,
             y: 13,
           },
@@ -789,7 +789,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "b1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 6,
           },
@@ -810,12 +810,12 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
         {
           ball_id: "b1",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 6,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 12,
           },
@@ -833,7 +833,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "p1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 6,
           },
@@ -842,7 +842,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "p2",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 10,
           },
@@ -851,7 +851,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "p3",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 6,
             y: 9,
           },
@@ -860,7 +860,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "p4",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 11,
           },
@@ -871,7 +871,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "b1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 10,
           },
@@ -892,12 +892,12 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
         {
           participant_id: "p2",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 12,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 10,
           },
@@ -907,12 +907,12 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
         {
           participant_id: "p3",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 7,
             y: 5,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 6,
             y: 9,
           },
@@ -921,12 +921,12 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
         {
           participant_id: "p4",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 7,
             y: 13,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 11,
           },
@@ -937,12 +937,12 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
         {
           ball_id: "b1",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 12,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 10,
           },
@@ -960,7 +960,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "p1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 6,
           },
@@ -969,7 +969,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "p2",
           active: false,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 10,
           },
@@ -978,7 +978,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "p3",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 10,
           },
@@ -987,7 +987,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "p4",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 10,
           },
@@ -998,7 +998,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
           id: "b1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 10,
           },
@@ -1025,12 +1025,12 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
         {
           participant_id: "p3",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 6,
             y: 9,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 10,
           },
@@ -1039,12 +1039,12 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
         {
           participant_id: "p4",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 11,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 10,
           },
@@ -1055,12 +1055,12 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
         {
           ball_id: "b1",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 10,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 6,
           },
@@ -1073,7 +1073,7 @@ export const SAMPLE_DRILL_DEFINITION_2: DrillDefinition = {
 };
 export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
   version: 1,
-  court: {
+  side: {
     grid: {
       columns: 6,
       rows: 6,
@@ -1084,13 +1084,13 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
       id: "p_server",
       type: "player",
       role: "Server",
-      description: "Player serving from Court 2 baseline",
+      description: "Player serving from Side 2 baseline",
     },
     {
       id: "p_passer",
       type: "player",
       role: "Passer",
-      description: "Player receiving serve on Court 1",
+      description: "Player receiving serve on Side 1",
     },
     {
       id: "p_setter",
@@ -1116,13 +1116,13 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
   steps: [
     {
       id: "step_1_serve",
-      description: "Server initiates play with a float serve to deep Court 1.",
+      description: "Server initiates play with a float serve to deep Side 1.",
       participants: [
         {
           id: "p_server",
           active: true,
           location: {
-            court: "court_2",
+            side: "side_2",
             x: 3,
             y: 6,
           },
@@ -1131,7 +1131,7 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
           id: "p_passer",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 5,
           },
@@ -1140,7 +1140,7 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
           id: "p_setter",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 2,
             y: 2,
           },
@@ -1151,7 +1151,7 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
           id: "ball_main",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 5,
           },
@@ -1162,7 +1162,7 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
           id: "target_hoop",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 2,
           },
@@ -1182,12 +1182,12 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
         {
           ball_id: "ball_main",
           from: {
-            court: "court_2",
+            side: "side_2",
             x: 3,
             y: 6,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 5,
           },
@@ -1205,7 +1205,7 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
           id: "p_server",
           active: true,
           location: {
-            court: "court_2",
+            side: "side_2",
             x: 3,
             y: 6,
           },
@@ -1214,7 +1214,7 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
           id: "p_passer",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 5,
           },
@@ -1223,7 +1223,7 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
           id: "p_setter",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 2,
           },
@@ -1234,7 +1234,7 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
           id: "ball_main",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 2,
           },
@@ -1245,7 +1245,7 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
           id: "target_hoop",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 2,
           },
@@ -1271,12 +1271,12 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
         {
           participant_id: "p_setter",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 2,
             y: 2,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 2,
           },
@@ -1287,12 +1287,12 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
         {
           ball_id: "ball_main",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 5,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 2,
           },
@@ -1301,12 +1301,12 @@ export const SAMPLE_DRILL_DEFINITION_3: DrillDefinition = {
         {
           ball_id: "ball_main",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 3,
             y: 2,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 2,
           },
@@ -1322,15 +1322,15 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
   view: {
     orientation: "top_down",
   },
-  court: {
+  side: {
     grid: {
       columns: 6,
       rows: 6,
     },
     extended_area: {
       enabled: true,
-      court_1: true,
-      court_2: true,
+      side_1: true,
+      side_2: true,
     },
   },
   participants: [
@@ -1371,7 +1371,7 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
           id: "p_coach",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 2,
             y: 2,
           },
@@ -1380,7 +1380,7 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
           id: "p_hitter",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 1,
           },
@@ -1391,7 +1391,7 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
           id: "ball_1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 2,
             y: 2,
           },
@@ -1402,7 +1402,7 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
           id: "cone_1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 4,
           },
@@ -1422,7 +1422,7 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
           id: "p_coach",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 2,
             y: 2,
           },
@@ -1431,7 +1431,7 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
           id: "p_hitter",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 4,
           },
@@ -1442,7 +1442,7 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
           id: "ball_1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 3,
           },
@@ -1453,7 +1453,7 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
           id: "cone_1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 4,
           },
@@ -1472,12 +1472,12 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
         {
           participant_id: "p_hitter",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 1,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 4,
           },
@@ -1488,12 +1488,12 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
         {
           ball_id: "ball_1",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 2,
             y: 2,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 3,
           },
@@ -1505,13 +1505,13 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
     {
       id: "step_3_attack",
       description:
-        "Player approaches and attacks the ball over the net into Court 2.",
+        "Player approaches and attacks the ball over the net into Side 2.",
       participants: [
         {
           id: "p_coach",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 2,
             y: 2,
           },
@@ -1520,7 +1520,7 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
           id: "p_hitter",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 1.5,
           },
@@ -1531,7 +1531,7 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
           id: "ball_1",
           active: true,
           location: {
-            court: "court_2",
+            side: "side_2",
             x: 2,
             y: 5,
           },
@@ -1542,7 +1542,7 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
           id: "cone_1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 4,
           },
@@ -1553,7 +1553,7 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
           participant_id: "p_hitter",
           action: {
             type: "attack",
-            description: "Hard-driven cross-court attack",
+            description: "Hard-driven cross-side attack",
           },
         },
       ],
@@ -1561,12 +1561,12 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
         {
           participant_id: "p_hitter",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 4,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 1.5,
           },
@@ -1577,16 +1577,16 @@ export const SAMPLE_DRILL_DEFINITION_4: DrillDefinition = {
         {
           ball_id: "ball_1",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 4,
             y: 3,
           },
           to: {
-            court: "court_2",
+            side: "side_2",
             x: 2,
             y: 5,
           },
-          description: "Ball trajectory over net into deep cross-court",
+          description: "Ball trajectory over net into deep cross-side",
         },
       ],
       object_movements: [],
@@ -1598,7 +1598,7 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
   view: {
     orientation: "top_down",
   },
-  court: {
+  side: {
     grid: {
       columns: 10,
       rows: 20,
@@ -1644,7 +1644,7 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
           id: "p1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 1,
           },
@@ -1653,7 +1653,7 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
           id: "c1",
           active: true,
           location: {
-            court: "court_2",
+            side: "side_2",
             x: 5,
             y: 15,
           },
@@ -1664,7 +1664,7 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
           id: "b1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 1,
           },
@@ -1675,7 +1675,7 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
           id: "cone_left",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 2,
             y: 6,
           },
@@ -1684,7 +1684,7 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
           id: "cone_right",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 8,
             y: 6,
           },
@@ -1695,7 +1695,7 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
           participant_id: "p1",
           action: {
             type: "serve",
-            description: "Serve to the opposite court.",
+            description: "Serve to the opposite side.",
           },
         },
         {
@@ -1710,12 +1710,12 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
         {
           participant_id: "p1",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 1,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 6,
           },
@@ -1726,16 +1726,16 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
         {
           ball_id: "b1",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 1,
           },
           to: {
-            court: "court_2",
+            side: "side_2",
             x: 5,
             y: 15,
           },
-          description: "Serve travels to opposite court.",
+          description: "Serve travels to opposite side.",
         },
       ],
       object_movements: [],
@@ -1749,7 +1749,7 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
           id: "p1",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 6,
           },
@@ -1758,7 +1758,7 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
           id: "c1",
           active: true,
           location: {
-            court: "court_2",
+            side: "side_2",
             x: 5,
             y: 15,
           },
@@ -1769,7 +1769,7 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
           id: "b1",
           active: true,
           location: {
-            court: "court_2",
+            side: "side_2",
             x: 5,
             y: 15,
           },
@@ -1780,7 +1780,7 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
           id: "cone_left",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 2,
             y: 6,
           },
@@ -1789,7 +1789,7 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
           id: "cone_right",
           active: true,
           location: {
-            court: "court_1",
+            side: "side_1",
             x: 8,
             y: 6,
           },
@@ -1817,12 +1817,12 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
         {
           participant_id: "p1",
           from: {
-            court: "court_1",
+            side: "side_1",
             x: 5,
             y: 6,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 2,
             y: 6,
           },
@@ -1833,12 +1833,12 @@ export const SAMPLE_DRILL_DEFINITION_5: DrillDefinition = {
         {
           ball_id: "b1",
           from: {
-            court: "court_2",
+            side: "side_2",
             x: 5,
             y: 15,
           },
           to: {
-            court: "court_1",
+            side: "side_1",
             x: 2,
             y: 6,
           },
