@@ -84,7 +84,11 @@ export default function DrillSide({ orientation, side }: DrillSideProps) {
         {lines}
         <text
           x={rect.x + rect.width / 2}
-          y={rect.y - 8}
+          y={
+            geometry.orientation === "top_down" && label === "SIDE 2"
+              ? rect.y + rect.height + 20
+              : rect.y - 10
+          }
           textAnchor="middle"
           className="drill-side-label"
         >
