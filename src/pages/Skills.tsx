@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type Category, type Skill } from "../api";
+import { useAuth } from "../auth/AuthContext";
 import PageHeader from "../components/PageHeader";
 import SkillCard from "../components/SkillCard";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/settings/Pagination";
-import { Search, X } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 
 const ITEMS_PER_SECTION = 9;
 const ITEMS_PER_PAGE = 20;
 
 export default function Skills() {
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes("admin");
   const [categories, setCategories] = useState<Category[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
@@ -87,6 +90,17 @@ export default function Skills() {
       <PageHeader
         title="Skills"
         description="Browse all beach volleyball skills organised by category. Click a skill to see details and related drills."
+        actions={
+          isAdmin && (
+            <button
+              className="admin-btn admin-btn-add"
+              onClick={() => navigate("/settings/skills/new")}
+            >
+              <Plus size={16} />
+              Add Skill
+            </button>
+          )
+        }
       />
 
       <div className="search-bar">
@@ -141,7 +155,9 @@ export default function Skills() {
                     <SkillCard
                       key={skill.id}
                       skill={skill}
+                      isAdmin={isAdmin}
                       onClick={() => navigate(`/skills/${skill.slug}`)}
+                      onEdit={() => navigate(`/settings/skills/${skill.slug}/edit`)}
                     />
                   ))}
                 </div>
@@ -179,10 +195,12 @@ export default function Skills() {
                   <SkillCard
                     key={skill.id}
                     skill={skill}
+                    isAdmin={isAdmin}
                     onClick={() => {
                       closeModal();
                       navigate(`/skills/${skill.slug}`);
                     }}
+                    onEdit={() => navigate(`/settings/skills/${skill.slug}/edit`)}
                   />
                 ))}
               </div>

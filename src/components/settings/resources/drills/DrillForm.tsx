@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, ApiValidationError, type Drill } from "../../../../api";
+import { api, ApiValidationError, type Category, type Drill, type Skill } from "../../../../api";
 import type { DrillDefinition } from "../../../drill/definition";
 import {
   TRAINING_STAGES,
@@ -46,10 +46,34 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
   const [values, setValues] = useState<DrillFormValues>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<Category[]>([]);
+  const [skillCategoryFilter, setSkillCategoryFilter] = useState<number | "all">("all");
+  const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
+  const [skillsError, setSkillsError] = useState<string | null>(null);
   const [serverFeedback, setServerFeedback] = useState<{
     definition: string;
     issues: DrillSchemaIssue[];
   } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .skills()
+      .then((items) => {
+        if (!cancelled) setAvailableSkills(items);
+      })
+      .catch(console.error);
+    api
+      .categories()
+      .then((items) => {
+        if (!cancelled) setAvailableCategories(items);
+      })
+      .catch(console.error);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (initial) {
@@ -65,11 +89,23 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
           ? JSON.stringify(initial.definition, null, 2)
           : "",
       });
+      setSelectedSkillIds((initial.skills ?? []).map((s) => s.id));
+      setSkillsError(null);
+    } else {
+      setSelectedSkillIds([]);
+      setSkillsError(null);
     }
   }, [initial]);
 
   const set = (key: keyof DrillFormValues, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
+
+  const toggleSkill = (id: number) => {
+    setSelectedSkillIds((prev) =>
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+    );
+    setSkillsError(null);
+  };
 
   /** Pretty-print the definition text in place; a no-op when JSON is malformed. */
   const formatDefinition = () => {
@@ -104,6 +140,12 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
     e.preventDefault();
     setError(null);
     setServerFeedback(null);
+    setSkillsError(null);
+
+    if (selectedSkillIds.length === 0) {
+      setSkillsError("Please select at least one skill.");
+      return;
+    }
 
     if (!values.title.trim()) {
       setError("Title is required.");
@@ -155,6 +197,7 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
       max_players: max,
       ideal_num_players: ideal,
       definition: parseResult.definition as DrillDefinition | null,
+      skill_ids: selectedSkillIds,
     };
 
     setSaving(true);
@@ -190,6 +233,13 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
       parseError={parseResult.parseError}
       issues={displayIssues}
       onFormat={formatDefinition}
+      availableSkills={availableSkills}
+      availableCategories={availableCategories}
+      skillCategoryFilter={skillCategoryFilter}
+      onSkillCategoryChange={setSkillCategoryFilter}
+      selectedSkillIds={selectedSkillIds}
+      skillsError={skillsError}
+      onToggleSkill={toggleSkill}
     />
   );
 }
@@ -206,6 +256,13 @@ function DrillFormFields({
   parseError,
   issues,
   onFormat,
+  availableSkills,
+  availableCategories,
+  skillCategoryFilter,
+  onSkillCategoryChange,
+  selectedSkillIds,
+  skillsError,
+  onToggleSkill,
 }: {
   values: DrillFormValues;
   set: (key: keyof DrillFormValues, value: string) => void;
@@ -217,7 +274,18 @@ function DrillFormFields({
   parseError: string | null;
   issues: DrillSchemaIssue[];
   onFormat: () => void;
+  availableSkills: Skill[];
+  availableCategories: Category[];
+  skillCategoryFilter: number | "all";
+  onSkillCategoryChange: (value: number | "all") => void;
+  selectedSkillIds: number[];
+  skillsError: string | null;
+  onToggleSkill: (id: number) => void;
 }) {
+  const filteredSkills =
+    skillCategoryFilter === "all"
+      ? availableSkills
+      : availableSkills.filter((skill) => skill.category_id === skillCategoryFilter);
   return (
     <form onSubmit={onSubmit} className="admin-form">
       {error && <div className="auth-flash auth-flash-error">{error}</div>}
@@ -279,6 +347,89 @@ function DrillFormFields({
           <label htmlFor="drill-ideal">Ideal Players *</label>
           <input id="drill-ideal" type="number" min={1} value={values.ideal_num_players} onChange={(e) => set("ideal_num_players", e.target.value)} />
         </div>
+      </div>
+
+      <div className="admin-field">
+        <span id="drill-skills-label">Skills * (select at least one)</span>
+        <div className="filter-select-group drill-skills-category">
+          <label htmlFor="drill-skill-category">Category:</label>
+          <select
+            id="drill-skill-category"
+            value={skillCategoryFilter}
+            onChange={(e) =>
+              onSkillCategoryChange(e.target.value === "all" ? "all" : Number(e.target.value))
+            }
+          >
+            <option value="all">All Categories</option>
+            {availableCategories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {skillsError && (
+          <div className="auth-flash auth-flash-error" role="alert">
+            {skillsError}
+          </div>
+        )}
+        <div
+          className="drill-skills-picker"
+          role="group"
+          aria-labelledby="drill-skills-label"
+        >
+          {availableSkills.length === 0 ? (
+            <p className="drill-skills-empty">No skills available.</p>
+          ) : filteredSkills.length === 0 ? (
+            <p className="drill-skills-empty">No skills in this category.</p>
+          ) : (
+            filteredSkills.map((skill) => {
+              const checked = selectedSkillIds.includes(skill.id);
+              return (
+                <label key={skill.id} className="drill-skill-option">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onToggleSkill(skill.id)}
+                  />
+                  <span>
+                    {skill.title}
+                    {skill.category ? ` (${skill.category.name})` : ""}
+                  </span>
+                </label>
+              );
+            })
+          )}
+        </div>
+        {selectedSkillIds.length > 0 && (
+          <>
+            <p className="drill-skills-count">
+              {selectedSkillIds.length} skill{selectedSkillIds.length === 1 ? "" : "s"} selected
+            </p>
+            <ul className="drill-skills-selected" aria-label="Selected skills">
+              {selectedSkillIds.map((id) => {
+                const skill = availableSkills.find((s) => s.id === id);
+                const label = skill
+                  ? `${skill.title}${skill.category ? ` (${skill.category.name})` : ""}`
+                  : `Skill #${id}`;
+                return (
+                  <li key={id} className="drill-skill-chip">
+                    <span>{label}</span>
+                    <button
+                      type="button"
+                      className="drill-skill-remove"
+                      onClick={() => onToggleSkill(id)}
+                      aria-label={`Remove ${label}`}
+                      title={`Remove ${label}`}
+                    >
+                      ×
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
       </div>
 
       <DrillDefinitionEditor

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Search } from "lucide-react";
-import { api, type Drill } from "../../api";
+import { api, type Category, type Drill, type Skill } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 import AdminTable from "../../components/settings/AdminTable";
@@ -10,7 +10,6 @@ import Pagination from "../../components/settings/Pagination";
 import {
   DIFFICULTY_LEVELS,
   TRAINING_STAGES,
-  playerRangeLabel,
   trainingStageLabel,
   type DifficultyLevel,
   type TrainingStage,
@@ -45,6 +44,8 @@ export default function Drills() {
   const [searchParams] = useSearchParams();
   const origin = (location.state ?? null) as SkillOrigin | null;
   const [drills, setDrills] = useState<Drill[]>([]);
+  const [allSkills, setAllSkills] = useState<Skill[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Drill | null>(null);
@@ -52,6 +53,7 @@ export default function Drills() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<number | null>(null);
   const [skillFilter, setSkillFilter] = useState<number | "all">(() => {
     const raw = searchParams.get("skill");
     const parsed = raw !== null ? Number(raw) : NaN;
@@ -65,13 +67,44 @@ export default function Drills() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    api
-      .adminDrills()
-      .then((response) => setDrills(response.data))
+    setLoading(true);
+    Promise.all([
+      api.adminDrills(),
+      api.adminSkills({ per_page: 1000 }),
+      api.adminCategories({ per_page: 1000 }),
+    ])
+      .then(([drillsRes, skillsRes, categoriesRes]) => {
+        setDrills(drillsRes.data);
+        setAllSkills(skillsRes.data);
+        setCategories(categoriesRes.data);
+        // Never allow an empty category: default to the first one.
+        if (categoriesRes.data.length > 0) {
+          setCategoryFilter((prev) => prev ?? categoriesRes.data[0].id);
+        }
+      })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
+  // Skills offered within the selected category (selection persists but is
+  // hidden when it no longer belongs to the current category).
+  const skillsInCategory = useMemo(() => {
+    if (categoryFilter === null) return allSkills;
+    return allSkills.filter((skill) => skill.category_id === categoryFilter);
+  }, [allSkills, categoryFilter]);
+
+  const handleCategoryChange = (value: string) => {
+    const nextId = Number(value);
+    if (!Number.isInteger(nextId) || nextId <= 0) return;
+    setCategoryFilter(nextId);
+    setSkillFilter("all");
+    setPage(1);
+  };
+
+  const handleSkillChange = (value: string) => {
+    setSkillFilter(value === "all" ? "all" : Number(value));
+    setPage(1);
+  };
   const parsedMin = minFilter.trim() === "" ? null : Number(minFilter);
   const parsedMax = maxFilter.trim() === "" ? null : Number(maxFilter);
   const rangeError =
@@ -87,11 +120,29 @@ export default function Drills() {
       ? "all"
       : skillFilter;
 
+  // A skill selection that no longer belongs to the chosen category is treated
+  // as unset, while the stored value persists for when the user switches back.
+  const visibleSkillFilter =
+    effectiveSkillFilter !== "all" &&
+    categoryFilter !== null &&
+    !allSkills.some(
+      (s) =>
+        s.id === effectiveSkillFilter &&
+        (s.category_id === categoryFilter || s.category?.id === categoryFilter)
+    )
+      ? "all"
+      : effectiveSkillFilter;
+
   const originSkillName =
     origin?.skillName ??
     (effectiveSkillFilter !== "all"
       ? drinksReferencedSkillName(drills, effectiveSkillFilter)
       : undefined);
+
+  const activeCategoryName =
+    categoryFilter === null
+      ? undefined
+      : categories.find((c) => c.id === categoryFilter)?.name;
 
   const filtersActive =
     search.trim() !== "" ||
@@ -104,8 +155,19 @@ export default function Drills() {
 
   const visibleDrills = useMemo(() => {
     const query = search.trim().toLowerCase();
+    const categoryOfSkill = (s: Skill) => {
+      if (s.category_id) return s.category_id;
+      if (s.category?.id) return s.category.id;
+      // The drill payload only carries {id,title,slug}; resolve from allSkills.
+      return allSkills.find((full) => full.id === s.id)?.category_id;
+    };
     const filtered = drills.filter((d) => {
-      if (effectiveSkillFilter !== "all" && !d.skills?.some((s) => s.id === effectiveSkillFilter))
+      if (
+        categoryFilter !== null &&
+        !d.skills?.some((s) => categoryOfSkill(s) === categoryFilter)
+      )
+        return false;
+      if (visibleSkillFilter !== "all" && !d.skills?.some((s) => s.id === visibleSkillFilter))
         return false;
       if (query && !d.title.toLowerCase().includes(query)) return false;
       if (stage !== "all" && d.training_stage !== stage) return false;
@@ -140,10 +202,11 @@ export default function Drills() {
       default:
         return [...filtered].sort(byTitle);
     }
-  }, [drills, search, effectiveSkillFilter, stage, difficulty, parsedMin, parsedMax, rangeError, sort]);
+  }, [drills, allSkills, search, categoryFilter, visibleSkillFilter, stage, difficulty, parsedMin, parsedMax, rangeError, sort]);
 
   const clearFilters = () => {
     setSearch("");
+    setCategoryFilter(categories.length > 0 ? categories[0].id : null);
     setSkillFilter("all");
     setStage("all");
     setDifficulty("all");
@@ -189,6 +252,11 @@ export default function Drills() {
       }
     >
       {error && <div className="auth-flash auth-flash-error">{error}</div>}
+      {activeCategoryName && (
+        <p className="settings-result-count">
+          Showing drills in category &ldquo;{activeCategoryName}&rdquo;.
+        </p>
+      )}
       {originSkillName && effectiveSkillFilter !== "all" && (
         <p className="settings-result-count">
           Showing drills linked to &ldquo;{originSkillName}&rdquo;.
@@ -228,6 +296,31 @@ export default function Drills() {
           />
         </div>
         <div className="settings-toolbar-row">
+          <select
+            value={categoryFilter === null ? "" : String(categoryFilter)}
+            onChange={(e) => handleCategoryChange(e.target.value)}
+            aria-label="Filter by category"
+            disabled={categories.length === 0}
+          >
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={visibleSkillFilter === "all" ? "all" : String(visibleSkillFilter)}
+            onChange={(e) => handleSkillChange(e.target.value)}
+            aria-label="Filter by skill"
+            disabled={skillsInCategory.length === 0}
+          >
+            <option value="all">All skills</option>
+            {skillsInCategory.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.title}
+              </option>
+            ))}
+          </select>
           <select
             value={stage}
             onChange={(e) => {
@@ -341,9 +434,23 @@ export default function Drills() {
           { key: "stage", label: "Stage", render: (d) => trainingStageLabel(d.training_stage) },
           { key: "difficulty", label: "Difficulty", render: (d) => d.difficulty_level },
           {
-            key: "players",
-            label: "Players",
-            render: (d) => playerRangeLabel(d.min_players, d.max_players),
+            key: "skills",
+            label: "Skills",
+            render: (d) =>
+              !d.skills || d.skills.length === 0 ? (
+                "—"
+              ) : (
+                <span className="admin-table-skills">
+                  {d.skills.map((s, index) => (
+                    <span key={s.id}>
+                      <Link to={`/skills/${s.slug}`} className="admin-table-name">
+                        {s.title}
+                      </Link>
+                      {index < (d.skills?.length ?? 0) - 1 ? ", " : ""}
+                    </span>
+                  ))}
+                </span>
+              ),
           },
         ]}
       />

@@ -1,13 +1,15 @@
 import type { Drill } from '../api';
-import { Users, ArrowRight } from 'lucide-react';
+import { Users, ArrowRight, Pencil } from 'lucide-react';
 import { playerRangeLabel, idealLabel, trainingStageLabel } from '../utils/drills';
 
 interface DrillCardProps {
   drill: Drill;
   onClick?: () => void;
+  isAdmin?: boolean;
+  onEdit?: () => void;
 }
 
-export default function DrillCard({ drill, onClick }: DrillCardProps) {
+export default function DrillCard({ drill, onClick, isAdmin, onEdit }: DrillCardProps) {
   return (
     <div className="card drill-card" onClick={onClick}>
       <h3 className="card-title">{drill.title}</h3>
@@ -29,6 +31,18 @@ export default function DrillCard({ drill, onClick }: DrillCardProps) {
         <span className="home-section-link">
           View drill <ArrowRight size={14} />
         </span>
+        {isAdmin && onEdit && (
+          <button
+            className="card-edit-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            title="Edit drill"
+          >
+            <Pencil size={14} />
+          </button>
+        )}
       </div>
     </div>
   );

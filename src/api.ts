@@ -342,6 +342,7 @@ export const api = {
     max_players: number;
     ideal_num_players: number;
     definition?: DrillDefinition | null;
+    skill_ids: number[];
   }) => postJSON<Drill>("/admin/drills", { drill: data }),
   adminUpdateDrill: (
     id: string | number,
@@ -354,6 +355,7 @@ export const api = {
       max_players?: number;
       ideal_num_players?: number;
       definition?: DrillDefinition | null;
+      skill_ids?: number[];
     }
   ) =>
     postJSON<Drill>(

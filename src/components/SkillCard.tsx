@@ -1,12 +1,14 @@
 import type { Skill } from '../api';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Pencil } from 'lucide-react';
 
 interface SkillCardProps {
   skill: Skill;
   onClick?: () => void;
+  isAdmin?: boolean;
+  onEdit?: () => void;
 }
 
-export default function SkillCard({ skill, onClick }: SkillCardProps) {
+export default function SkillCard({ skill, onClick, isAdmin, onEdit }: SkillCardProps) {
   return (
     <div className="card skill-card" onClick={onClick}>
       {skill.category && (
@@ -20,6 +22,18 @@ export default function SkillCard({ skill, onClick }: SkillCardProps) {
         <span className="home-section-link">
           View skill <ArrowRight size={14} />
         </span>
+        {isAdmin && onEdit && (
+          <button
+            className="card-edit-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+            title="Edit skill"
+          >
+            <Pencil size={14} />
+          </button>
+        )}
       </div>
     </div>
   );

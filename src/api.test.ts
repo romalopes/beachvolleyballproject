@@ -192,6 +192,7 @@ describe("admin drill definition payloads", () => {
       max_players: 4,
       ideal_num_players: 2,
       definition,
+      skill_ids: [1],
     });
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(JSON.parse(init.body as string)).toEqual({

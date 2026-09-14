@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, type Drill, type Skill } from "../api";
+import { api, type Category, type Drill, type Skill } from "../api";
+import { useAuth } from "../auth/AuthContext";
 import PageHeader from "../components/PageHeader";
 import DrillCard from "../components/DrillCard";
 import EmptyState from "../components/EmptyState";
 import Pagination from "../components/settings/Pagination";
-import { Search, X } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import {
   DIFFICULTY_LEVELS,
   TRAINING_STAGES,
@@ -16,9 +17,14 @@ const ITEMS_PER_SECTION = 9;
 const ITEMS_PER_PAGE = 20;
 
 export default function Drills() {
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes("admin");
+  const [categories, setCategories] = useState<Category[]>([]);
   const [drills, setDrills] = useState<Drill[]>([]);
   const [allSkills, setAllSkills] = useState<Skill[]>([]);
   const [search, setSearch] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [selectedSkill, setSelectedSkill] = useState<string>("all");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
   const [selectedStage, setSelectedStage] = useState<string>("all");
   const [playerFilter, setPlayerFilter] = useState("");
@@ -31,8 +37,8 @@ export default function Drills() {
   const [modalPage, setModalPage] = useState(1);
 
   useEffect(() => {
-    Promise.all([api.drills(), api.skills()])
-      .then(([drs, sks]) => {
+    Promise.all([api.drills(), api.skills(), api.categories()])
+      .then(([drs, sks, cats]) => {
         if (import.meta.env.DEV) {
           drs.forEach((drill) => {
             if (!isValidDrillRange(drill)) {
@@ -42,10 +48,27 @@ export default function Drills() {
         }
         setDrills(drs.filter(isValidDrillRange));
         setAllSkills(sks);
+        setCategories(cats);
+        // Set first category as selected by default
+        if (cats.length > 0) {
+          setSelectedCategory(cats[0].name);
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  // Filter skills based on selected category
+  const filteredSkills = useMemo(() => {
+    if (!selectedCategory) return allSkills;
+    return allSkills.filter((skill) => skill.category?.name === selectedCategory);
+  }, [allSkills, selectedCategory]);
+
+  // Handle category change - reset skill selection
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    setSelectedSkill("all");
+  };
 
   const playerCount =
     playerFilter.trim() === "" ? null : Number(playerFilter.trim());
@@ -63,7 +86,22 @@ export default function Drills() {
       playerCount === null ||
       Number.isNaN(playerCount) ||
       (drill.min_players <= playerCount && playerCount <= drill.max_players);
-    return matchesSearch && matchesDifficulty && matchesStage && matchesPlayers;
+    // Filter by skill
+    const matchesSkill =
+      selectedSkill === "all" ||
+      drill.skills?.some((s) => s.id === Number(selectedSkill));
+    // Filter by category
+    const matchesCategory =
+      !selectedCategory ||
+      drill.skills?.some((s) => s.category?.name === selectedCategory);
+    return (
+      matchesSearch &&
+      matchesDifficulty &&
+      matchesStage &&
+      matchesPlayers &&
+      matchesSkill &&
+      matchesCategory
+    );
   });
 
   // Group drills by skill
@@ -123,6 +161,17 @@ export default function Drills() {
       <PageHeader
         title="Drills"
         description="Search and filter drills by difficulty, training stage, and player range. Each drill develops specific skills."
+        actions={
+          isAdmin && (
+            <button
+              className="admin-btn admin-btn-add"
+              onClick={() => navigate("/settings/drills/new")}
+            >
+              <Plus size={16} />
+              Add Drill
+            </button>
+          )
+        }
       />
 
       <div className="search-bar">
@@ -181,6 +230,38 @@ export default function Drills() {
         />
       </div>
 
+      <div className="filter-row">
+        <div className="filter-select-group">
+          <label htmlFor="category-filter">Category:</label>
+          <select
+            id="category-filter"
+            value={selectedCategory}
+            onChange={(e) => handleCategoryChange(e.target.value)}
+          >
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.name}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="filter-select-group">
+          <label htmlFor="skill-filter">Skill:</label>
+          <select
+            id="skill-filter"
+            value={selectedSkill}
+            onChange={(e) => setSelectedSkill(e.target.value)}
+          >
+            <option value="all">All Skills</option>
+            {filteredSkills.map((skill) => (
+              <option key={skill.id} value={skill.id}>
+                {skill.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
       {filteredDrills.length === 0 ? (
         <EmptyState
           title="No drills found"
@@ -203,7 +284,9 @@ export default function Drills() {
                     <DrillCard
                       key={drill.id}
                       drill={drill}
+                      isAdmin={isAdmin}
                       onClick={() => navigate(`/drills/${drill.slug}`)}
+                      onEdit={() => navigate(`/settings/drills/${drill.slug}/edit`)}
                     />
                   ))}
                 </div>
@@ -241,10 +324,12 @@ export default function Drills() {
                   <DrillCard
                     key={drill.id}
                     drill={drill}
+                    isAdmin={isAdmin}
                     onClick={() => {
                       closeModal();
                       navigate(`/drills/${drill.slug}`);
                     }}
+                    onEdit={() => navigate(`/settings/drills/${drill.slug}/edit`)}
                   />
                 ))}
               </div>
