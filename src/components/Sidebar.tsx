@@ -32,7 +32,7 @@ export default function Sidebar() {
           <img src="/ball.png" width="24" height="24" alt="" />
         </span>
         <NavLink to="/" className="logo-text">
-          BVB Project - React
+          BVB Project
         </NavLink>
       </div>
       <nav className="sidebar-nav">
@@ -92,8 +92,12 @@ export default function Sidebar() {
       </div>
       {impersonation.active && impersonation.realAdmin && (
         <div className="sidebar-impersonation">
-          <div className="sidebar-impersonation-title">Acting as {user?.name || user?.email_address}</div>
-          <div className="sidebar-impersonation-sub">Return to your admin account</div>
+          <div className="sidebar-impersonation-title">
+            Acting as {user?.name || user?.email_address}
+          </div>
+          <div className="sidebar-impersonation-sub">
+            Return to your admin account
+          </div>
           <button
             type="button"
             className="sidebar-impersonation-btn"

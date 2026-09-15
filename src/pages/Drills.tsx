@@ -161,7 +161,7 @@ export default function Drills() {
       <PageHeader
         title="Drills"
         description="Search and filter drills by difficulty, training stage, and player range. Each drill develops specific skills."
-        actions={
+        children={
           isAdmin && (
             <button
               className="admin-btn admin-btn-add"

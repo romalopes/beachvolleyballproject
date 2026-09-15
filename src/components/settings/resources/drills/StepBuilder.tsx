@@ -1,19 +1,18 @@
 /**
- * StepBuilder — the visual editor for one step.
+ * StepBuilder — the per-step controls of the visual editor.
  *
- * One court plus everything that step owns: an entity palette (add placed
- * entities from the catalog, toggle active, remove from the step), an action
- * list and a movement list whose arrows draw on the court. Positions change by
- * dragging (solid = this step, ghost = next step); everything funnels through
- * the pure helpers in `drill-model.ts` so the invariant Rails enforces —
- * `movement.from` = this step, `movement.to` = the next step — always holds.
+ * Controls only: an entity palette (add placed entities from the catalog,
+ * toggle active, remove from the step), an action list and a movement list.
+ * The court itself lives in the surrounding `DrillDefinitionBuilder` sticky
+ * pane, so selection is shared via `selected`/`onSelect` and every model edit
+ * funnels through `onChange` — the pure helpers in `drill-model.ts` keep the
+ * Rails invariant (`movement.from` = this step, `movement.to` = the next step)
+ * true no matter how the user edits.
  */
 
 import { useState } from "react";
 import type { ActionType } from "../../../drill/definition";
-import { ACTION_TYPES, DEFAULT_ORIENTATION } from "../../../drill/definition";
-import InteractiveCourt from "./InteractiveCourt";
-import type { Layer } from "./InteractiveCourt";
+import { ACTION_TYPES } from "../../../drill/definition";
 import {
   addActionToStep,
   addEntityToStep,
@@ -22,13 +21,10 @@ import {
   removeEntityFromStep,
   removeMovement,
   setEntityActive,
-  setEntityLocation,
   setMovementDescription,
-  type EntityKind,
 } from "./drill-model";
 import type {
   MovementEdit,
-  SelectedEntity,
   StepBuilderProps,
 } from "./stepBuilderModel";
 import {
@@ -43,10 +39,11 @@ import {
 export default function StepBuilder({
   definition,
   stepIndex,
+  hasNext,
+  selected,
+  onSelect,
   onChange,
 }: StepBuilderProps) {
-  const [orientation] = useState(DEFAULT_ORIENTATION);
-  const [selected, setSelected] = useState<SelectedEntity | null>(null);
   const [movementEdit, setMovementEdit] = useState<MovementEdit | null>(null);
   const [actionParticipant, setActionParticipant] = useState("");
   const [actionType, setActionType] = useState<ActionType>(ACTION_TYPES[0]);
@@ -54,24 +51,6 @@ export default function StepBuilder({
 
   const step = definition.steps[stepIndex];
   if (!step) return null;
-  const hasNext = stepIndex < definition.steps.length - 1;
-
-  const handleMove = (
-    kind: EntityKind,
-    id: string,
-    location: Parameters<typeof setEntityLocation>[4],
-    layer: Layer,
-  ) => {
-    onChange(
-      setEntityLocation(
-        definition,
-        layer === "current" ? stepIndex : stepIndex + 1,
-        kind,
-        id,
-        location,
-      ),
-    );
-  };
 
   const commitMovementEdit = () => {
     if (!movementEdit) return;
@@ -109,17 +88,6 @@ export default function StepBuilder({
   };
   return (
     <section className="drill-step-builder" aria-label={`Step ${step.id}`}>
-      <div className="drill-builder-layout">
-        <InteractiveCourt
-          definition={definition}
-          orientation={orientation}
-          stepIndex={stepIndex}
-          selected={selected}
-          onSelect={(kind, id) => setSelected({ kind, id })}
-          onMove={handleMove}
-          onCourtClick={() => setSelected(null)}
-        />
-
         <div className="drill-builder-side">
           {ENTITY_KINDS.map(({ kind, label }) => {
             const placed = placedIdsFor(step, kind);
@@ -143,20 +111,22 @@ export default function StepBuilder({
                             ? "drill-builder-chip selected"
                             : "drill-builder-chip"
                         }
-                        onClick={() => setSelected({ kind, id: state.id })}
-                        title={
+                        onClick={() => onSelect(kind, state.id)}
+                                                title={
                           state.location
                             ? formatLocation(state.location)
                             : "Not placed yet"
                         }
-                      >
-                        {state.id}
-                        {!state.active && " (off)"}
-                      </button>
-                      <label className="drill-builder-active">
-                        <input
-                          type="checkbox"
-                          checked={state.active}
+                        aria-label={`Select ${state.id}`}
+                        >
+                          {state.id}
+                          {!state.active && " (off)"}
+                        </button>
+                        <label className="drill-builder-active">
+                          <input
+                            type="checkbox"
+                            aria-label={`Mark ${state.id} as active on this step`}
+                            checked={state.active}
                           onChange={(event) =>
                             onChange(
                               setEntityActive(
@@ -171,9 +141,10 @@ export default function StepBuilder({
                         />
                         active
                       </label>
-                      <button
+                                            <button
                         type="button"
                         className="admin-btn admin-btn-remove"
+                        aria-label={`Remove ${state.id} from ${step.id}`}
                         onClick={() =>
                           onChange(
                             removeEntityFromStep(
@@ -365,7 +336,6 @@ export default function StepBuilder({
             )}
           </fieldset>
         </div>
-      </div>
     </section>
   );
 }

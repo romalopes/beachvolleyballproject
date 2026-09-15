@@ -1098,6 +1098,42 @@
   margin-top: 0;
 }
 
+/* ---------- Drill detail: no-definition honesty ---------- */
+
+/* A drill without a renderable definition says so; the built-in sample is
+   opt-in and labelled so it can never pass for the drill's own data. */
+.drill-visualisation-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.drill-visualisation-empty .empty-state {
+  width: 100%;
+}
+
+.drill-visualisation-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Shared notice used when something about the definition cannot be rendered:
+   the drill detail viewer's sample banner and the editor's empty-draft notice. */
+.drill-notice {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  font-size: 0.875rem;
+}
+
+.drill-json-hint {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
 /* ---------- Copy-to-clipboard ---------- */
 
 .log-copy-row {
@@ -2979,6 +3015,60 @@
   gap: 0.75rem;
 }
 
+/* The drill form is wider so the court and the configuration fit side by
+   side; every other admin form keeps its 640px cap. */
+.drill-form {
+  max-width: 1080px;
+}
+
+.drill-definition-builder {
+  display: grid;
+  grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+/* Sticky court pane: pinned below the page header while the configuration
+   scrolls, so positioning and movement authoring are always possible. */
+.drill-definition-builder-court-pane {
+  position: sticky;
+  top: calc(var(--header-height, 56px) + 1rem);
+  /* A court taller than the viewport scrolls inside its own pane instead of
+     covering the configuration. */
+  max-height: calc(100vh - var(--header-height, 56px) - 2rem);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.drill-definition-builder-orientation {
+  margin-bottom: 0;
+}
+
+.drill-definition-builder-config-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+@media (max-width: 1000px) {
+  /* Narrow screens: court on top, configuration below. The court must NOT stay
+     sticky here — a sticky first child in a stacked column paints over the
+     configuration that scrolls beneath it. */
+  .drill-definition-builder {
+    grid-template-columns: 1fr;
+  }
+
+  .drill-definition-builder-court-pane {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
 .drill-definition-legend {
   font-weight: 600;
   color: var(--charcoal);
@@ -2991,10 +3081,82 @@
   font-size: 0.875rem;
 }
 
-.drill-definition-builder {
+/* ---- Definition panel: visual builder ⇄ JSON editor ---- */
+
+.drill-definition-panel {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  min-width: 0;
+}
+
+/* Segmented control, styled like the orientation toggle for consistency. */
+.drill-definition-panel-toggle {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.drill-definition-panel-tab {
+  padding: 0.4rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+}
+
+.drill-definition-panel-tab + .drill-definition-panel-tab {
+  border-left: 1px solid #cbd5e1;
+}
+
+.drill-definition-panel-tab:hover:not(.active) {
+  background: #f1f5f9;
+}
+
+.drill-definition-panel-tab.active {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.drill-definition-panel-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+/* Read-only mirror of the JSON text the form will submit, visible while the
+   drill is built visually ("the JSON on time"). */
+.drill-json-preview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: #f8fafc;
+  padding: 0.5rem 0.75rem;
+}
+
+.drill-json-preview-toggle {
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.drill-json-preview-code {
+  margin: 0.625rem 0 0;
+  max-height: 22rem;
+  overflow: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--charcoal);
+  white-space: pre;
 }
 
 .drill-step-list {

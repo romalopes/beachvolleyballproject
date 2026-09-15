@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { api, type Skill, type Drill, type Category } from '../api';
+import { api, type Skill, type Drill } from '../api';
 import EmptyState from '../components/EmptyState';
 import Tag from '../components/Tag';
 import { useAuth } from '../auth/AuthContext';
 import DeleteConfirm from '../components/settings/DeleteConfirm';
 import Pagination from '../components/settings/Pagination';
 import ResourceTable from '../components/settings/ResourceTable';
-import { ArrowLeft, Dumbbell, Eye } from 'lucide-react';
+import { ArrowLeft, Dumbbell } from 'lucide-react';
 import { isValidDrillRange, playerRangeLabel, trainingStageLabel } from '../utils/drills';
 
 export default function SkillDetail() {

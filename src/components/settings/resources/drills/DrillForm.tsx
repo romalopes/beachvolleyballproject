@@ -6,7 +6,7 @@ import {
   type Drill,
   type Skill,
 } from "../../../../api";
-import type { DrillDefinition } from "../../../drill/definition";
+import { isDrillDefinition, type DrillDefinition } from "../../../drill/definition";
 import {
   TRAINING_STAGES,
   DIFFICULTY_LEVELS,
@@ -17,14 +17,11 @@ import {
   parseAndValidateDefinition,
   type DrillSchemaIssue,
 } from "../../../../services/drillSchema";
-import DrillDefinitionEditor from "./DrillDefinitionEditor";
-import EntityCatalog from "./EntityCatalog";
-import StepBuilder from "./StepBuilder";
-import StepList from "./StepList";
+import DrillDefinitionPanel from "./DrillDefinitionPanel";
 import {
-  EMPTY_DEFINITION,
   definitionToJsonText,
   jsonTextToDefinition,
+  normalizeDefinition,
 } from "./drill-model";
 
 export interface DrillFormValues {
@@ -110,7 +107,15 @@ export default function DrillForm({
 
   useEffect(() => {
     if (initial) {
-      const initialDefinition = initial.definition ?? null;
+      // The model is always a render-safe draft: Rails defaults the column to
+      // `{}`, so an existing drill can arrive without a `steps` array at all.
+      // The textarea shows that same draft, keeping the JSON "on time" with the
+      // panes; for a definition that already satisfies the v1 shape
+      // `normalizeDefinition` is a no-op, so healthy drills round-trip exactly.
+      const model =
+        initial.definition == null
+          ? null
+          : normalizeDefinition(initial.definition);
       setValues({
         title: initial.title,
         setup_instructions: initial.setup_instructions ?? "",
@@ -119,11 +124,9 @@ export default function DrillForm({
         min_players: String(initial.min_players),
         max_players: String(initial.max_players),
         ideal_num_players: String(initial.ideal_num_players),
-        jsonText: initialDefinition
-          ? definitionToJsonText(initialDefinition)
-          : "",
+        jsonText: model ? definitionToJsonText(model) : "",
       });
-      setDefinition(initialDefinition);
+      setDefinition(model);
       setSelectedSkillIds((initial.skills ?? []).map((s) => s.id));
       setSkillsError(null);
     } else {
@@ -143,11 +146,17 @@ export default function DrillForm({
     setValues((prev) => ({ ...prev, jsonText: definitionToJsonText(next) }));
   };
 
-  /** JSON edit: text → model when it parses; malformed text leaves the model. */
+  /**
+   * JSON edit: text → model when it parses; malformed text leaves the model.
+   * The textarea keeps exactly what the user typed — rewriting it mid-edit would
+   * fight the caret — but the model is normalised, so a parseable-but-incomplete
+   * draft (`{}`, or a definition whose `steps` were deleted) still renders
+   * instead of crashing the panes.
+   */
   const applyJsonText = (text: string) => {
     setValues((prev) => ({ ...prev, jsonText: text }));
     const parsed = jsonTextToDefinition(text);
-    if (parsed !== null) setDefinition(parsed);
+    if (parsed !== null) setDefinition(normalizeDefinition(parsed));
   };
 
   const toggleSkill = (id: number) => {
@@ -168,7 +177,9 @@ export default function DrillForm({
     if (parseResult.parseError !== null) return;
     const parsed = parseResult.definition;
     if (parsed === null) return;
-    applyDefinition(parsed as DrillDefinition);
+    // Normalise as well: formatting a partial draft writes out the completed
+    // definition, exactly like a visual edit would.
+    applyDefinition(normalizeDefinition(parsed));
   };
 
   // Server-reported issues are stored with the definition text they were
@@ -271,6 +282,16 @@ export default function DrillForm({
     }
   };
 
+  /**
+   * Whether the drill loaded from the API has a renderable definition. Read
+   * from `initial`, not from the live model, so the notice stays put while the
+   * user edits: Rails defaults the column to `{}`, and a pre-`side` definition
+   * cannot be rendered either — both show the empty draft the builder starts
+   * from, and that draft is what gets saved.
+   */
+  const storedDefinitionMissing =
+    initial != null && !isDrillDefinition(initial.definition);
+
   return (
     <DrillFormFields
       values={values}
@@ -281,6 +302,7 @@ export default function DrillForm({
       error={error}
       saving={saving}
       isNew={!initial}
+      storedDefinitionMissing={storedDefinitionMissing}
       onCancel={onCancel}
       onSubmit={handleSubmit}
       parseError={parseResult.parseError}
@@ -307,6 +329,7 @@ function DrillFormFields({
   error,
   saving,
   isNew,
+  storedDefinitionMissing,
   onCancel,
   onSubmit,
   parseError,
@@ -328,6 +351,8 @@ function DrillFormFields({
   error: string | null;
   saving: boolean;
   isNew: boolean;
+  /** Existing drill whose stored definition cannot be rendered (e.g. `{}`). */
+  storedDefinitionMissing: boolean;
   onCancel: () => void;
   onSubmit: (e: React.FormEvent) => void;
   parseError: string | null;
@@ -347,10 +372,8 @@ function DrillFormFields({
       : availableSkills.filter(
           (skill) => skill.category_id === skillCategoryFilter,
         );
-  /** Step currently open in the visual builder. */
-  const [activeStepIndex, setActiveStepIndex] = useState(0);
   return (
-    <form onSubmit={onSubmit} className="admin-form">
+    <form onSubmit={onSubmit} className="admin-form drill-form">
       {error && <div className="auth-flash auth-flash-error">{error}</div>}
 
       <div className="admin-field">
@@ -544,33 +567,15 @@ function DrillFormFields({
           The JSON updates live as you edit; you can also edit it manually.
         </p>
 
-        <EntityCatalog
-          definition={definition ?? EMPTY_DEFINITION}
-          onChange={onDefinitionChange}
-        />
-
-        {definition && (
-          <div className="drill-definition-builder">
-            <StepList
-              definition={definition}
-              activeStepIndex={activeStepIndex}
-              onSelectStep={setActiveStepIndex}
-              onChange={onDefinitionChange}
-            />
-            <StepBuilder
-              definition={definition}
-              stepIndex={Math.min(activeStepIndex, definition.steps.length - 1)}
-              onChange={onDefinitionChange}
-            />
-          </div>
-        )}
-
-        <DrillDefinitionEditor
-          value={values.jsonText}
-          onChange={onJsonTextChange}
+        <DrillDefinitionPanel
+          definition={definition}
+          onDefinitionChange={onDefinitionChange}
+          jsonText={values.jsonText}
+          onJsonTextChange={onJsonTextChange}
           parseError={parseError}
           issues={issues}
           onFormat={onFormat}
+          storedDefinitionMissing={storedDefinitionMissing}
         />
       </fieldset>
 

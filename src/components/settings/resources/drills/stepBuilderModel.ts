@@ -13,6 +13,10 @@ import type { EntityKind } from "./drill-model";
 export interface StepBuilderProps {
   definition: DrillDefinition;
   stepIndex: number;
+  hasNext: boolean;
+  selected: SelectedEntity | null;
+  /** Chip / marker selection (owned by the surrounding builder layout). */
+  onSelect: (kind: EntityKind, id: string) => void;
   onChange: (next: DrillDefinition) => void;
 }
 

@@ -1,9 +1,11 @@
 /**
  * Shared drill model — the single `DrillDefinition` the whole editor works on.
  *
- * Two jobs live here:
+ * Three jobs live here:
  *   1. Round-trip serialisation for the JSON textarea (no validation).
- *   2. Pure, immutable model edits the visual builder composes (id generation,
+ *   2. Normalising a stored/parsed value into the render-safe model the visual
+ *      panes index into (`normalizeDefinition`).
+ *   3. Pure, immutable model edits the visual builder composes (id generation,
  *      reference checks, renaming with cascade).
  *
  * Validation (JSON.parse errors + Ajv schema issues) lives in
@@ -86,6 +88,172 @@ export function jsonTextToDefinition(
   }
 }
 
+// ---- draft normalisation ---------------------------------------
+
+/** Non-null, non-array object; `null` for anything the panes cannot read. */
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+/** The value as an array, or `[]` — the panes always iterate these fields. */
+function asArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+/**
+ * Coerce a stored or parsed value into the render-safe editor model.
+ *
+ * The visual panes index straight into the definition (`side.grid`,
+ * `steps[i].participants`, …), but neither source of the model guarantees that
+ * shape:
+ *   • Rails defaults the column to `{}` (`null: false`), so a drill without a
+ *     visualisation arrives as an empty object, and
+ *   • `jsonTextToDefinition` casts whatever JSON parses, so a hand-edited draft
+ *     can be missing whole sections.
+ *
+ * This fills exactly what the panes read and leaves the author's data otherwise
+ * alone: optional keys (`description`, `view`, …) and unknown fields are carried
+ * over, unknown enum values are preserved so the issue panel can still report
+ * them, and a valid definition comes back deep-equal to its input. It
+ * guarantees *renderability*, not schema validity — the JSON editor's live
+ * feedback stays the authority on the latter.
+ */
+export function normalizeDefinition(value: unknown): DrillDefinition {
+  const draft = asRecord(value) ?? {};
+  return {
+    // Anything unrecognised is carried over so a visual edit cannot drop it.
+    ...draft,
+    // `version` is the schema's `const: 1`; a hand-edited number is preserved
+    // so the schema feedback keeps flagging it.
+    version: typeof draft.version === "number" ? (draft.version as 1) : 1,
+    side: normalizeSide(draft.side),
+    participants: normalizeCatalog(draft.participants) as Participant[],
+    balls: normalizeCatalog(draft.balls) as Ball[],
+    objects: normalizeCatalog(draft.objects) as DrillObject[],
+    steps: normalizeSteps(draft.steps),
+  };
+}
+
+/** The stored side, or the editor default when its grid is unusable. */
+function normalizeSide(value: unknown): DrillDefinition["side"] {
+  const side = asRecord(value);
+  const grid = asRecord(side?.grid);
+  const columns = grid?.columns;
+  const rows = grid?.rows;
+  if (
+    typeof columns !== "number" ||
+    typeof rows !== "number" ||
+    columns <= 0 ||
+    rows <= 0
+  ) {
+    return EMPTY_DEFINITION.side;
+  }
+  // The record passed the shape check above; the assertion only bridges the
+  // index-signature type `asRecord` yields.
+  return side as unknown as DrillDefinition["side"];
+}
+
+/** True for a record the panes can key by a non-empty string id. */
+function hasId(
+  value: unknown,
+): value is { id: string } & Record<string, unknown> {
+  const record = asRecord(value);
+  return record !== null && typeof record.id === "string" && record.id !== "";
+}
+
+/** Catalog entries the panes can key by id; id-less entries are dropped. */
+function normalizeCatalog(value: unknown): unknown[] {
+  return asArray(value).filter((entry) => hasId(entry));
+}
+
+/** Placed entity state: a keyable `id`, boolean `active`, optional `location`. */
+function normalizeStates(value: unknown): EntityState[] {
+  return asArray(value).flatMap((entry) => {
+    if (!hasId(entry)) return [];
+    const location = asRecord(entry.location);
+    return [
+      {
+        ...entry,
+        id: entry.id,
+        active: Boolean(entry.active),
+        ...(location === null
+          ? {}
+          : { location: location as unknown as Location }),
+      },
+    ];
+  });
+}
+
+/** Actions the step builder lists: a participant id plus an action body. */
+function normalizeActions(value: unknown): ActionEvent[] {
+  return asArray(value).flatMap((entry) => {
+    const record = asRecord(entry);
+    const action = asRecord(record?.action);
+    const participantId = record?.participant_id;
+    if (record === null || action === null) return [];
+    if (typeof participantId !== "string" || participantId === "") return [];
+    return [{ ...record, action } as unknown as ActionEvent];
+  });
+}
+
+/**
+ * Movements the court can draw. `MovementArrow` needs `to` on every entry and
+ * the editor skips entries without an entity id, so both are required here.
+ */
+function normalizeMovements(
+  value: unknown,
+  idKey: "participant_id" | "ball_id" | "object_id",
+): Movement[] {
+  return asArray(value).flatMap((entry) => {
+    const movement = asRecord(entry);
+    if (movement === null) return [];
+    const id = movement[idKey];
+    if (typeof id !== "string" || id === "") return [];
+    if (asRecord(movement.to) === null) return [];
+    return [movement as unknown as Movement];
+  });
+}
+
+/** Every step keeps its seven schema arrays; a missing `id` is generated. */
+function normalizeSteps(value: unknown): Step[] {
+  const entries = asArray(value);
+  if (entries.length === 0) return [emptyStep("S1")];
+  const taken = new Set<string>();
+  return entries.map((entry) => normalizeStep(entry, taken));
+}
+
+function normalizeStep(value: unknown, taken: Set<string>): Step {
+  const step = asRecord(value) ?? {};
+  const storedId =
+    typeof step.id === "string" && step.id !== "" ? step.id : null;
+  // Duplicate ids are repaired too: they would collide as React keys.
+  const id =
+    storedId !== null && !taken.has(storedId.toLowerCase())
+      ? storedId
+      : newEntityId([...taken], "S");
+  taken.add(id.toLowerCase());
+  return {
+    ...step,
+    id,
+    ...(typeof step.description === "string"
+      ? { description: step.description }
+      : {}),
+    participants: normalizeStates(step.participants),
+    balls: normalizeStates(step.balls),
+    objects: normalizeStates(step.objects),
+    actions: normalizeActions(step.actions),
+    participant_movements: normalizeMovements(
+      step.participant_movements,
+      "participant_id",
+    ),
+    ball_movements: normalizeMovements(step.ball_movements, "ball_id"),
+    object_movements: normalizeMovements(step.object_movements, "object_id"),
+  };
+}
+
 // ---- entity catalog helpers ------------------------------------
 
 /** The three per-drill entity lists, keyed by their drill-definition fields. */
@@ -109,11 +277,11 @@ export function entityList(
 ): (Participant | Ball | DrillObject)[] {
   switch (kind) {
     case "participants":
-      return definition.participants;
+      return definition.participants ?? [];
     case "balls":
-      return definition.balls;
+      return definition.balls ?? [];
     case "objects":
-      return definition.objects;
+      return definition.objects ?? [];
   }
 }
 

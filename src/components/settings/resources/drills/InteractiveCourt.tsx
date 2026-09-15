@@ -56,6 +56,8 @@ export interface InteractiveCourtProps {
   ) => void;
   /** A press on empty court; carries the snapped logical location. */
   onCourtClick: (location: Location) => void;
+  /** When provided, the SVG is exposed for snapshot tests. */
+  snapshotRef?: React.MutableRefObject<SVGSVGElement | null>;
 }
 
 const ENTITY_KINDS: EntityKind[] = ["participants", "balls", "objects"];
@@ -88,16 +90,16 @@ export default function InteractiveCourt({
   const currentStep: Step | undefined = definition.steps[stepIndex];
   const nextStep: Step | undefined = definition.steps[stepIndex + 1];
 
-  const catalog = useMemo(
+    const catalog = useMemo(
     () => ({
       participants: Object.fromEntries(
-        definition.participants.map((p) => [p.id, p]),
+        (definition.participants ?? []).map((p) => [p.id, p]),
       ) as Record<string, Participant>,
       balls: Object.fromEntries(
-        definition.balls.map((b) => [b.id, b]),
+        (definition.balls ?? []).map((b) => [b.id, b]),
       ) as Record<string, Ball>,
       objects: Object.fromEntries(
-        definition.objects.map((o) => [o.id, o]),
+        (definition.objects ?? []).map((o) => [o.id, o]),
       ) as Record<string, DrillObject>,
     }),
     [definition],

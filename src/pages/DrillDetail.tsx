@@ -24,6 +24,11 @@ export default function DrillDetail() {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  /**
+   * Opt-in viewing of the built-in sample. A drill without a renderable
+   * definition must never silently display one as if it were its own data.
+   */
+  const [showSample, setShowSample] = useState(false);
 
   const isAdmin = user?.roles?.includes("admin");
 
@@ -61,8 +66,17 @@ export default function DrillDetail() {
     );
   }
 
-    const definition =
-    resolveDrillDefinition(drill.definition) ?? SAMPLE_DRILL_DEFINITION;
+    /**
+   * What is actually stored on the drill, and what the viewer can render from
+   * it. `resolveDrillDefinition` returns `null` for the Rails `{}` column
+   * default and for pre-`side` definitions, so the built-in sample is shown
+   * only on request and always labelled.
+   */
+  const storedDefinition = drill.definition ?? null;
+  const savedDefinition = resolveDrillDefinition(drill.definition);
+  const viewerDefinition =
+    savedDefinition ?? (showSample ? SAMPLE_DRILL_DEFINITION : null);
+  const storedJson = JSON.stringify(storedDefinition ?? {}, null, 2);
 
   return (
     <div className="page">
@@ -129,23 +143,69 @@ export default function DrillDetail() {
 
       <section className="detail-section">
         <h2>Drill Visualisation</h2>
-        <DrillViewer definition={definition} />
+        {viewerDefinition ? (
+          <>
+            {/* A sample has to announce itself: it is not this drill's data. */}
+            {savedDefinition === null && (
+              <p className="drill-notice" role="note">
+                Sample drill — shown for reference only. This drill has no saved
+                definition yet, so nothing below comes from it.
+              </p>
+            )}
+            <DrillViewer definition={viewerDefinition} />
+            {savedDefinition === null && (
+              <div className="drill-visualisation-actions">
+                <button
+                  type="button"
+                  className="admin-btn"
+                  onClick={() => setShowSample(false)}
+                >
+                  Hide sample
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="drill-visualisation-empty">
+            <EmptyState
+              title="No visualisation yet"
+              description="This drill has no saved definition that can be rendered. An admin can build or fix one with Edit."
+            />
+            <div className="drill-visualisation-actions">
+              <button
+                type="button"
+                className="admin-btn"
+                onClick={() => setShowSample(true)}
+              >
+                Show a sample
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
                   <section className="detail-section">
         <h2>Drill Definition (JSON)</h2>
+        {/* Always the value the API returned for this drill — never the sample,
+            so this section cannot be mistaken for data the drill does not have. */}
+        {savedDefinition === null && (
+          <p className="drill-json-hint">
+            This drill has no saved definition that can be rendered; the JSON
+            below is what the API returned for it.
+          </p>
+        )}
         <details className="drill-json-details">
           <summary>
             Show / hide JSON
             {/* stopPropagation so the copy button doesn't toggle the details */}
             <CopyButton
-              text={JSON.stringify(definition, null, 2)}
+              text={storedJson}
               label="Copy JSON"
               onClick={(e) => e.stopPropagation()}
             />
           </summary>
           <pre className="system-log-viewer drill-json-viewer">
-            {JSON.stringify(definition, null, 2)}
+            {storedJson}
           </pre>
         </details>
       </section>

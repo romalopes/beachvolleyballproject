@@ -90,7 +90,7 @@ export default function Skills() {
       <PageHeader
         title="Skills"
         description="Browse all beach volleyball skills organised by category. Click a skill to see details and related drills."
-        actions={
+        children={
           isAdmin && (
             <button
               className="admin-btn admin-btn-add"

@@ -14,6 +14,7 @@ import {
   jsonTextToDefinition,
   newEntityId,
   nextEntityId,
+  normalizeDefinition,
   referencingStepIds,
   removeActionFromStep,
   removeEntityFromStep,
@@ -91,6 +92,153 @@ describe("EMPTY_DEFINITION", () => {
 
   it("starts from a single empty step carrying every movement array", () => {
     expect(EMPTY_DEFINITION.steps).toEqual([emptyStep("S1")]);
+  });
+});
+
+describe("normalizeDefinition", () => {
+  it("completes the Rails `{}` column default into a renderable draft", () => {
+    const draft = normalizeDefinition({});
+
+    expect(draft).toEqual(EMPTY_DEFINITION);
+    expect(validateDrillDefinition(draft).valid).toBe(true);
+  });
+
+  it("turns anything unreadable into that same draft", () => {
+    for (const value of [null, undefined, 42, "nope", true, [1, 2]]) {
+      expect(normalizeDefinition(value)).toEqual(EMPTY_DEFINITION);
+    }
+  });
+
+  it("is a no-op for a definition that already satisfies the schema", () => {
+    expect(normalizeDefinition(SAMPLE_DRILL_DEFINITION)).toEqual(
+      SAMPLE_DRILL_DEFINITION,
+    );
+  });
+
+  it("does not mutate the value it normalises", () => {
+    const partial = {
+      version: 1,
+      participants: [{ id: "P1", type: "player" }],
+    };
+
+    normalizeDefinition(partial);
+
+    expect(partial).toEqual({
+      version: 1,
+      participants: [{ id: "P1", type: "player" }],
+    });
+  });
+
+  it("keeps the entities while supplying the missing steps", () => {
+    const draft = normalizeDefinition({
+      version: 1,
+      side: { grid: { columns: 5, rows: 4 } },
+      participants: [{ id: "P9", type: "coach", role: "feeder" }],
+    });
+
+    expect(draft.participants).toEqual([
+      { id: "P9", type: "coach", role: "feeder" },
+    ]);
+    expect(draft.steps).toEqual([emptyStep("S1")]);
+    // The reference helper the catalog uses no longer trips over `steps`.
+    expect(referencingStepIds(draft, "participants", "P9")).toEqual([]);
+  });
+
+  it("carries optional and unknown top-level keys through", () => {
+    const draft = normalizeDefinition({
+      description: "Serve receive",
+      view: { orientation: "top_down" },
+      future_field: true,
+    });
+
+    expect(draft.description).toBe("Serve receive");
+    expect(draft.view).toEqual({ orientation: "top_down" });
+    expect((draft as unknown as Record<string, unknown>).future_field).toBe(
+      true,
+    );
+  });
+
+  it("fills every step array the panes iterate", () => {
+    const draft = normalizeDefinition({ steps: [{ id: "Warmup" }] });
+
+    expect(draft.steps).toEqual([emptyStep("Warmup")]);
+  });
+
+  it("generates ids for id-less steps and repairs duplicates", () => {
+    const draft = normalizeDefinition({ steps: [{}, {}, { id: "S2" }] });
+
+    expect(draft.steps.map((step) => step.id)).toEqual(["S1", "S2", "S3"]);
+  });
+
+  it("drops catalog entries and placements the panes could not key", () => {
+    const draft = normalizeDefinition({
+      participants: [{ id: "P1", type: "player" }, { type: "player" }, 7],
+      steps: [
+        {
+          id: "S1",
+          participants: [
+            { id: "P1", active: true, location: { side: "side_1", x: 1, y: 1 } },
+            { active: true },
+            null,
+          ],
+        },
+      ],
+    });
+
+    expect(draft.participants).toEqual([{ id: "P1", type: "player" }]);
+    expect(draft.steps[0].participants).toEqual([
+      { id: "P1", active: true, location: { side: "side_1", x: 1, y: 1 } },
+    ]);
+  });
+
+  it("drops movements the court cannot draw and actions with no participant", () => {
+    const draft = normalizeDefinition({
+      steps: [
+        {
+          id: "S1",
+          participant_movements: [
+            { participant_id: "P1", to: { side: "side_1", x: 2, y: 2 } },
+            { participant_id: "P1" },
+            { to: { side: "side_1", x: 2, y: 2 } },
+          ],
+          actions: [
+            { participant_id: "P1", action: { type: "serve" } },
+            { action: { type: "serve" } },
+          ],
+        },
+      ],
+    });
+
+    expect(draft.steps[0].participant_movements).toEqual([
+      { participant_id: "P1", to: { side: "side_1", x: 2, y: 2 } },
+    ]);
+    expect(draft.steps[0].actions).toEqual([
+      { participant_id: "P1", action: { type: "serve" } },
+    ]);
+  });
+
+  it("keeps a stored side grid, defaulting only when it is unusable", () => {
+    const custom = normalizeDefinition({
+      side: { grid: { columns: 10, rows: 20 } },
+    });
+    const broken = normalizeDefinition({
+      side: { grid: { columns: 0, rows: 20 } },
+    });
+
+    expect(custom.side).toEqual({ grid: { columns: 10, rows: 20 } });
+    expect(broken.side).toEqual(EMPTY_DEFINITION.side);
+  });
+
+  it("coerces the active flag into a boolean the panes can trust", () => {
+    const truthy = normalizeDefinition({
+      steps: [{ id: "S1", participants: [{ id: "P1", active: "yes" }] }],
+    });
+    const missing = normalizeDefinition({
+      steps: [{ id: "S1", participants: [{ id: "P1" }] }],
+    });
+
+    expect(truthy.steps[0].participants[0].active).toBe(true);
+    expect(missing.steps[0].participants[0].active).toBe(false);
   });
 });
 
