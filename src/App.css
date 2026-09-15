@@ -3130,6 +3130,61 @@
   min-width: 0;
 }
 
+/* ---------- Line-numbered code ---------- */
+
+/* A read-only code block whose line numbers sit in a sibling gutter (see
+   LineNumberedCode). The numbers only line up with the text if both halves
+   share a padding-top, font size and line height, so both read those from
+   these variables instead of each declaring its own — the consuming wrapper
+   (e.g. .drill-json-preview-body) sets them once.
+
+   The code must not wrap: a wrapped line occupies several rows but carries a
+   single number. Long lines scroll sideways instead. */
+.line-numbered-code {
+  --lnc-pad-top: 0.875rem;
+  --lnc-font-size: 0.8rem;
+  --lnc-line-height: 1.5;
+  --lnc-font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --lnc-gutter-bg: transparent;
+  --lnc-gutter-color: var(--text-secondary);
+  --lnc-gutter-radius: 0;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+}
+
+/* More specific than the consumer's own class (.system-log-viewer,
+   .drill-json-preview-code), so the variables above always win and the two
+   halves cannot drift apart. */
+.line-numbered-code > pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding-top: var(--lnc-pad-top);
+  font-family: var(--lnc-font-family);
+  font-size: var(--lnc-font-size);
+  line-height: var(--lnc-line-height);
+  white-space: pre;
+}
+
+/* overflow: hidden — the gutter never scrolls itself; useLineNumberGutter
+   mirrors the code's scrollTop onto it. */
+.line-numbered-code__gutter {
+  flex: none;
+  width: 3rem;
+  overflow: hidden;
+  white-space: pre;
+  text-align: right;
+  user-select: none;
+  font-family: var(--lnc-font-family);
+  font-size: var(--lnc-font-size);
+  line-height: var(--lnc-line-height);
+  padding: var(--lnc-pad-top) 0.5rem 0;
+  color: var(--lnc-gutter-color);
+  background: var(--lnc-gutter-bg);
+  border-radius: var(--lnc-gutter-radius);
+  tab-size: 2;
+}
 /* Read-only mirror of the JSON text the form will submit, visible while the
    drill is built visually ("the JSON on time"). */
 .drill-json-preview {
@@ -3148,15 +3203,26 @@
   letter-spacing: 0.03em;
 }
 
+/* The wrapper carries the gutter's variables: the gutter is a sibling of the
+   <pre>, so it cannot inherit them from the <pre> itself. Values mirror
+   .drill-json-preview-code (and the margin that used to sit on it) so the
+   preview looks exactly as it did before it gained numbers. */
+.drill-json-preview-body {
+  --lnc-pad-top: 0;
+  --lnc-font-size: 0.8rem;
+  --lnc-line-height: 1.5;
+  --lnc-font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --lnc-gutter-bg: #f8fafc;
+  --lnc-gutter-color: var(--text-secondary);
+  margin-top: 0.625rem;
+}
+
+/* The <pre> stays the scroller — the gutter mirrors its scrollTop. Font
+   metrics and white-space now come from .line-numbered-code. */
 .drill-json-preview-code {
-  margin: 0.625rem 0 0;
   max-height: 22rem;
   overflow: auto;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.8rem;
-  line-height: 1.5;
   color: var(--charcoal);
-  white-space: pre;
 }
 
 .drill-step-list {

@@ -124,6 +124,18 @@ describe("DrillDetail — drills without a renderable definition", () => {
     );
   });
 
+  it("numbers the stored JSON down the left, one per line", async () => {
+    mockedApi.drill.mockResolvedValue(drillWith({ version: 1 }));
+    renderDetail();
+    await loaded();
+
+    await userEvent.click(screen.getByText("Show / hide JSON"));
+
+    const gutter = document.querySelector(".line-numbered-code__gutter")!;
+    expect(gutter.textContent).toBe("1\n2\n3");
+    expect(gutter.getAttribute("aria-hidden")).toBe("true");
+  });
+
   it("renders the drill's own definition with no sample notice", async () => {
     mockedApi.drill.mockResolvedValue(drillWith(SAMPLE_DRILL_DEFINITION));
     renderDetail();

@@ -7,6 +7,7 @@ import DrillViewer from "../components/drill/DrillViewer";
 import CopyButton from "../components/CopyButton";
 import { useAuth } from "../auth/AuthContext";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
+import LineNumberedCode from "../components/LineNumberedCode";
 import { resolveDrillDefinition, SAMPLE_DRILL_DEFINITION } from "../components/drill/definition";
 import { ArrowLeft, Target, Users } from "lucide-react";
 import {
@@ -66,7 +67,7 @@ export default function DrillDetail() {
     );
   }
 
-    /**
+  /**
    * What is actually stored on the drill, and what the viewer can render from
    * it. `resolveDrillDefinition` returns `null` for the Rails `{}` column
    * default and for pre-`side` definitions, so the built-in sample is shown
@@ -204,9 +205,11 @@ export default function DrillDetail() {
               onClick={(e) => e.stopPropagation()}
             />
           </summary>
-          <pre className="system-log-viewer drill-json-viewer">
-            {storedJson}
-          </pre>
+          <LineNumberedCode
+            className="drill-json-code"
+            code={storedJson}
+            codeClassName="system-log-viewer drill-json-viewer"
+          />
         </details>
       </section>
 

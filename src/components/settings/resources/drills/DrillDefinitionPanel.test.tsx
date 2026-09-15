@@ -43,7 +43,7 @@ const setup = (overrides: Partial<Parameters<typeof DrillDefinitionPanel>[0]> = 
   const onDefinitionChange = vi.fn();
   const onJsonTextChange = vi.fn();
   const onFormat = vi.fn();
-  render(
+  const view = render(
     <DrillDefinitionPanel
       definition={definition()}
       onDefinitionChange={onDefinitionChange}
@@ -56,7 +56,7 @@ const setup = (overrides: Partial<Parameters<typeof DrillDefinitionPanel>[0]> = 
       {...overrides}
     />,
   );
-  return { onDefinitionChange, onJsonTextChange, onFormat };
+  return { ...view, onDefinitionChange, onJsonTextChange, onFormat };
 };
 
 const switchToJson = () =>
@@ -80,6 +80,15 @@ describe("DrillDefinitionPanel", () => {
     expect(screen.queryByLabelText("Definition (JSON)")).toBeNull();
     // The preview is the exact text the form will submit.
     expect(screen.getByTestId("json-preview").textContent).toBe(JSON_TEXT);
+  });
+
+  it("numbers the preview down the left, one per line", () => {
+    const { container } = setup();
+
+    const gutter = container.querySelector(".line-numbered-code__gutter")!;
+    expect(gutter.textContent).toBe("1\n2\n3");
+    // Presentation only: a screen reader must not read the numbers as content.
+    expect(gutter.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("hands a manual JSON edit straight to the form, untouched", () => {

@@ -20,6 +20,7 @@
 import { useState } from "react";
 import type { DrillDefinition } from "../../../drill/definition";
 import type { DrillSchemaIssue } from "../../../../services/drillSchema";
+import LineNumberedCode from "../../../../components/LineNumberedCode";
 import { EMPTY_DEFINITION } from "./drill-model";
 import DrillDefinitionBuilder from "./DrillDefinitionBuilder";
 import DrillDefinitionEditor from "./DrillDefinitionEditor";
@@ -104,12 +105,12 @@ export default function DrillDefinitionPanel({
               <summary className="drill-json-preview-toggle">
                 JSON preview (what will be saved)
               </summary>
-              <pre
-                className="drill-json-preview-code"
-                data-testid="json-preview"
-              >
-                {jsonText}
-              </pre>
+              <LineNumberedCode
+                className="drill-json-preview-body"
+                code={jsonText}
+                codeClassName="drill-json-preview-code"
+                codeTestId="json-preview"
+              />
             </details>
           </>
         ) : (
@@ -133,5 +134,3 @@ export default function DrillDefinitionPanel({
     </div>
   );
 }
-
-

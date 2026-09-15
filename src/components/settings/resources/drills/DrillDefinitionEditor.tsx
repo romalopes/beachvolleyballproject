@@ -6,11 +6,11 @@
  * renders the text, the derived feedback, and the format action.
  */
 
-import { useEffect, useRef, type UIEvent } from "react";
 import {
   formatIssue,
   type DrillSchemaIssue,
 } from "../../../../services/drillSchema";
+import { useLineNumberGutter } from "../../../../components/useLineNumberGutter";
 
 interface DrillDefinitionEditorProps {
   value: string;
@@ -29,38 +29,13 @@ export default function DrillDefinitionEditor({
   issues,
   onFormat,
 }: DrillDefinitionEditorProps) {
-  const gutterRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // The gutter's mechanics are shared with the read-only JSON views
+  // (`LineNumberedCode`); `wrap="off"` on the textarea below is what keeps one
+  // number per visual line.
+  const { gutterRef, scrollerRef, onScroll, numbers } =
+    useLineNumberGutter<HTMLTextAreaElement>(value);
   const hasIssues = !parseError && issues.length > 0;
   const isEmpty = value.trim() === "";
-
-  // One gutter row per logical line. wrap="off" on the textarea keeps logical
-  // and visual lines identical, so the numbers stay aligned with the text.
-  const lineCount = value === "" ? 1 : value.split("\n").length;
-
-  // Mirror the textarea's vertical scroll onto the (overflow: hidden) gutter.
-  const handleScroll = (e: UIEvent<HTMLTextAreaElement>) => {
-    if (gutterRef.current) {
-      gutterRef.current.scrollTop = e.currentTarget.scrollTop;
-    }
-  };
-
-  // Keep the gutter exactly as tall as the textarea, including when the user
-  // drags the native resize handle. (jsdom has no ResizeObserver; the guard
-  // keeps tests running — the CSS flex stretch is the fallback there.)
-  useEffect(() => {
-    const textarea = textareaRef.current;
-    const gutter = gutterRef.current;
-    if (!textarea || !gutter || typeof ResizeObserver === "undefined") return;
-
-    const syncHeight = () => {
-      gutter.style.height = `${textarea.clientHeight}px`;
-    };
-    syncHeight();
-    const observer = new ResizeObserver(syncHeight);
-    observer.observe(textarea);
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <div className="admin-field drill-definition-field">
@@ -76,15 +51,15 @@ export default function DrillDefinitionEditor({
           className="drill-definition-gutter"
           aria-hidden="true"
         >
-          {Array.from({ length: lineCount }, (_, i) => i + 1).join("\n")}
+          {numbers}
         </div>
         <textarea
-          ref={textareaRef}
+          ref={scrollerRef}
           id="drill-definition"
           className="drill-definition-input"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          onScroll={handleScroll}
+          onScroll={onScroll}
           rows={6}
           wrap="off"
           spellCheck={false}
