@@ -12,6 +12,7 @@ import {
   type DrillSchemaIssue,
 } from "../../../../services/drillSchema";
 import DrillDefinitionEditor from "./DrillDefinitionEditor";
+import { definitionToJsonText, jsonTextToDefinition } from "./drill-model";
 
 export interface DrillFormValues {
   title: string;
@@ -21,8 +22,12 @@ export interface DrillFormValues {
   min_players: string;
   max_players: string;
   ideal_num_players: string;
-  /** Raw JSON text for the definition column; "" means "no definition". */
-  definition: string;
+  /**
+   * Raw JSON text for the definition column; `""` means "no definition".
+   * The `DrillDefinition` model is derived from this text (see `definition`),
+   * so malformed input the user is still typing stays visible in the textarea.
+   */
+  jsonText: string;
 }
 
 interface DrillFormProps {
@@ -39,7 +44,7 @@ const EMPTY: DrillFormValues = {
   min_players: "",
   max_players: "",
   ideal_num_players: "",
-  definition: "",
+  jsonText: "",
 };
 
 export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormProps) {
@@ -85,9 +90,7 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
         min_players: String(initial.min_players),
         max_players: String(initial.max_players),
         ideal_num_players: String(initial.ideal_num_players),
-        definition: initial.definition
-          ? JSON.stringify(initial.definition, null, 2)
-          : "",
+        jsonText: initial.definition ? definitionToJsonText(initial.definition) : "",
       });
       setSelectedSkillIds((initial.skills ?? []).map((s) => s.id));
       setSkillsError(null);
@@ -97,8 +100,27 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
     }
   }, [initial]);
 
+  /**
+   * The `DrillDefinition` model is the single source of truth.
+   *
+   * The textarea edits raw JSON text (`values.jsonText`) so malformed input the
+   * user is still typing stays visible; `definition` derives from that text and
+   * is what validation, submission and rendering consume. Visual-builder edits
+   * (future) go the other way through `setDefinition`, which re-derives the JSON
+   * text from the model — that is what "the JSON on time" means.
+   */
+  const definition = useMemo(
+    () => jsonTextToDefinition(values.jsonText),
+    [values.jsonText],
+  );
+
   const set = (key: keyof DrillFormValues, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
+
+  /** Model → text: keeps the JSON in the editor in sync with the shared model. */
+  const setDefinition = (next: DrillDefinition | null) => {
+    set("jsonText", next === null ? "" : definitionToJsonText(next));
+  };
 
   const toggleSkill = (id: number) => {
     setSelectedSkillIds((prev) =>
@@ -109,25 +131,21 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
 
   /** Pretty-print the definition text in place; a no-op when JSON is malformed. */
   const formatDefinition = () => {
-    try {
-      const parsed = JSON.parse(values.definition);
-      set("definition", JSON.stringify(parsed, null, 2));
-    } catch {
-      // Leave the text untouched so the user can fix the syntax.
-    }
+    if (definition === null) return;
+    setDefinition(definition);
   };
 
   // Live feedback while typing: parse + schema-check the definition text.
   const parseResult = useMemo(
-    () => parseAndValidateDefinition(values.definition),
-    [values.definition],
+    () => parseAndValidateDefinition(values.jsonText),
+    [values.jsonText],
   );
 
   // Server-reported issues are stored with the definition text they were
   // reported for, so they go stale (and disappear) as soon as the user edits
   // the definition — no synchronising effect required.
   const serverIssues =
-    serverFeedback && serverFeedback.definition === values.definition
+    serverFeedback && serverFeedback.definition === values.jsonText
       ? serverFeedback.issues
       : [];
 
@@ -211,7 +229,7 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
         // Rails is the authority: surface its errors in the same issue list,
         // tagged with the definition text they apply to.
         setServerFeedback({
-          definition: values.definition,
+          definition: values.jsonText,
           issues: mapServerErrors(err.errors),
         });
       }
@@ -433,8 +451,8 @@ function DrillFormFields({
       </div>
 
       <DrillDefinitionEditor
-        value={values.definition}
-        onChange={(value) => set("definition", value)}
+        value={values.jsonText}
+        onChange={(value) => set("jsonText", value)}
         parseError={parseError}
         issues={issues}
         onFormat={onFormat}
