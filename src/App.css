@@ -1093,9 +1093,30 @@
 .drill-json-details[open] summary {
   margin-bottom: 0.5rem;
 }
+/* The wrapper carries the gutter's variables — the gutter is a sibling of the
+   <pre>, so it cannot inherit them from it. The values mirror
+   .system-log-viewer so the numbers sit flush with the code. */
+.drill-json-code {
+  --lnc-pad-top: 1rem;
+  --lnc-font-size: 0.75rem;
+  --lnc-line-height: 1.45;
+  --lnc-font-family: "SF Mono", Menlo, Consolas, monospace;
+  --lnc-gutter-bg: #1e1e28;
+  --lnc-gutter-color: #7b7b8f;
+  --lnc-gutter-radius: 8px 0 0 8px;
+}
+
 .drill-json-viewer {
   max-height: 40vh;
   margin-top: 0;
+  /* Numbered JSON must not wrap: a wrapped line would be several rows tall but
+     carry a single number, so long lines scroll sideways instead. Scoped here
+     on purpose — the System Logs pages keep .system-log-viewer's wrapping. */
+  white-space: pre;
+  word-break: normal;
+  /* The gutter supplies the left rounding, so the <pre> only rounds on the
+     right; together they read as one dark box. */
+  border-radius: 0 8px 8px 0;
 }
 
 /* ---------- Drill detail: no-definition honesty ---------- */
