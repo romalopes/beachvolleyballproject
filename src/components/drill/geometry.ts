@@ -291,3 +291,166 @@ export function locationToSvg(
     y: mirror ? 2 * rect.y + rect.height - y : y,
   };
 }
+
+/**
+ * Playable bounds per side, mirroring Rails'
+ * `DrillDefinitionValidator#compute_bounds` — the authority that accepts or
+ * rejects a saved definition.
+ *
+ * Deliberately NOT identical to `sideBounds`: that helper treats both sideline
+ * extensions as one `lateral` flag, so enabling only `left` would allow
+ * `x = columns + 1`. Rails gates each end of the x-range independently
+ * (`left` lowers the minimum, `right` raises the maximum), so the editor clamps
+ * with this rule to never produce a definition the server refuses.
+ */
+export function editorBounds(side: SideConfig): Record<
+  SideId,
+  { minX: number; maxX: number; minY: number; maxY: number }
+> {
+  const ext: ExtendedArea = side.extended_area ?? { enabled: false };
+  const left = Boolean(ext.enabled && ext.left);
+  const right = Boolean(ext.enabled && ext.right);
+  const base1 = Boolean(ext.enabled && ext.side_1);
+  const base2 = Boolean(ext.enabled && ext.side_2);
+  const { columns, rows } = side.grid;
+
+  return {
+    side_1: {
+      minX: left ? 0 : 1,
+      maxX: right ? columns + 1 : columns,
+      minY: base1 ? 0 : 1,
+      maxY: rows,
+    },
+    side_2: {
+      minX: left ? 0 : 1,
+      maxX: right ? columns + 1 : columns,
+      minY: 1,
+      maxY: base2 ? rows + 1 : rows,
+    },
+  };
+}
+
+/** Which side a point sits in, ignoring the rects being degenerate. */
+function containsPoint(rect: Rect, point: { x: number; y: number }): boolean {
+  return (
+    point.x >= rect.x &&
+    point.x <= rect.x + rect.width &&
+    point.y >= rect.y &&
+    point.y <= rect.y + rect.height
+  );
+}
+
+/** The side whose centre is closest to the point (used for the net gap/strips). */
+function nearestSide(
+  geometry: SideGeometry,
+  point: { x: number; y: number },
+): SideId {
+  const distance = (rect: Rect) => {
+    const dx = point.x - (rect.x + rect.width / 2);
+    const dy = point.y - (rect.y + rect.height / 2);
+    return dx * dx + dy * dy;
+  };
+  return distance(geometry.side1) <= distance(geometry.side2)
+    ? "side_1"
+    : "side_2";
+}
+
+/** Raw (unclamped, unsnapped) logical location of a point within one side. */
+function logicalAt(
+  point: { x: number; y: number },
+  geometry: SideGeometry,
+  side: SideId,
+): Location {
+  const rect = side === "side_1" ? geometry.side1 : geometry.side2;
+  const { columns, rows } = geometry.grid;
+  const mirrored = side === "side_2";
+  // A one-line axis has no interval to interpolate over; pin it to line 1.
+  const span = (count: number) => Math.max(0, count - 1);
+
+  if (geometry.orientation === "lateral") {
+    // lateral rotates the side 90°: screen-x carries logical y (mirrored for
+    // side 2) and screen-y carries logical x (flipped, x=1 at the bottom).
+    const unmirroredX = mirrored ? 2 * rect.x + rect.width - point.x : point.x;
+    const yRatio = rect.width === 0 ? 0 : (unmirroredX - rect.x) / rect.width;
+    const xRatio =
+      rect.height === 0 ? 0 : (rect.y + rect.height - point.y) / rect.height;
+    return {
+      side,
+      x: 1 + xRatio * span(columns),
+      y: 1 + yRatio * span(rows),
+    };
+  }
+
+  const xRatio = rect.width === 0 ? 0 : (point.x - rect.x) / rect.width;
+  const unmirroredY = mirrored ? 2 * rect.y + rect.height - point.y : point.y;
+  const yRatio = rect.height === 0 ? 0 : (unmirroredY - rect.y) / rect.height;
+  return {
+    side,
+    x: 1 + xRatio * span(columns),
+    y: 1 + yRatio * span(rows),
+  };
+}
+
+const clampValue = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+/** Round to `step` multiples, then re-clamp (a snap may overshoot the bounds). */
+function snapValue(
+  value: number,
+  step: number,
+  min: number,
+  max: number,
+): number {
+  const snapped = Math.round(value / step) * step;
+  // Kill binary-float noise (e.g. 2.9999999999999996 → 3).
+  return clampValue(Number(snapped.toFixed(4)), min, max);
+}
+
+export interface PointToLocationOptions {
+  /** Bounds to clamp into; defaults to the renderer's `geometry.bounds`. */
+  bounds?: SideGeometry["bounds"];
+  /**
+   * Snap to multiples of this step. Defaults to `1` (the grid crossings
+   * `DrillSide` draws). Pass `null` for the raw continuous position.
+   */
+  snap?: number | null;
+}
+
+/**
+ * Exact inverse of `locationToSvg`: an SVG point → logical `Location`.
+ *
+ * Handles both orientations and both (mirrored) sides. A point outside both
+ * sides — the net gap, an extended strip, or a sloppy drag — resolves to the
+ * nearest side rather than failing, so a drag never dead-ends. The result is
+ * clamped into `bounds` (pass `editorBounds(side)` for Rails-accurate limits)
+ * and snapped to the grid.
+ */
+export function pointToLocation(
+  point: { x: number; y: number },
+  geometry: SideGeometry,
+  options: PointToLocationOptions = {},
+): Location {
+  const { bounds = geometry.bounds, snap = 1 } = options;
+  const side = containsPoint(geometry.side1, point)
+    ? "side_1"
+    : containsPoint(geometry.side2, point)
+      ? "side_2"
+      : nearestSide(geometry, point);
+
+  const raw = logicalAt(point, geometry, side);
+  const limit = bounds[side];
+
+  if (snap === null) {
+    return {
+      side,
+      x: clampValue(raw.x, limit.minX, limit.maxX),
+      y: clampValue(raw.y, limit.minY, limit.maxY),
+    };
+  }
+
+  return {
+    side,
+    x: snapValue(raw.x, snap, limit.minX, limit.maxX),
+    y: snapValue(raw.y, snap, limit.minY, limit.maxY),
+  };
+}

@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { api, ApiValidationError, type Category, type Drill, type Skill } from "../../../../api";
+import {
+  api,
+  ApiValidationError,
+  type Category,
+  type Drill,
+  type Skill,
+} from "../../../../api";
 import type { DrillDefinition } from "../../../drill/definition";
 import {
   TRAINING_STAGES,
@@ -13,6 +19,8 @@ import {
 } from "../../../../services/drillSchema";
 import DrillDefinitionEditor from "./DrillDefinitionEditor";
 import EntityCatalog from "./EntityCatalog";
+import StepBuilder from "./StepBuilder";
+import StepList from "./StepList";
 import {
   EMPTY_DEFINITION,
   definitionToJsonText,
@@ -52,7 +60,11 @@ const EMPTY: DrillFormValues = {
   jsonText: "",
 };
 
-export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormProps) {
+export default function DrillForm({
+  initial,
+  onSuccess,
+  onCancel,
+}: DrillFormProps) {
   const [values, setValues] = useState<DrillFormValues>(EMPTY);
   /**
    * The shared `DrillDefinition` model. `values.jsonText` is the JSON buffer the
@@ -64,8 +76,12 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
-  const [availableCategories, setAvailableCategories] = useState<Category[]>([]);
-  const [skillCategoryFilter, setSkillCategoryFilter] = useState<number | "all">("all");
+  const [availableCategories, setAvailableCategories] = useState<Category[]>(
+    [],
+  );
+  const [skillCategoryFilter, setSkillCategoryFilter] = useState<
+    number | "all"
+  >("all");
   const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
   const [skillsError, setSkillsError] = useState<string | null>(null);
   const [serverFeedback, setServerFeedback] = useState<{
@@ -103,7 +119,9 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
         min_players: String(initial.min_players),
         max_players: String(initial.max_players),
         ideal_num_players: String(initial.ideal_num_players),
-        jsonText: initialDefinition ? definitionToJsonText(initialDefinition) : "",
+        jsonText: initialDefinition
+          ? definitionToJsonText(initialDefinition)
+          : "",
       });
       setDefinition(initialDefinition);
       setSelectedSkillIds((initial.skills ?? []).map((s) => s.id));
@@ -134,7 +152,7 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
 
   const toggleSkill = (id: number) => {
     setSelectedSkillIds((prev) =>
-      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((sid) => sid !== id) : [...prev, id],
     );
     setSkillsError(null);
   };
@@ -203,7 +221,9 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
         difficulty_level: values.difficulty_level,
       })
     ) {
-      setError("Player counts must be positive integers with min ≤ ideal ≤ max.");
+      setError(
+        "Player counts must be positive integers with min ≤ ideal ≤ max.",
+      );
       return;
     }
 
@@ -324,7 +344,11 @@ function DrillFormFields({
   const filteredSkills =
     skillCategoryFilter === "all"
       ? availableSkills
-      : availableSkills.filter((skill) => skill.category_id === skillCategoryFilter);
+      : availableSkills.filter(
+          (skill) => skill.category_id === skillCategoryFilter,
+        );
+  /** Step currently open in the visual builder. */
+  const [activeStepIndex, setActiveStepIndex] = useState(0);
   return (
     <form onSubmit={onSubmit} className="admin-form">
       {error && <div className="auth-flash auth-flash-error">{error}</div>}
@@ -355,19 +379,31 @@ function DrillFormFields({
       <div className="admin-field-row">
         <div className="admin-field">
           <label htmlFor="drill-stage">Training Stage *</label>
-          <select id="drill-stage" value={values.training_stage} onChange={(e) => set("training_stage", e.target.value)}>
+          <select
+            id="drill-stage"
+            value={values.training_stage}
+            onChange={(e) => set("training_stage", e.target.value)}
+          >
             <option value="">Select a stage</option>
             {TRAINING_STAGES.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
             ))}
           </select>
         </div>
         <div className="admin-field">
           <label htmlFor="drill-difficulty">Difficulty *</label>
-          <select id="drill-difficulty" value={values.difficulty_level} onChange={(e) => set("difficulty_level", e.target.value)}>
+          <select
+            id="drill-difficulty"
+            value={values.difficulty_level}
+            onChange={(e) => set("difficulty_level", e.target.value)}
+          >
             <option value="">Select a level</option>
             {DIFFICULTY_LEVELS.map((d) => (
-              <option key={d.value} value={d.value}>{d.label}</option>
+              <option key={d.value} value={d.value}>
+                {d.label}
+              </option>
             ))}
           </select>
         </div>
@@ -376,15 +412,33 @@ function DrillFormFields({
       <div className="admin-field-row">
         <div className="admin-field">
           <label htmlFor="drill-min">Min Players *</label>
-          <input id="drill-min" type="number" min={1} value={values.min_players} onChange={(e) => set("min_players", e.target.value)} />
+          <input
+            id="drill-min"
+            type="number"
+            min={1}
+            value={values.min_players}
+            onChange={(e) => set("min_players", e.target.value)}
+          />
         </div>
         <div className="admin-field">
           <label htmlFor="drill-max">Max Players *</label>
-          <input id="drill-max" type="number" min={1} value={values.max_players} onChange={(e) => set("max_players", e.target.value)} />
+          <input
+            id="drill-max"
+            type="number"
+            min={1}
+            value={values.max_players}
+            onChange={(e) => set("max_players", e.target.value)}
+          />
         </div>
         <div className="admin-field">
           <label htmlFor="drill-ideal">Ideal Players *</label>
-          <input id="drill-ideal" type="number" min={1} value={values.ideal_num_players} onChange={(e) => set("ideal_num_players", e.target.value)} />
+          <input
+            id="drill-ideal"
+            type="number"
+            min={1}
+            value={values.ideal_num_players}
+            onChange={(e) => set("ideal_num_players", e.target.value)}
+          />
         </div>
       </div>
 
@@ -396,7 +450,9 @@ function DrillFormFields({
             id="drill-skill-category"
             value={skillCategoryFilter}
             onChange={(e) =>
-              onSkillCategoryChange(e.target.value === "all" ? "all" : Number(e.target.value))
+              onSkillCategoryChange(
+                e.target.value === "all" ? "all" : Number(e.target.value),
+              )
             }
           >
             <option value="all">All Categories</option>
@@ -443,7 +499,8 @@ function DrillFormFields({
         {selectedSkillIds.length > 0 && (
           <>
             <p className="drill-skills-count">
-              {selectedSkillIds.length} skill{selectedSkillIds.length === 1 ? "" : "s"} selected
+              {selectedSkillIds.length} skill
+              {selectedSkillIds.length === 1 ? "" : "s"} selected
             </p>
             <ul className="drill-skills-selected" aria-label="Selected skills">
               {selectedSkillIds.map((id) => {
@@ -471,24 +528,66 @@ function DrillFormFields({
         )}
       </div>
 
-      <EntityCatalog
-        definition={definition ?? EMPTY_DEFINITION}
-        onChange={onDefinitionChange}
-      />
+      {/*
+        The drill definition section: everything that edits the visual
+        definition (entity catalog, step builder and the raw JSON editor).
+        The fieldset/legend marks where the definition starts.
+      */}
+      <fieldset className="drill-definition-fieldset">
+        <legend className="drill-definition-legend">
+          Drill definition
+        </legend>
 
-      <DrillDefinitionEditor
-        value={values.jsonText}
-        onChange={onJsonTextChange}
-        parseError={parseError}
-        issues={issues}
-        onFormat={onFormat}
-      />
+        <p className="drill-definition-legend-hint">
+          Build the drill visually below — create the participants, balls and
+          objects, then position them and define the movements for each step.
+          The JSON updates live as you edit; you can also edit it manually.
+        </p>
+
+        <EntityCatalog
+          definition={definition ?? EMPTY_DEFINITION}
+          onChange={onDefinitionChange}
+        />
+
+        {definition && (
+          <div className="drill-definition-builder">
+            <StepList
+              definition={definition}
+              activeStepIndex={activeStepIndex}
+              onSelectStep={setActiveStepIndex}
+              onChange={onDefinitionChange}
+            />
+            <StepBuilder
+              definition={definition}
+              stepIndex={Math.min(activeStepIndex, definition.steps.length - 1)}
+              onChange={onDefinitionChange}
+            />
+          </div>
+        )}
+
+        <DrillDefinitionEditor
+          value={values.jsonText}
+          onChange={onJsonTextChange}
+          parseError={parseError}
+          issues={issues}
+          onFormat={onFormat}
+        />
+      </fieldset>
 
       <div className="admin-form-actions">
-        <button type="button" className="admin-btn" onClick={onCancel} disabled={saving}>
+        <button
+          type="button"
+          className="admin-btn"
+          onClick={onCancel}
+          disabled={saving}
+        >
           Cancel
         </button>
-        <button type="submit" className="admin-btn admin-btn-add" disabled={saving}>
+        <button
+          type="submit"
+          className="admin-btn admin-btn-add"
+          disabled={saving}
+        >
           {saving ? "Saving..." : isNew ? "Create Drill" : "Update Drill"}
         </button>
       </div>

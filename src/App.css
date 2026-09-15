@@ -1869,6 +1869,186 @@
   color: var(--teal-600);
 }
 
+/* ---- Visual builder: step editor (court + palette + lists) ---- */
+
+.drill-step-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.drill-step-builder-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.drill-step-builder-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.drill-step-builder-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.drill-step-builder-error {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--amber-600);
+}
+
+.drill-step-builder-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(220px, 2fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .drill-step-builder-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.drill-step-builder-court {
+  min-width: 0;
+}
+
+.drill-step-builder-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.drill-step-builder-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.drill-step-builder-section-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.drill-step-builder-empty {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.drill-step-builder-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.drill-step-builder-row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
+.drill-step-builder-row .admin-btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.drill-step-builder-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.drill-step-builder-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.drill-step-builder-note {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.drill-step-builder-row input[type="text"],
+.drill-step-builder-row select {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.drill-step-builder-desc {
+  width: 100%;
+  font-size: 0.8rem;
+}
+
+/* ---- Visual builder court (drag to place / set next position) ---- */
+
+/* The overlay root stays transparent to pointers; the empty-court surface and
+   the entity markers opt back in. Movements never intercept a drag. */
+.drill-builder-layer {
+  touch-action: none;
+}
+
+.drill-builder-layer .drill-builder-surface {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.drill-builder-layer .drill-movement {
+  pointer-events: none;
+}
+
+.drill-builder-marker {
+  cursor: grab;
+}
+
+.drill-builder-marker:active {
+  cursor: grabbing;
+}
+
+/* The following step is a target, not the current state. */
+.drill-builder-marker-next {
+  opacity: 0.45;
+}
+
+/* Placed but inactive: present in the data, hidden by the viewer. */
+.drill-builder-marker-off {
+  opacity: 0.3;
+}
+
+.drill-builder-marker.selected .drill-participant-shape,
+.drill-builder-marker.selected .drill-ball-shape,
+.drill-builder-marker.selected .drill-object-shape,
+.drill-builder-marker.selected .drill-object-fallback {
+  stroke: var(--teal-600);
+  stroke-width: 3;
+}
+
+.drill-builder-crosshair line {
+  stroke: var(--teal-600);
+  stroke-width: 2;
+}
+
 /* ---- Entity catalog (visual builder: participants / balls / objects) ---- */
 
 .drill-entity-catalog {
@@ -2784,4 +2964,128 @@
 .pagination-info strong {
   color: var(--text-primary);
   font-weight: 600;
+}
+
+/* ---- Step list (visual builder: step manager) ---- */
+
+/* Fieldset + legend marking the start of the drill definition section. */
+.drill-definition-fieldset {
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.drill-definition-legend {
+  font-weight: 600;
+  color: var(--charcoal);
+  padding: 0 0.4rem;
+}
+
+.drill-definition-legend-hint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.drill-definition-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.drill-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.drill-step-list-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.drill-step-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+.drill-step-list-item-active {
+  border-color: var(--teal-600);
+  box-shadow: 0 0 0 1px var(--teal-600);
+}
+
+.drill-step-list-select {
+  font: inherit;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: 0.25rem 0.35rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+}
+
+.drill-step-list-select:hover {
+  background: var(--bg-secondary);
+}
+
+.drill-step-list-id {
+  font-weight: 600;
+  color: var(--charcoal);
+}
+
+.drill-step-list-meta {
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drill-step-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.drill-step-list-actions button {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.drill-step-list-actions button:hover:not(:disabled) {
+  color: var(--charcoal);
+  border-color: var(--border-dark);
+}
+
+.drill-step-list-actions button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.drill-step-list-add {
+  align-self: flex-start;
 }

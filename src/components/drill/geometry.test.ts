@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { SideConfig, SideId } from "./definition";
 import {
   buildSideGeometry,
+  editorBounds,
   sideBounds,
   isWithinBounds,
   locationToSvg,
+  pointToLocation,
 } from "./geometry";
 
 const baseSide: SideConfig = {
@@ -172,5 +174,129 @@ describe("isWithinBounds", () => {
   it("rejects unknown sides", () => {
     const unknown = "side_9" as SideId;
     expect(isWithinBounds({ side: unknown, x: 1, y: 1 }, b)).toBe(false);
+  });
+});
+
+describe("editorBounds (mirrors Rails' compute_bounds)", () => {
+  it("matches sideBounds when no extension is enabled", () => {
+    expect(editorBounds(baseSide)).toEqual(sideBounds(baseSide));
+    expect(editorBounds(baseSide).side_1).toEqual({
+      minX: 1,
+      maxX: 5,
+      minY: 1,
+      maxY: 4,
+    });
+  });
+
+  it("gates each end of the x-range independently", () => {
+    const leftOnly = editorBounds({
+      grid: { columns: 5, rows: 4 },
+      extended_area: { enabled: true, left: true },
+    });
+    expect(leftOnly.side_1).toEqual({ minX: 0, maxX: 5, minY: 1, maxY: 4 });
+
+    const rightOnly = editorBounds({
+      grid: { columns: 5, rows: 4 },
+      extended_area: { enabled: true, right: true },
+    });
+    expect(rightOnly.side_1).toEqual({ minX: 1, maxX: 6, minY: 1, maxY: 4 });
+  });
+
+  it("deepens y per side with baseline extensions", () => {
+    const b = editorBounds({
+      grid: { columns: 5, rows: 4 },
+      extended_area: { enabled: true, side_1: true, side_2: true },
+    });
+    expect(b.side_1).toEqual({ minX: 1, maxX: 5, minY: 0, maxY: 4 });
+    expect(b.side_2).toEqual({ minX: 1, maxX: 5, minY: 1, maxY: 5 });
+  });
+
+  it("ignores the flags when the extended area is disabled", () => {
+    const b = editorBounds({
+      grid: { columns: 5, rows: 4 },
+      extended_area: { enabled: false, left: true, right: true },
+    });
+    expect(b.side_1).toEqual({ minX: 1, maxX: 5, minY: 1, maxY: 4 });
+  });
+});
+
+describe("pointToLocation", () => {
+  const topDown = buildSideGeometry("top_down", baseSide);
+  const lateral = buildSideGeometry("lateral", baseSide);
+
+  it("is the inverse of locationToSvg on both sides and orientations", () => {
+    for (const geometry of [topDown, lateral]) {
+      for (const side of ["side_1", "side_2"] as const) {
+        for (const x of [1, 2.5, 5]) {
+          for (const y of [1, 3, 4]) {
+            const point = locationToSvg({ side, x, y }, geometry);
+            const back = pointToLocation(point, geometry, { snap: null });
+            expect(back.side).toBe(side);
+            expect(back.x).toBeCloseTo(x, 6);
+            expect(back.y).toBeCloseTo(y, 6);
+          }
+        }
+      }
+    }
+  });
+
+  it("snaps to the nearest grid crossing by default", () => {
+    const point = locationToSvg({ side: "side_1", x: 2.6, y: 1.4 }, topDown);
+    const back = pointToLocation(point, topDown);
+    expect(back.side).toBe("side_1");
+    expect(back.x).toBe(3);
+    expect(back.y).toBe(1);
+  });
+
+  it("clamps a point dragged beyond a side back into the bounds", () => {
+    const beyond = {
+      x: topDown.side1.x + topDown.side1.width * 3,
+      y: topDown.side1.y + topDown.side1.height / 2,
+    };
+    const back = pointToLocation(beyond, topDown);
+    expect(back.side).toBe("side_1");
+    expect(back.x).toBe(5);
+  });
+
+  it("resolves a point outside both sides to the nearer side", () => {
+    const aboveSide2 = {
+      x: topDown.side2.x + topDown.side2.width / 2,
+      y: topDown.side2.y - 1,
+    };
+    const back = pointToLocation(aboveSide2, topDown);
+    expect(back.side).toBe("side_2");
+    expect(back.y).toBe(4);
+  });
+
+  it("never dead-ends inside the net gap", () => {
+    const net = {
+      x: topDown.net.x + topDown.net.width / 2,
+      y: topDown.net.y + topDown.net.height / 2,
+    };
+    expect(["side_1", "side_2"]).toContain(pointToLocation(net, topDown).side);
+  });
+
+  it("clamps with the supplied Rails bounds", () => {
+    const geometry = buildSideGeometry("top_down", baseSide);
+    const farLeft = {
+      x: geometry.side1.x - geometry.side1.width * 2,
+      y: geometry.side1.y + geometry.side1.height / 2,
+    };
+    expect(pointToLocation(farLeft, geometry).x).toBe(1);
+    expect(
+      pointToLocation(farLeft, geometry, {
+        bounds: editorBounds({
+          grid: { columns: 5, rows: 4 },
+          extended_area: { enabled: true, left: true },
+        }),
+      }).x,
+    ).toBe(0);
+  });
+
+  it("honours a custom snap step", () => {
+    const point = locationToSvg({ side: "side_1", x: 2.4, y: 1.6 }, topDown);
+    const back = pointToLocation(point, topDown, { snap: 0.5 });
+    expect(back.x).toBe(2.5);
+    expect(back.y).toBe(1.5);
   });
 });
