@@ -12,7 +12,12 @@ import {
   type DrillSchemaIssue,
 } from "../../../../services/drillSchema";
 import DrillDefinitionEditor from "./DrillDefinitionEditor";
-import { definitionToJsonText, jsonTextToDefinition } from "./drill-model";
+import EntityCatalog from "./EntityCatalog";
+import {
+  EMPTY_DEFINITION,
+  definitionToJsonText,
+  jsonTextToDefinition,
+} from "./drill-model";
 
 export interface DrillFormValues {
   title: string;
@@ -49,6 +54,13 @@ const EMPTY: DrillFormValues = {
 
 export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormProps) {
   const [values, setValues] = useState<DrillFormValues>(EMPTY);
+  /**
+   * The shared `DrillDefinition` model. `values.jsonText` is the JSON buffer the
+   * textarea shows: a visual edit makes the model win and re-derives the text
+   * ("the JSON on time"), while a JSON edit keeps the raw text verbatim and only
+   * rehydrates the model when the text parses.
+   */
+  const [definition, setDefinition] = useState<DrillDefinition | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
@@ -82,6 +94,7 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
 
   useEffect(() => {
     if (initial) {
+      const initialDefinition = initial.definition ?? null;
       setValues({
         title: initial.title,
         setup_instructions: initial.setup_instructions ?? "",
@@ -90,36 +103,33 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
         min_players: String(initial.min_players),
         max_players: String(initial.max_players),
         ideal_num_players: String(initial.ideal_num_players),
-        jsonText: initial.definition ? definitionToJsonText(initial.definition) : "",
+        jsonText: initialDefinition ? definitionToJsonText(initialDefinition) : "",
       });
+      setDefinition(initialDefinition);
       setSelectedSkillIds((initial.skills ?? []).map((s) => s.id));
       setSkillsError(null);
     } else {
+      setValues(EMPTY);
+      setDefinition(null);
       setSelectedSkillIds([]);
       setSkillsError(null);
     }
   }, [initial]);
 
-  /**
-   * The `DrillDefinition` model is the single source of truth.
-   *
-   * The textarea edits raw JSON text (`values.jsonText`) so malformed input the
-   * user is still typing stays visible; `definition` derives from that text and
-   * is what validation, submission and rendering consume. Visual-builder edits
-   * (future) go the other way through `setDefinition`, which re-derives the JSON
-   * text from the model — that is what "the JSON on time" means.
-   */
-  const definition = useMemo(
-    () => jsonTextToDefinition(values.jsonText),
-    [values.jsonText],
-  );
-
   const set = (key: keyof DrillFormValues, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
 
-  /** Model → text: keeps the JSON in the editor in sync with the shared model. */
-  const setDefinition = (next: DrillDefinition | null) => {
-    set("jsonText", next === null ? "" : definitionToJsonText(next));
+  /** Visual edit: model → JSON text. */
+  const applyDefinition = (next: DrillDefinition) => {
+    setDefinition(next);
+    setValues((prev) => ({ ...prev, jsonText: definitionToJsonText(next) }));
+  };
+
+  /** JSON edit: text → model when it parses; malformed text leaves the model. */
+  const applyJsonText = (text: string) => {
+    setValues((prev) => ({ ...prev, jsonText: text }));
+    const parsed = jsonTextToDefinition(text);
+    if (parsed !== null) setDefinition(parsed);
   };
 
   const toggleSkill = (id: number) => {
@@ -129,17 +139,19 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
     setSkillsError(null);
   };
 
-  /** Pretty-print the definition text in place; a no-op when JSON is malformed. */
-  const formatDefinition = () => {
-    if (definition === null) return;
-    setDefinition(definition);
-  };
-
   // Live feedback while typing: parse + schema-check the definition text.
   const parseResult = useMemo(
     () => parseAndValidateDefinition(values.jsonText),
     [values.jsonText],
   );
+
+  /** Pretty-print the JSON in place; a no-op when the text is malformed/blank. */
+  const formatDefinition = () => {
+    if (parseResult.parseError !== null) return;
+    const parsed = parseResult.definition;
+    if (parsed === null) return;
+    applyDefinition(parsed as DrillDefinition);
+  };
 
   // Server-reported issues are stored with the definition text they were
   // reported for, so they go stale (and disappear) as soon as the user edits
@@ -243,6 +255,9 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
     <DrillFormFields
       values={values}
       set={set}
+      definition={definition}
+      onDefinitionChange={applyDefinition}
+      onJsonTextChange={applyJsonText}
       error={error}
       saving={saving}
       isNew={!initial}
@@ -266,6 +281,9 @@ export default function DrillForm({ initial, onSuccess, onCancel }: DrillFormPro
 function DrillFormFields({
   values,
   set,
+  definition,
+  onDefinitionChange,
+  onJsonTextChange,
   error,
   saving,
   isNew,
@@ -284,6 +302,9 @@ function DrillFormFields({
 }: {
   values: DrillFormValues;
   set: (key: keyof DrillFormValues, value: string) => void;
+  definition: DrillDefinition | null;
+  onDefinitionChange: (next: DrillDefinition) => void;
+  onJsonTextChange: (text: string) => void;
   error: string | null;
   saving: boolean;
   isNew: boolean;
@@ -450,9 +471,14 @@ function DrillFormFields({
         )}
       </div>
 
+      <EntityCatalog
+        definition={definition ?? EMPTY_DEFINITION}
+        onChange={onDefinitionChange}
+      />
+
       <DrillDefinitionEditor
         value={values.jsonText}
-        onChange={(value) => set("jsonText", value)}
+        onChange={onJsonTextChange}
         parseError={parseError}
         issues={issues}
         onFormat={onFormat}

@@ -1869,6 +1869,126 @@
   color: var(--teal-600);
 }
 
+/* ---- Entity catalog (visual builder: participants / balls / objects) ---- */
+
+.drill-entity-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+}
+
+.drill-entity-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.drill-entity-tab {
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+.drill-entity-tab:hover {
+  color: var(--charcoal);
+}
+
+.drill-entity-tab[aria-selected="true"] {
+  color: var(--charcoal);
+  background: #fff;
+  border-color: var(--border);
+}
+
+.drill-entity-count {
+  display: inline-block;
+  min-width: 1.25rem;
+  margin-left: 0.25rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--border-light);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.drill-entity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.drill-entity-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.drill-entity-row input[type="text"],
+.drill-entity-row select {
+  font-size: 0.8125rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.drill-entity-id {
+  flex: none;
+  width: 5.5rem;
+}
+
+.drill-entity-type {
+  flex: none;
+  width: 9.5rem;
+}
+
+.drill-entity-text {
+  flex: 1 1 8rem;
+  min-width: 6rem;
+}
+
+.drill-entity-badge {
+  flex: none;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+  background: var(--border-light);
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+}
+
+.drill-entity-error {
+  flex-basis: 100%;
+  font-size: 0.8125rem;
+  color: var(--amber-600);
+}
+
+.drill-entity-empty {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.drill-entity-warning {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--amber-600);
+}
+
+.drill-entity-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .settings-link-list {
   display: flex;
   flex-direction: column;

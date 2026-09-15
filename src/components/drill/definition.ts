@@ -14,29 +14,41 @@ export type Orientation = "top_down" | "lateral";
 /** Default side orientation used when a definition (or the user) specifies none. */
 export const DEFAULT_ORIENTATION: Orientation = "lateral";
 export type SideId = "side_1" | "side_2";
-export type ParticipantType =
-  | "player"
-  | "coach"
-  | "assistant_coach"
-  | "demonstrator";
-export type BallType = "volleyball" | "frescoball" | "other";
 
-export type ObjectType =
-  | "cone"
-  | "bench"
-  | "obstacle"
-  | "frescoball"
-  | "target"
-  | "basket"
-  | "bucket"
-  | "pole"
-  | "hoop"
-  | "marker"
-  | "ladder"
-  | "bag"
-  | "net"
-  | "chair"
-  | "custom";
+/**
+ * Entity vocabularies — the runtime option lists the editor's `<select>`s use.
+ * Declared as arrays so the option list and the union type can never drift,
+ * mirroring `$defs/participantType|ballType|objectType` in the shared schema.
+ */
+export const PARTICIPANT_TYPES = [
+  "player",
+  "coach",
+  "assistant_coach",
+  "demonstrator",
+] as const;
+export type ParticipantType = (typeof PARTICIPANT_TYPES)[number];
+
+export const BALL_TYPES = ["volleyball", "frescoball", "other"] as const;
+export type BallType = (typeof BALL_TYPES)[number];
+
+export const OBJECT_TYPES = [
+  "cone",
+  "bench",
+  "obstacle",
+  "frescoball",
+  "target",
+  "basket",
+  "bucket",
+  "pole",
+  "hoop",
+  "marker",
+  "ladder",
+  "bag",
+  "net",
+  "chair",
+  "custom",
+] as const;
+export type ObjectType = (typeof OBJECT_TYPES)[number];
 
 /** Canonical action vocabulary — lowercase, deliberate, extensible by editing this list. */
 export const ACTION_TYPES = [
