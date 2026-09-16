@@ -270,6 +270,21 @@ describe("StepBuilder", () => {
       />,
     );
 
+    // The authored destination is the only location qualified as an exit
+    // target; the movement's origin still reads as a plain placement.
+    const targetLegend = screen
+      .getByLabelText("Edit to of B1 (authored) y")
+      .closest("fieldset")
+      ?.querySelector("legend");
+    expect(targetLegend?.textContent).toBe(
+      "Edit to of B1 (authored) (exit target)",
+    );
+    const originLegend = screen
+      .getByLabelText("Edit from of B1 x")
+      .closest("fieldset")
+      ?.querySelector("legend");
+    expect(originLegend?.textContent).toBe("Edit from of B1");
+
     fireEvent.change(screen.getByLabelText("Edit to of B1 (authored) y"), {
       target: { value: "4" },
     });

@@ -99,7 +99,10 @@ export default function CourtSetup({ definition, onChange }: CourtSetupProps) {
     );
   };
 
-  const handleFlag = (key: "left" | "right" | "side_1" | "side_2", on: boolean) => {
+  const handleFlag = (
+    key: "left" | "right" | "side_1" | "side_2",
+    on: boolean,
+  ) => {
     commit(
       setExtendedArea(definition, {
         enabled: true,
@@ -115,38 +118,61 @@ export default function CourtSetup({ definition, onChange }: CourtSetupProps) {
   return (
     <fieldset className="drill-builder-group drill-court-setup">
       <legend>Court setup</legend>
-      <div className="drill-court-setup-grid">
-        <label>
-          Columns
-          <input
-            type="number"
-            min={1}
-            step={1}
-            defaultValue={columns}
-            key={`columns-${columns}`}
-            aria-label="Grid columns"
-            onBlur={(event) => handleGrid("columns", event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter")
-                handleGrid("columns", event.currentTarget.value);
+      <div className="drill-court-setup-row">
+        <div className="drill-court-setup-grid">
+          <label>
+            Columns
+            <input
+              type="number"
+              min={1}
+              step={1}
+              defaultValue={columns}
+              key={`columns-${columns}`}
+              aria-label="Grid columns"
+              onBlur={(event) => handleGrid("columns", event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter")
+                  handleGrid("columns", event.currentTarget.value);
+              }}
+            />
+          </label>
+          <label>
+            Rows
+            <input
+              type="number"
+              min={1}
+              step={1}
+              defaultValue={rows}
+              key={`rows-${rows}`}
+              aria-label="Grid rows"
+              onBlur={(event) => handleGrid("rows", event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter")
+                  handleGrid("rows", event.currentTarget.value);
+              }}
+            />
+          </label>
+        </div>
+        <label className="drill-court-setup-orientation">
+          Default orientation
+          <select
+            aria-label="Default orientation"
+            value={definition.view?.orientation ?? ""}
+            onChange={(event) => {
+              const value = event.target.value as Orientation | "";
+              const next = setViewOrientation(
+                definition,
+                value === "" ? undefined : value,
+              );
+              if (next !== definition) onChange(next);
+              // Clearing or setting the default never moves a placement.
+              setReport(null);
             }}
-          />
-        </label>
-        <label>
-          Rows
-          <input
-            type="number"
-            min={1}
-            step={1}
-            defaultValue={rows}
-            key={`rows-${rows}`}
-            aria-label="Grid rows"
-            onBlur={(event) => handleGrid("rows", event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter")
-                handleGrid("rows", event.currentTarget.value);
-            }}
-          />
+          >
+            <option value="">Viewer default</option>
+            <option value="lateral">Lateral</option>
+            <option value="top_down">Top down</option>
+          </select>
         </label>
       </div>
       <label className="drill-court-setup-enabled">
@@ -175,27 +201,6 @@ export default function CourtSetup({ definition, onChange }: CourtSetupProps) {
           {report}
         </p>
       )}
-      <label className="drill-court-setup-orientation">
-        Default orientation
-        <select
-          aria-label="Default orientation"
-          value={definition.view?.orientation ?? ""}
-          onChange={(event) => {
-            const value = event.target.value as Orientation | "";
-            const next = setViewOrientation(
-              definition,
-              value === "" ? undefined : value,
-            );
-            if (next !== definition) onChange(next);
-            // Clearing or setting the default never moves a placement.
-            setReport(null);
-          }}
-        >
-          <option value="">Viewer default</option>
-          <option value="lateral">Lateral</option>
-          <option value="top_down">Top down</option>
-        </select>
-      </label>
     </fieldset>
   );
 }

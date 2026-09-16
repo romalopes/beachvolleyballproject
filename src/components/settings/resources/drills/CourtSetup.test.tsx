@@ -37,11 +37,14 @@ const cornerDrill = (extended = false): DrillDefinition => ({
 
 const renderSetup = (definition: DrillDefinition = cornerDrill()) => {
   const onChange = vi.fn();
-  render(<CourtSetup definition={definition} onChange={onChange} />);
-  return { onChange };
+  const { container } = render(
+    <CourtSetup definition={definition} onChange={onChange} />,
+  );
+  return { onChange, container };
 };
 
-const columnsInput = () => screen.getByLabelText("Grid columns") as HTMLInputElement;
+const columnsInput = () =>
+  screen.getByLabelText("Grid columns") as HTMLInputElement;
 
 describe("CourtSetup", () => {
   it("commits a valid grid change on blur", () => {
@@ -61,7 +64,9 @@ describe("CourtSetup", () => {
     fireEvent.change(columnsInput(), { target: { value: "6" } });
     fireEvent.keyDown(columnsInput(), { key: "Enter" });
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect((onChange.mock.calls[0][0] as DrillDefinition).side.grid.columns).toBe(6);
+    expect(
+      (onChange.mock.calls[0][0] as DrillDefinition).side.grid.columns,
+    ).toBe(6);
 
     // Zero, fractional and blank drafts are rejected without a commit.
     fireEvent.change(columnsInput(), { target: { value: "0" } });
@@ -137,16 +142,46 @@ describe("CourtSetup", () => {
   });
 
   it("a coordinate change that widens the bounds reports nothing", () => {
-    const definition = setEntityLocation(cornerDrill(), 0, "participants", "P1", {
-      side: "side_1",
-      x: 3,
-      y: 2,
-    });
+    const definition = setEntityLocation(
+      cornerDrill(),
+      0,
+      "participants",
+      "P1",
+      {
+        side: "side_1",
+        x: 3,
+        y: 2,
+      },
+    );
     renderSetup(definition);
 
     fireEvent.change(columnsInput(), { target: { value: "8" } });
     fireEvent.blur(columnsInput());
 
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("groups the extended-area side flags under the court-setup layout", () => {
+    const { container } = renderSetup(cornerDrill(true));
+
+    // The side flags live in their own labelled container (rather than loose in
+    // the fieldset) so the shared court-setup layout can treat them as one
+    // wrapping group; jsdom applies no stylesheets, so we assert the DOM
+    // contract the rules in App.css rely on.
+    const flags = container.querySelector(".drill-court-setup-flags");
+    expect(flags).not.toBeNull();
+    expect(flags!.getAttribute("aria-label")).toBe("Extended area sides");
+
+    const boxes = flags!.querySelectorAll("input[type=checkbox]");
+    expect(boxes).toHaveLength(4);
+    expect(
+      Array.from(flags!.children).every((child) => child.tagName === "LABEL"),
+    ).toBe(true);
+
+    // The "Extended area" toggle is a sibling row, so both share the
+    // court-setup layout rhythm defined in App.css.
+    const toggle = container.querySelector(".drill-court-setup-enabled");
+    expect(toggle).not.toBeNull();
+    expect(toggle!.parentElement).toBe(flags!.parentElement);
   });
 });

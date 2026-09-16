@@ -205,10 +205,11 @@ export default function EntityCatalog({
       <div className="drill-entity-actions">
         <button
           type="button"
-          className="admin-btn admin-btn-add"
+          className="drill-builder-add-btn"
+          aria-label={`Add ${activeTab.singular}`}
           onClick={addEntity}
         >
-          Add {activeTab.singular}
+          +
         </button>
       </div>
     </div>

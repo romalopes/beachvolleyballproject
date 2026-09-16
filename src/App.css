@@ -2083,6 +2083,27 @@
   cursor: grabbing;
 }
 
+/* Authored last-step exit targets: a movement's `to` with no next-step ghost
+   to provide a handle. Hollow, so it cannot be mistaken for a placement. */
+.drill-builder-marker-target {
+  cursor: grab;
+}
+.drill-builder-marker-target:active {
+  cursor: grabbing;
+}
+.drill-builder-target-shape {
+  fill: rgba(255, 255, 255, 0.85);
+  stroke: #f97316;
+  stroke-width: 2;
+  stroke-dasharray: 3 2;
+}
+.drill-builder-target-label {
+  font-size: 9px;
+  font-weight: 700;
+  fill: #9a3412;
+  pointer-events: none;
+}
+
 /* Playback preview: the court is not editable, so no drag affordances — the
    crosshair would suggest a move that the suspended handlers refuse to make. */
 .drill-builder-canvas[data-playing="true"] .drill-builder-crosshair {
@@ -3105,6 +3126,15 @@
   width: 5rem;
 }
 
+/* Columns / Rows sit beside the default-orientation control on one row. */
+.drill-court-setup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.625rem 1rem;
+}
+
+/* Extended-area toggle: checkbox beside its text, on one line. */
 .drill-court-setup-enabled {
   display: flex;
   align-items: center;
@@ -3112,22 +3142,28 @@
   font-size: 0.85rem;
   font-weight: 600;
   color: #475569;
+  cursor: pointer;
 }
 
+/* Side flags: a wrapping row of labelled checkboxes. */
 .drill-court-setup-flags {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.375rem 0.875rem;
-  font-size: 0.85rem;
-  color: #475569;
 }
 
 .drill-court-setup-flags label {
   display: flex;
   align-items: center;
   gap: 0.3rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
 }
 
+/* Default orientation: label text on top, dropdown below it. */
 .drill-court-setup-orientation {
   display: flex;
   flex-direction: column;
@@ -3139,6 +3175,7 @@
 
 .drill-court-setup-orientation select {
   max-width: 12rem;
+  align-self: start;
 }
 
 /* Relocated here for determinism: the clamp report rendered by CourtSetup. */
@@ -3150,6 +3187,42 @@
   border: 1px solid #bae6fd;
   border-radius: 6px;
   padding: 0.4rem 0.6rem;
+}
+
+/* Compact icon-buttons for the entity catalog's add and StepBuilder's remove
+   actions — consistent size, hover accent, and alignment with the checkbox
+   rhythm that defines the rest of the builder. */
+.drill-builder-remove-btn,
+.drill-builder-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+}
+.drill-builder-remove-btn:hover,
+.drill-builder-add-btn:hover {
+  background: #fff;
+  border-color: #f97316;
+  color: #c2410c;
+}
+.drill-builder-remove-btn:focus-visible,
+.drill-builder-add-btn:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 1px;
 }
 
 /* Numeric side/x/y editors: drags stay the fast path, these are precise. */

@@ -24,6 +24,7 @@ vi.mock("./InteractiveCourt", () => ({
     progress = 0,
     sizeScale = 100,
     onMove,
+    onTargetMove,
   }: {
     definition: DrillDefinition;
     orientation: Orientation;
@@ -37,6 +38,11 @@ vi.mock("./InteractiveCourt", () => ({
       location: { side: "side_1" | "side_2"; x: number; y: number },
       layer: "current" | "next",
     ) => void;
+    onTargetMove?: (
+      kind: "participants" | "balls" | "objects",
+      movementIndex: number,
+      location: { side: "side_1" | "side_2"; x: number; y: number },
+    ) => void;
   }) => {
     const step = definition.steps[stepIndex];
     return (
@@ -47,6 +53,24 @@ vi.mock("./InteractiveCourt", () => ({
         data-progress={progress}
         data-size-scale={sizeScale}
       >
+        {(definition.steps[stepIndex]?.ball_movements ?? []).map(
+          (movement, index) => (
+            <button
+              key={`target-${movement.ball_id}-${index}`}
+              type="button"
+              data-testid={`target-${movement.ball_id}`}
+              onClick={() =>
+                onTargetMove?.(
+                  "balls",
+                  index,
+                  { side: "side_1", x: 2, y: 2 },
+                )
+              }
+            >
+              exit target {movement.ball_id}
+            </button>
+          ),
+        )}
         {step?.participants.map((state) => (
           <button
             key={`p-${state.id}`}
@@ -290,5 +314,44 @@ describe("DrillDefinitionBuilder — visualisation controls", () => {
 
     expect(screen.getByTestId("court").dataset.playing).toBe("false");
     expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
+  });
+
+  it("commits a dragged last-step exit target through setMovementTarget", () => {
+    const base = twoSteps();
+    const definition: DrillDefinition = {
+      ...base,
+      balls: [{ id: "B1", type: "volleyball" }],
+      steps: [
+        base.steps[0],
+        {
+          ...base.steps[1],
+          balls: [
+            { id: "B1", active: true, location: { side: "side_1", x: 2, y: 2 } },
+          ],
+          ball_movements: [
+            {
+              ball_id: "B1",
+              from: { side: "side_1", x: 2, y: 2 },
+              to: { side: "side_1", x: 4, y: 2 },
+              description: "coach feeds",
+            },
+          ],
+        },
+      ],
+    };
+    const { onChange } = renderBuilder(definition);
+
+    // The exit cap only exists on the last step.
+    fireEvent.click(screen.getByRole("button", { name: "Next step" }));
+    fireEvent.click(screen.getByTestId("target-B1"));
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const next = onChange.mock.calls[0][0] as DrillDefinition;
+    expect(next.steps[1].ball_movements[0].to).toEqual({
+      side: "side_1",
+      x: 2,
+      y: 2,
+    });
+    expect(next.steps[1].ball_movements[0].description).toBe("coach feeds");
   });
 });

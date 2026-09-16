@@ -27,6 +27,7 @@ import StepList from "./StepList";
 import {
   EMPTY_DEFINITION,
   setEntityLocation,
+  setMovementTarget,
   type EntityKind,
 } from "./drill-model";
 import type { SelectedEntity } from "./stepBuilderModel";
@@ -92,6 +93,15 @@ export default function DrillDefinitionBuilder({
     );
   };
 
+  /** An authored last-step exit target was dragged. */
+  const handleTargetMove = (
+    kind: EntityKind,
+    movementIndex: number,
+    location: Location,
+  ) => {
+    onChange(setMovementTarget(model, stepIndex, kind, movementIndex, location));
+  };
+
   return (
     <div className="drill-definition-builder">
       <div className="drill-definition-builder-court-pane">
@@ -147,6 +157,7 @@ export default function DrillDefinitionBuilder({
           selected={selected}
           onSelect={(kind, id) => setSelected({ kind, id })}
           onMove={handleMove}
+          onTargetMove={handleTargetMove}
           onCourtClick={() => setSelected(null)}
           playing={playback.playing}
           progress={playback.progress}

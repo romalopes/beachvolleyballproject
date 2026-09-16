@@ -150,11 +150,11 @@ export default function EntityRow({
 
       <button
         type="button"
-        className="admin-btn admin-btn-remove"
+        className="drill-builder-remove-btn"
         aria-label={`Remove ${entity.id}`}
         onClick={onRemove}
       >
-        Remove
+        ×
       </button>
 
       {idError && (

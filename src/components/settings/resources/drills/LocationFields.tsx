@@ -15,6 +15,11 @@ import type { DrillDefinition } from "../../../drill/definition";
 export interface LocationFieldsProps {
   location: Location | undefined;
   legend: string;
+  /** Distinguishes a placement origin from an authored movement target. Only
+   * the authored last-step target is qualified (its legend reads
+   * "Edit to of B1 (authored) (exit target)"); origins are the default and
+   * render the legend as-is, so the field labels stay unchanged. */
+  locationType?: "origin" | "exitTarget";
   definition: DrillDefinition;
   onCommit: (location: Location) => void;
 }
@@ -22,12 +27,18 @@ export interface LocationFieldsProps {
 export default function LocationFields({
   location,
   legend,
+  locationType = "origin",
   definition,
   onCommit,
 }: LocationFieldsProps) {
   const [draft, setDraft] = useState<string | null>(null);
   const bounds = editorBounds(definition.side);
   const shown = location ?? { side: "side_1" as SideId, x: 1, y: 1 };
+  /** Suffix appended to the legend for an authored last-step target — the
+   * only case where "exit target" adds information the legend doesn't already
+   * carry. Origins are the default and render without a suffix. */
+  const qualifier =
+    locationType === "exitTarget" ? " (exit target)" : "";
 
   const commitField = (field: "side" | "x" | "y", raw: string) => {
     if (field === "side") {
@@ -49,7 +60,10 @@ export default function LocationFields({
 
   return (
     <fieldset className="drill-location-fields">
-      <legend>{legend}</legend>
+      <legend>
+        {legend}
+        {qualifier}
+      </legend>
       <label>
         Side
         <select

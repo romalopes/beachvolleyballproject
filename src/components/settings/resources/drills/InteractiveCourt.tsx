@@ -13,6 +13,11 @@
  *   • `next`    — the following step (translucent ghosts, draggable too), which
  *     is where a movement's `to` comes from.
  *
+ * On the LAST step there is no next step, so movements carry an *authored* `to`
+ * with no ghost to drag. Each one therefore gets its own exit-target cap — a
+ * hollow handle at `movement.to`, committed through `onTargetMove`
+ * (`setMovementTarget`) — so an authored arrow never ends in thin air.
+ *
  * The same court doubles as a playback preview (`playing`/`progress`): the
  * ghosts step aside and the current entities follow the viewer's own
  * interpolation rule (`entityFramePoint`), so checking the moves and watching
@@ -63,6 +68,16 @@ export interface InteractiveCourtProps {
   /** A press on empty court; carries the snapped logical location. */
   onCourtClick: (location: Location) => void;
   /**
+   * Dragging an authored last-step exit target. Only called for movements of
+   * the last step, where `to` is authored rather than derived; the model
+   * helper (`setMovementTarget`) no-ops everywhere else.
+   */
+  onTargetMove?: (
+    kind: EntityKind,
+    movementIndex: number,
+    location: Location,
+  ) => void;
+  /**
    * Playback preview: while true the court animates the current step's
    * movements towards the next step, hides the ghost layer and stops accepting
    * edits — checking the moves must never author them.
@@ -97,6 +112,11 @@ interface DragState {
   id: string;
   layer: Layer;
   location: Location;
+  /**
+   * Set while dragging an authored last-step exit target: the commit goes
+   * through `onTargetMove` instead of `onMove`.
+   */
+  movementIndex?: number;
 }
 
 export default function InteractiveCourt({
@@ -106,6 +126,7 @@ export default function InteractiveCourt({
   selected,
   onSelect,
   onMove,
+  onTargetMove,
   onCourtClick,
   playing = false,
   progress = 0,
@@ -122,8 +143,11 @@ export default function InteractiveCourt({
 
   const currentStep: Step | undefined = definition.steps[stepIndex];
   const nextStep: Step | undefined = definition.steps[stepIndex + 1];
+  // Only the last step's movements are authored; earlier ones derive their
+  // `to` from the next step, whose ghost is already the handle.
+  const isLastStep = !nextStep;
 
-    const catalog = useMemo(
+  const catalog = useMemo(
     () => ({
       participants: Object.fromEntries(
         (definition.participants ?? []).map((p) => [p.id, p]),
@@ -194,6 +218,21 @@ export default function InteractiveCourt({
     setDrag({ kind, id, layer, location });
   };
 
+  /** Same mechanics as `startDrag`, but for an authored exit-target cap: the
+   * commit routes to `onTargetMove`, and nothing is "selected" — a cap is an
+   * arrow endpoint, not an entity placement. */
+  const startTargetDrag = (
+    event: React.PointerEvent,
+    kind: EntityKind,
+    id: string,
+    movementIndex: number,
+    location: Location,
+  ) => {
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    setDrag({ kind, id, layer: "next", location, movementIndex });
+  };
+
   const handlePointerMove = (event: React.PointerEvent) => {
     // Suspended while checking the moves: playback must never author them, so
     // a drag in flight cannot commit a new location to the model.
@@ -202,6 +241,10 @@ export default function InteractiveCourt({
     const location = locationFromEvent(event);
     if (!location) return;
     setDrag({ ...drag, location });
+    if (drag.movementIndex !== undefined) {
+      onTargetMove?.(drag.kind, drag.movementIndex, location);
+      return;
+    }
     onMove(drag.kind, drag.id, location, drag.layer);
   };
 
@@ -316,6 +359,51 @@ export default function InteractiveCourt({
       );
     });
 
+  /**
+   * Exit-target caps for the LAST step. Its movements are authored — there is
+   * no next step whose ghosts could provide a handle — so each `to` gets its
+   * own grabbable cap. Hidden while playing (the animation is the target) and
+   * absent on earlier steps (the next-step ghost is the handle there).
+   */
+  const renderTargetCaps = () => {
+    if (!isLastStep || playing || !currentStep) return null;
+    return ENTITY_KINDS.flatMap((kind) =>
+      movementsForKind(currentStep, kind).map((movement, index) => {
+        const id = (movement as unknown as Record<string, unknown>)[
+          moveKeyForKind(kind)
+        ] as string | undefined;
+        if (!id) return null;
+        const point = locationToSvg(movement.to, geometry);
+        return (
+          <g
+            key={`target-${kind}-${id}-${index}`}
+            className="drill-builder-marker drill-builder-marker-target"
+            data-layer="target"
+            data-entity-kind={kind}
+            data-entity-id={id}
+            data-movement-index={index}
+            role="button"
+            aria-label={`Exit target of ${id}`}
+            onPointerDown={(event) =>
+              startTargetDrag(event, kind, id, index, movement.to)
+            }
+          >
+            <g transform={`translate(${point.x}, ${point.y})`}>
+              <circle r={7} className="drill-builder-target-shape" />
+              <text
+                textAnchor="middle"
+                dy="0.35em"
+                className="drill-builder-target-label"
+              >
+                {id}
+              </text>
+            </g>
+          </g>
+        );
+      }),
+    );
+  };
+
   if (!currentStep) return null;
 
   return (
@@ -372,6 +460,7 @@ export default function InteractiveCourt({
           "object",
           "object_id",
         )}
+        {renderTargetCaps()}
         {renderLayer(currentStep, "current")}
 
         {drag && (

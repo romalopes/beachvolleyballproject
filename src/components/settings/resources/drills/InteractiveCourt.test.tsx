@@ -235,3 +235,102 @@ describe("InteractiveCourt — playback preview", () => {
     expect(canvas.getAttribute("data-playing")).toBe("false");
   });
 });
+
+/**
+ * The last step's movements are authored — there is no next step whose ghosts
+ * could provide a handle — so each `to` gets its own grabbable exit cap.
+ */
+describe("InteractiveCourt — last-step exit targets", () => {
+  /** S2 is the last step and carries an authored ball movement. */
+  const lastStepAuthored: DrillDefinition = {
+    ...definition,
+    steps: [
+      definition.steps[0],
+      {
+        ...definition.steps[1],
+        balls: [
+          { id: "B1", active: true, location: { side: "side_2", x: 2, y: 2 } },
+        ],
+        ball_movements: [
+          {
+            ball_id: "B1",
+            from: { side: "side_2", x: 2, y: 2 },
+            to: { side: "side_1", x: 2, y: 3 },
+            description: "coach feeds",
+          },
+        ],
+      },
+    ],
+  };
+
+  it("renders an exit cap at the authored `to` on the last step", () => {
+    const { container, geometry } = renderCourt({
+      definition: lastStepAuthored,
+      stepIndex: 1,
+    });
+
+    const cap = container.querySelector(
+      '[data-layer="target"][data-entity-id="B1"]',
+    );
+    expect(cap).not.toBeNull();
+    expect(cap!.getAttribute("data-movement-index")).toBe("0");
+    const expected = locationToSvg({ side: "side_1", x: 2, y: 3 }, geometry);
+    expect(cap!.querySelector("g")!.getAttribute("transform")).toBe(
+      `translate(${expected.x}, ${expected.y})`,
+    );
+  });
+
+  it("hides the caps while playing", () => {
+    const { container } = renderCourt({
+      definition: lastStepAuthored,
+      stepIndex: 1,
+      playing: true,
+    });
+
+    expect(container.querySelector('[data-layer="target"]')).toBeNull();
+  });
+
+  it("renders no caps on a middle step (the ghost is the handle)", () => {
+    const withMovement: DrillDefinition = {
+      ...definition,
+      steps: [
+        {
+          ...definition.steps[0],
+          participant_movements: [
+            {
+              participant_id: "P1",
+              from: { side: "side_1", x: 1, y: 1 },
+              to: { side: "side_1", x: 4, y: 3 },
+            },
+          ],
+        },
+        definition.steps[1],
+      ],
+    };
+    const { container } = renderCourt({ definition: withMovement, stepIndex: 0 });
+
+    expect(container.querySelector('[data-layer="target"]')).toBeNull();
+  });
+
+  it("commits a cap drag through onTargetMove", () => {
+    const onTargetMove = vi.fn();
+    const { container, svg } = renderCourt({
+      definition: lastStepAuthored,
+      stepIndex: 1,
+      onTargetMove,
+    });
+
+    fireEvent.pointerDown(
+      container.querySelector('[data-layer="target"][data-entity-id="B1"]')!,
+      { clientX: 4, clientY: 4 },
+    );
+    fireEvent.pointerMove(svg, { clientX: 60, clientY: 50 });
+
+    expect(onTargetMove).toHaveBeenCalledTimes(1);
+    expect(onTargetMove.mock.calls[0][0]).toBe("balls");
+    expect(onTargetMove.mock.calls[0][1]).toBe(0);
+    expect(onTargetMove.mock.calls[0][2]).toEqual(
+      expect.objectContaining({ x: expect.any(Number), y: expect.any(Number) }),
+    );
+  });
+});
