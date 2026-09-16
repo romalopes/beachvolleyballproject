@@ -562,9 +562,13 @@ function DrillFormFields({
         </legend>
 
         <p className="drill-definition-legend-hint">
-          Build the drill visually below — create the participants, balls and
-          objects, then position them and define the movements for each step.
-          The JSON updates live as you edit; you can also edit it manually.
+          Build the drill visually below — set the court grid and default
+          orientation, create the participants, balls and objects, then
+          position them per step (drag on the court, drag the ghost for the
+          next step, or type coordinates) and check the moves with the
+          playback controls. Movements follow positions: from is this step,
+          to is the next step. The JSON updates live as you edit; you can
+          also edit it manually, or start from the sample.
         </p>
 
         <DrillDefinitionPanel

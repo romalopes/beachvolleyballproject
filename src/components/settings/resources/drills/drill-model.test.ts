@@ -26,6 +26,12 @@ import {
   setMovementDescription,
   syncMovements,
   syncMovementsAt,
+  clampDefinitionToBounds,
+  duplicateStep,
+  setExtendedArea,
+  setGrid,
+  setMovementTarget,
+  setViewOrientation,
 } from "./drill-model";
 
 /**
@@ -715,4 +721,240 @@ describe("step-builder helpers", () => {
     const centre = defaultStepLocation(EMPTY_DEFINITION);
     expect(centre).toEqual({ side: "side_1", x: 3, y: 2 });
   });
+describe("setViewOrientation", () => {
+  it("writes view.orientation and clears the whole key when unset", () => {
+    const base = { ...EMPTY_DEFINITION };
+
+    const topDown = setViewOrientation(base, "top_down");
+    expect(topDown.view).toEqual({ orientation: "top_down" });
+
+    const lateral = setViewOrientation(topDown, "lateral");
+    expect(lateral.view).toEqual({ orientation: "lateral" });
+
+    const cleared = setViewOrientation(lateral, undefined);
+    expect("view" in cleared).toBe(false);
+    // Clearing an absent view is a no-op (same object identity).
+    expect(setViewOrientation(base, undefined)).toBe(base);
+  });
+});
+
+describe("setMovementTarget", () => {
+  /** S2 (the last step) carries an authored ball movement. */
+  const authoredLast = (): DrillDefinition => ({
+    ...movingDrill,
+    steps: [
+      movingDrill.steps[0],
+      {
+        ...movingDrill.steps[1],
+        ball_movements: [
+          {
+            ball_id: "B1",
+            from: { side: "side_1", x: 3, y: 1 },
+            to: { side: "side_1", x: 4, y: 2 },
+            description: "coach feeds",
+          },
+        ],
+      },
+    ],
+  });
+
+  it("edits the authored `to` on the last step, clamped to the bounds", () => {
+    const next = setMovementTarget(authoredLast(), 1, "balls", 0, {
+      side: "side_1",
+      x: 99,
+      y: 0,
+    });
+
+    expect(next.steps[1].ball_movements[0].to).toEqual({
+      side: "side_1",
+      x: 5,
+      y: 1,
+    });
+    expect(next.steps[1].ball_movements[0].description).toBe("coach feeds");
+  });
+
+  it("is a no-op on non-last steps, bad indexes and unknown sides", () => {
+    const definition = authoredLast();
+    expect(
+      setMovementTarget(definition, 0, "balls", 0, { side: "side_1", x: 1, y: 1 }),
+    ).toBe(definition);
+    expect(
+      setMovementTarget(definition, 1, "balls", 9, { side: "side_1", x: 1, y: 1 }),
+    ).toBe(definition);
+    expect(
+      setMovementTarget(definition, 1, "balls", 0, {
+        side: "side_9" as "side_1",
+        x: 1,
+        y: 1,
+      }),
+    ).toBe(definition);
+  });
+});
+
+describe("duplicateStep", () => {
+  it("splits a middle-step pair: original→copy no-op, copy→next keeps the arrow", () => {
+    const synced = syncMovements(movingDrill);
+    const duplicated = duplicateStep(synced, 0);
+
+    expect(duplicated.steps).toHaveLength(3);
+    expect(duplicated.steps[1].id).toBe("S3");
+    // Original → copy: identical positions, so no arrow.
+    expect(duplicated.steps[0].participant_movements).toEqual([]);
+    // Copy → next: the arrow rides along.
+    expect(duplicated.steps[1].participant_movements).toEqual([
+      {
+        participant_id: "P1",
+        from: { side: "side_1", x: 2, y: 1 },
+        to: { side: "side_1", x: 3, y: 1 },
+      },
+    ]);
+    assertMovementInvariant(duplicated);
+    expect(validateDrillDefinition(duplicated).valid).toBe(true);
+  });
+
+  it("preserves authored last-step movements instead of dropping them", () => {
+    const definition = syncMovements(movingDrill);
+    const withAuthored: DrillDefinition = {
+      ...definition,
+      steps: [
+        definition.steps[0],
+        {
+          ...definition.steps[1],
+          ball_movements: [
+            {
+              ball_id: "B1",
+              from: { side: "side_1", x: 3, y: 1 },
+              to: { side: "side_1", x: 4, y: 2 },
+              description: "coach feeds",
+            },
+          ],
+        },
+      ],
+    };
+
+    const copy = duplicateStep(withAuthored, 1).steps[2];
+    expect(copy.ball_movements).toEqual([
+      {
+        ball_id: "B1",
+        from: { side: "side_1", x: 3, y: 1 },
+        to: { side: "side_1", x: 4, y: 2 },
+        description: "coach feeds",
+      },
+    ]);
+  });
+});
+
+describe("court setup helpers", () => {
+  /** syncMovements(movingDrill): P1 (2,1)→(3,1) is the one derived arrow. */
+  const syncedMovingDrill = () => syncMovements(movingDrill);
+
+  it("setGrid shrinks the court and clamps placements inside the new bounds", () => {
+    const edit = setGrid(syncedMovingDrill(), { columns: 2, rows: 2 });
+
+    expect(edit.definition.side.grid).toEqual({ columns: 2, rows: 2 });
+    expect(edit.movedPlacements).toBeGreaterThan(0);
+    const allInside = edit.definition.steps.every((step) =>
+      [...step.participants, ...step.balls, ...step.objects].every(
+        (state) =>
+          !state.location ||
+          (state.location.x >= 1 &&
+            state.location.x <= 2 &&
+            state.location.y >= 1 &&
+            state.location.y <= 2),
+      ),
+    );
+    expect(allInside).toBe(true);
+    assertMovementInvariant(edit.definition);
+    expect(validateDrillDefinition(edit.definition).valid).toBe(true);
+  });
+
+  it("setGrid rejects non-finite drafts and reports no movement when widening", () => {
+    const definition = syncedMovingDrill();
+    expect(setGrid(definition, { columns: NaN, rows: 4 }).definition).toBe(
+      definition,
+    );
+    const widened = setGrid(definition, { columns: 8, rows: 6 });
+    expect(widened.definition.side.grid).toEqual({ columns: 8, rows: 6 });
+    expect(widened.movedPlacements).toBe(0);
+    expect(widened.movedTargets).toBe(0);
+  });
+
+  it("setExtendedArea disabling clears the flags so editor and server agree", () => {
+    const definition: DrillDefinition = {
+      ...syncedMovingDrill(),
+      side: {
+        grid: { columns: 5, rows: 4 },
+        extended_area: { enabled: true, left: true },
+      },
+    };
+
+    const off = setExtendedArea(definition, undefined);
+    expect(off.definition.side.extended_area).toEqual({ enabled: false });
+
+    const on = setExtendedArea(definition, {
+      enabled: true,
+      left: false,
+      right: true,
+      side_1: false,
+      side_2: false,
+    });
+    expect(on.definition.side.extended_area).toEqual({
+      enabled: true,
+      left: false,
+      right: true,
+      side_1: false,
+      side_2: false,
+    });
+  });
+
+  it("clampDefinitionToBounds covers inactive states and last-step targets", () => {
+    const definition: DrillDefinition = {
+      ...movingDrill,
+      side: { grid: { columns: 2, rows: 2 } },
+      steps: [
+        {
+          ...movingDrill.steps[0],
+          // Inactive but located: Rails still bounds-checks it.
+          participants: [
+            { id: "P1", active: false, location: { side: "side_1", x: 5, y: 4 } },
+          ],
+        },
+        {
+          ...movingDrill.steps[1],
+          participants: [
+            { id: "P1", active: true, location: { side: "side_1", x: 2, y: 2 } },
+          ],
+          ball_movements: [
+            // Authored last-step target outside the shrunk bounds.
+            { ball_id: "B1", to: { side: "side_1", x: 9, y: 9 } },
+          ],
+        },
+      ],
+    };
+
+    const edit = clampDefinitionToBounds(definition);
+    expect(edit.definition.steps[0].participants[0].location).toEqual({
+      side: "side_1",
+      x: 2,
+      y: 2,
+    });
+    expect(edit.definition.steps[1].ball_movements[0].to).toEqual({
+      side: "side_1",
+      x: 2,
+      y: 2,
+    });
+    expect(edit.movedPlacements).toBe(3);
+    expect(edit.movedTargets).toBe(1);
+  });
+
+  it("clampDefinitionToBounds is a no-op when everything already fits", () => {
+    const definition = syncedMovingDrill();
+    expect(clampDefinitionToBounds(definition)).toEqual({
+      definition,
+      movedPlacements: 0,
+      movedTargets: 0,
+    });
+  });
+});
+
 });

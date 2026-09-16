@@ -9,7 +9,7 @@
  * the scrolling config pane.
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DrillDefinition, Orientation } from "../../../drill/definition";
 import { emptyStep } from "./drill-model";
 import DrillDefinitionBuilder from "./DrillDefinitionBuilder";
@@ -20,11 +20,17 @@ vi.mock("./InteractiveCourt", () => ({
     definition,
     orientation,
     stepIndex,
+    playing = false,
+    progress = 0,
+    sizeScale = 100,
     onMove,
   }: {
     definition: DrillDefinition;
     orientation: Orientation;
     stepIndex: number;
+    playing?: boolean;
+    progress?: number;
+    sizeScale?: number;
     onMove: (
       kind: "participants" | "balls" | "objects",
       id: string,
@@ -34,7 +40,13 @@ vi.mock("./InteractiveCourt", () => ({
   }) => {
     const step = definition.steps[stepIndex];
     return (
-      <div data-testid="court" data-orientation={orientation}>
+      <div
+        data-testid="court"
+        data-orientation={orientation}
+        data-playing={String(playing)}
+        data-progress={progress}
+        data-size-scale={sizeScale}
+      >
         {step?.participants.map((state) => (
           <button
             key={`p-${state.id}`}
@@ -75,6 +87,19 @@ vi.mock("./InteractiveCourt", () => ({
 }));
 
 afterEach(cleanup);
+
+/**
+ * Playback drives requestAnimationFrame. Frames are stubbed out for the whole
+ * file so the play/pause assertions stay deterministic — no frame can run
+ * between a click and the assertion.
+ */
+beforeEach(() => {
+  vi.stubGlobal("requestAnimationFrame", () => 0);
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const twoSteps = (): DrillDefinition => ({
   version: 1,
@@ -183,5 +208,87 @@ describe("DrillDefinitionBuilder", () => {
     fireEvent.click(screen.getByRole("button", { name: "S20 placed" }));
 
     expect(screen.queryByTestId("marker-P1")).toBeNull();
+  });
+});
+
+/**
+ * The visualisation carries the same size slider and step controls as the
+ * viewer, so an author can check the moves without leaving the editor. The
+ * court is mocked here: these tests pin the wiring from the controls to the
+ * court and to the shared playback state.
+ */
+describe("DrillDefinitionBuilder — visualisation controls", () => {
+  it("renders the size slider and the step controls beside the court", () => {
+    const { container } = renderBuilder();
+
+    expect(screen.getByLabelText("Court size")).toBeInTheDocument();
+    expect(container.querySelector(".drill-controls")).not.toBeNull();
+    expect(
+      screen.getByRole("tablist", { name: "Step timeline" }),
+    ).toBeInTheDocument();
+  });
+
+  it("drives the court size from the slider", () => {
+    renderBuilder();
+
+    fireEvent.change(screen.getByLabelText("Court size"), {
+      target: { value: "120" },
+    });
+
+    expect(screen.getByTestId("court").dataset.sizeScale).toBe("120");
+    expect(screen.getByText("120%")).toBeInTheDocument();
+  });
+
+  it("moves the edit cursor from the step timeline", () => {
+    renderBuilder();
+
+    expect(screen.getByRole("tab", { name: "Step 1" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Step 2" }));
+
+    expect(screen.getByRole("tab", { name: "Step 2" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("tab", { name: "Step 1" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+  });
+
+  it("moves the edit cursor with prev/next", () => {
+    renderBuilder();
+
+    expect(screen.getByRole("button", { name: "Previous step" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next step" }));
+
+    expect(screen.getByRole("tab", { name: "Step 2" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Next step" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Previous step" }),
+    ).not.toBeDisabled();
+  });
+
+  it("starts and pauses playback from the controls", () => {
+    renderBuilder();
+
+    expect(screen.getByTestId("court").dataset.playing).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+
+    expect(screen.getByTestId("court").dataset.playing).toBe("true");
+    expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+
+    expect(screen.getByTestId("court").dataset.playing).toBe("false");
+    expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
   });
 });

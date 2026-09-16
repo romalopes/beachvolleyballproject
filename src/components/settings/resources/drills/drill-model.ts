@@ -22,8 +22,10 @@ import type {
   DrillDefinition,
   DrillObject,
   EntityState,
+  ExtendedArea,
   Location,
   Movement,
+  Orientation,
   Participant,
   Step,
 } from "../../../drill/definition";
@@ -852,6 +854,47 @@ export function setMovementDescription(
 }
 
 /**
+ * Edit the authored `to` of a last-step movement. Only the last step has
+ * authored targets — every earlier step derives `to` from the next step's
+ * positions — so edits elsewhere (or bad indexes) are no-ops. The target is
+ * clamped into the Rails bounds, exactly like a drag would be.
+ */
+export function setMovementTarget(
+  definition: DrillDefinition,
+  stepIndex: number,
+  kind: EntityKind,
+  movementIndex: number,
+  target: Location,
+): DrillDefinition {
+  if (stepIndex !== definition.steps.length - 1) return definition;
+  const step = definition.steps[stepIndex];
+  if (!step) return definition;
+  const key = movementListKey(kind);
+  const movement = step[key][movementIndex];
+  if (!movement) return definition;
+  const bounds = editorBounds(definition.side);
+  const side = bounds[target.side];
+  if (!side) return definition;
+  const to: Location = {
+    ...target,
+    x: Math.min(side.maxX, Math.max(side.minX, target.x)),
+    y: Math.min(side.maxY, Math.max(side.minY, target.y)),
+  };
+  return {
+    ...definition,
+    steps: definition.steps.map((candidate, index) => {
+      if (index !== stepIndex) return candidate;
+      return {
+        ...candidate,
+        [key]: candidate[key].map((entry, i) =>
+          i === movementIndex ? { ...entry, to } : entry,
+        ),
+      };
+    }),
+  };
+}
+
+/**
  * Remove a derived movement arrow. Because movements are derived from position
  * changes, deleting the arrow also equalises the entity's next-step position
  * to its current one, so the arrow does not re-derive on the next drag and
@@ -924,7 +967,11 @@ export function addStep(definition: DrillDefinition): DrillDefinition {
 /**
  * Duplicate a step (id re-generated, description carried over). Positions are
  * copied verbatim — an exact clone is the most useful starting point — and the
- * new step's movements are re-derived from its clone of the positions.
+ * movement annotations are carried with the copy too. Re-deriving then splits
+ * each pair correctly: the original keeps its relation to the copy (identical
+ * positions ⇒ no arrow) and the copy keeps its relation to the step that
+ * follows. The wipe-then-derive version dropped authored arrows on the last
+ * step, where there is no next step to re-derive `to` from.
  */
 export function duplicateStep(
   definition: DrillDefinition,
@@ -940,6 +987,11 @@ export function duplicateStep(
     balls: step.balls.map((state) => ({ ...state })),
     objects: step.objects.map((state) => ({ ...state })),
     actions: step.actions.map((action) => ({ ...action })),
+    participant_movements: step.participant_movements.map((movement) => ({
+      ...movement,
+    })),
+    ball_movements: step.ball_movements.map((movement) => ({ ...movement })),
+    object_movements: step.object_movements.map((movement) => ({ ...movement })),
   };
   const steps = [...definition.steps];
   steps.splice(stepIndex + 1, 0, copy);
@@ -976,4 +1028,197 @@ export function moveStep(
   steps.splice(target, 0, moved);
   // Both affected pairs change, so re-derive everything.
   return syncMovements({ ...definition, steps });
+}
+
+// ---- court setup -----------------------------------------------------
+
+/**
+ * A court-shape edit plus what it had to move to stay saveable.
+ *
+ * Rails bounds-checks every placed coordinate (and every movement `from`/`to`)
+ * against the bounds derived from grid + extended_area, so a smaller court or a
+ * dropped extension would otherwise leave the drill unsaveable, with an error
+ * only the server could explain.
+ */
+export interface CourtEdit {
+  definition: DrillDefinition;
+  /** Placed states (any step, kind, active or not) nudged inside the bounds. */
+  movedPlacements: number;
+  /** Authored movement targets nudged inside the bounds. */
+  movedTargets: number;
+}
+
+/** Clamp one location into the editor (Rails) bounds. */
+function clampLocation(
+  location: Location,
+  bounds: ReturnType<typeof editorBounds>,
+): Location {
+  const side = bounds[location.side];
+  // An unknown side is the schema's business, not ours: never invent one.
+  if (!side) return location;
+  const x = Math.min(side.maxX, Math.max(side.minX, location.x));
+  const y = Math.min(side.maxY, Math.max(side.minY, location.y));
+  return x === location.x && y === location.y ? location : { ...location, x, y };
+}
+
+/**
+ * Pull every placement inside the current bounds, then re-derive the movements.
+ *
+ * Two details make this more than a plain clamp:
+ *   • Rails bounds-checks a state whenever it *has* a location, so inactive
+ *     placements are clamped too.
+ *   • The last step has no next step to derive `to` from, so `syncMovements`
+ *     keeps its targets as authored — they must be clamped explicitly.
+ *
+ * A widening (or no-op) edit changes nothing and returns the author's
+ * definition untouched, so unrelated manual edits are never rewritten.
+ */
+export function clampDefinitionToBounds(
+  definition: DrillDefinition,
+): CourtEdit {
+  const bounds = editorBounds(definition.side);
+  let movedPlacements = 0;
+  let movedTargets = 0;
+
+  const clampState = (state: EntityState): EntityState => {
+    if (!state.location) return state;
+    const location = clampLocation(state.location, bounds);
+    if (sameLocation(location, state.location)) return state;
+    movedPlacements += 1;
+    return { ...state, location };
+  };
+
+  const clampTargets = (movements: Movement[]): Movement[] =>
+    movements.map((movement) => {
+      const to = clampLocation(movement.to, bounds);
+      if (sameLocation(to, movement.to)) return movement;
+      movedTargets += 1;
+      return { ...movement, to };
+    });
+
+  const lastIndex = definition.steps.length - 1;
+  const steps = definition.steps.map((step, index) => {
+    const clamped: Step = {
+      ...step,
+      participants: step.participants.map(clampState),
+      balls: step.balls.map(clampState),
+      objects: step.objects.map(clampState),
+    };
+    // Only the last step's targets are authored: every earlier step derives its
+    // `to` from the next step, which the clamp above has already fixed.
+    if (index !== lastIndex) return clamped;
+    return {
+      ...clamped,
+      participant_movements: clampTargets(clamped.participant_movements),
+      ball_movements: clampTargets(clamped.ball_movements),
+      object_movements: clampTargets(clamped.object_movements),
+    };
+  });
+
+  if (movedPlacements === 0 && movedTargets === 0) {
+    return { definition, movedPlacements: 0, movedTargets: 0 };
+  }
+  // Re-derive every pair so each movement's from/to follows the new positions.
+  return {
+    definition: syncMovements({ ...definition, steps }),
+    movedPlacements,
+    movedTargets,
+  };
+}
+
+/**
+ * Resize the court grid (schema: integers ≥ 1) and pull placements inside the
+ * new bounds. A draft that is not a finite number is not written at all.
+ */
+export function setGrid(
+  definition: DrillDefinition,
+  grid: { columns: number; rows: number },
+): CourtEdit {
+  if (!Number.isFinite(grid.columns) || !Number.isFinite(grid.rows)) {
+    return { definition, movedPlacements: 0, movedTargets: 0 };
+  }
+  const columns = Math.max(1, Math.trunc(grid.columns));
+  const rows = Math.max(1, Math.trunc(grid.rows));
+  return clampDefinitionToBounds({
+    ...definition,
+    side: { ...definition.side, grid: { columns, rows } },
+  });
+}
+
+/**
+ * Set the extended area, or switch it off.
+ *
+ * Switching off drops the flags on purpose: Rails derives its bounds from
+ * `left`/`right`/`side_1`/`side_2` alone, while the court geometry additionally
+ * requires `enabled`. Leaving stale flags behind would make the editor stricter
+ * than the server, so the two would disagree about the same drill.
+ */
+export function setExtendedArea(
+  definition: DrillDefinition,
+  area: ExtendedArea | undefined,
+): CourtEdit {
+  const side: DrillDefinition["side"] = { ...definition.side };
+  if (area?.enabled) {
+    side.extended_area = {
+      enabled: true,
+      left: Boolean(area.left),
+      right: Boolean(area.right),
+      side_1: Boolean(area.side_1),
+      side_2: Boolean(area.side_2),
+    };
+  } else {
+    side.extended_area = { enabled: false };
+  }
+  return clampDefinitionToBounds({ ...definition, side });
+}
+
+/**
+ * Set the definition's default view orientation. `undefined` (or an empty
+ * select value) clears the `view` key — an absent orientation means "the
+ * viewer decides", which is the schema's default too. Separated from the
+ * court pane's preview toggle, which never writes to the model.
+ */
+export function setViewOrientation(
+  definition: DrillDefinition,
+  orientation: Orientation | undefined,
+): DrillDefinition {
+  if (orientation === undefined) {
+    if (!("view" in definition)) return definition;
+    const next: DrillDefinition = { ...definition };
+    delete next.view;
+    return next;
+  }
+  return { ...definition, view: { orientation } };
+}
+
+// ---- step + definition metadata --------------------------------------
+
+/** Set one step's description; a blank string clears it. */
+export function setStepDescription(
+  definition: DrillDefinition,
+  stepIndex: number,
+  description: string,
+): DrillDefinition {
+  if (!definition.steps[stepIndex]) return definition;
+  return {
+    ...definition,
+    steps: definition.steps.map((candidate, index) => {
+      if (index !== stepIndex) return candidate;
+      const next: Step = { ...candidate };
+      if (description === "") delete next.description;
+      else next.description = description;
+      return next;
+    }),
+  };
+}
+
+/** Set the summary the viewer shows above the court; a blank string clears it. */
+export function setDefinitionDescription(
+  definition: DrillDefinition,
+  description: string,
+): DrillDefinition {
+  const next: DrillDefinition = { ...definition };
+  if (description === "") delete next.description;
+  else next.description = description;
+  return next;
 }

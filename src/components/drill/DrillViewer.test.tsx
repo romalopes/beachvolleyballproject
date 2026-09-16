@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DrillDefinition } from "./definition";
 import DrillViewer from "./DrillViewer";
 
@@ -24,6 +24,16 @@ const definition: DrillDefinition = {
 };
 
 afterEach(cleanup);
+
+// Playback drives requestAnimationFrame; stubbing it keeps the play/pause
+// assertions deterministic (no frame can run between click and assertion).
+beforeEach(() => {
+  vi.stubGlobal("requestAnimationFrame", () => 0);
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+});
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("DrillViewer — orientation toggle", () => {
   it("starts in the default orientation (lateral) and toggles on click", () => {
@@ -69,5 +79,17 @@ describe("DrillViewer — orientation toggle", () => {
     expect(
       container.querySelector(".drill-definition-description")
     ).toBeNull();
+  });
+});
+
+describe("DrillViewer — playback controls", () => {
+  it("plays and pauses from the shared step controls", () => {
+    render(<DrillViewer definition={definition} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+    expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Pause" }));
+    expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
   });
 });

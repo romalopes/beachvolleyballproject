@@ -12,6 +12,11 @@
  *   • `current` — the step being edited (solid, draggable);
  *   • `next`    — the following step (translucent ghosts, draggable too), which
  *     is where a movement's `to` comes from.
+ *
+ * The same court doubles as a playback preview (`playing`/`progress`): the
+ * ghosts step aside and the current entities follow the viewer's own
+ * interpolation rule (`entityFramePoint`), so checking the moves and watching
+ * the finished drill can never disagree. Editing is suspended while playing.
  */
 
 import { useMemo, useRef, useState } from "react";
@@ -37,6 +42,7 @@ import ParticipantMark from "../../../drill/Participant";
 import BallMark from "../../../drill/Ball";
 import DrillObjectMark from "../../../drill/DrillObject";
 import MovementArrow from "../../../drill/MovementArrow";
+import { entityFramePoint, type MoveKey } from "../../../drill/playback";
 import { activeLocations, type EntityKind } from "./drill-model";
 
 /** Which step a drag is editing: the one on screen, or the following one. */
@@ -56,11 +62,35 @@ export interface InteractiveCourtProps {
   ) => void;
   /** A press on empty court; carries the snapped logical location. */
   onCourtClick: (location: Location) => void;
+  /**
+   * Playback preview: while true the court animates the current step's
+   * movements towards the next step, hides the ghost layer and stops accepting
+   * edits — checking the moves must never author them.
+   */
+  playing?: boolean;
+  /** 0..1 within the current step; only meaningful while `playing`. */
+  progress?: number;
+  /** Display size as a percentage of the pane width (purely visual). */
+  sizeScale?: number;
   /** When provided, the SVG is exposed for snapshot tests. */
   snapshotRef?: React.MutableRefObject<SVGSVGElement | null>;
 }
 
 const ENTITY_KINDS: EntityKind[] = ["participants", "balls", "objects"];
+
+/** The movement id key an entity family's step array belongs to. */
+function moveKeyForKind(kind: EntityKind): MoveKey {
+  if (kind === "participants") return "participant_id";
+  if (kind === "balls") return "ball_id";
+  return "object_id";
+}
+
+/** The movements of a step for one entity family. */
+function movementsForKind(step: Step, kind: EntityKind): Movement[] {
+  if (kind === "participants") return step.participant_movements;
+  if (kind === "balls") return step.ball_movements;
+  return step.object_movements;
+}
 
 interface DragState {
   kind: EntityKind;
@@ -77,6 +107,9 @@ export default function InteractiveCourt({
   onSelect,
   onMove,
   onCourtClick,
+  playing = false,
+  progress = 0,
+  sizeScale = 100,
 }: InteractiveCourtProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
@@ -154,12 +187,17 @@ export default function InteractiveCourt({
   ) => {
     // Keep the press away from the empty-court handler underneath.
     event.stopPropagation();
-    svgRef.current?.setPointerCapture?.(event.pointerId);
+    // Capture on the marker itself: pointer events still bubble to the layer's
+    // move/up handlers, and the drag path stays free of direct ref reads.
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     onSelect(kind, id);
     setDrag({ kind, id, layer, location });
   };
 
   const handlePointerMove = (event: React.PointerEvent) => {
+    // Suspended while checking the moves: playback must never author them, so
+    // a drag in flight cannot commit a new location to the model.
+    if (playing) return;
     if (!drag) return;
     const location = locationFromEvent(event);
     if (!location) return;
@@ -188,13 +226,45 @@ export default function InteractiveCourt({
     return <DrillObjectMark type={type} x={x} y={y} title={title} />;
   };
 
+  /**
+   * While the preview plays, active current-step entities follow the viewer's
+   * interpolation (`entityFramePoint`). The points are precomputed as plain
+   * data so the layer renderer stays a pure function of its inputs.
+   */
+  const playbackPoints = useMemo(() => {
+    if (!playing || !currentStep) return null;
+    const toSvg = (location: Location) => locationToSvg(location, geometry);
+    const points = new Map<string, { x: number; y: number }>();
+    for (const kind of ENTITY_KINDS) {
+      for (const state of currentStep[kind]) {
+        if (!state.active) continue;
+        const point = entityFramePoint({
+          states: currentStep[kind],
+          nextStates: nextStep?.[kind],
+          movements: movementsForKind(currentStep, kind),
+          key: moveKeyForKind(kind),
+          id: state.id,
+          progress,
+          playing,
+          toSvg,
+        });
+        if (point) points.set(`${kind}:${state.id}`, point);
+      }
+    }
+    return points;
+  }, [playing, progress, currentStep, nextStep, geometry]);
+
   const renderLayer = (step: Step | undefined, layer: Layer) =>
     step
       ? ENTITY_KINDS.flatMap((kind) =>
           step[kind].map((state: EntityState) => {
             // Nothing placed: neither drawable nor draggable yet.
             if (!state.location) return null;
-            const { x, y } = locationToSvg(state.location, geometry);
+            // Playback points are only built for active entities; inactive
+            // ones have no frame, so they stay as authored.
+            const { x, y } =
+              playbackPoints?.get(`${kind}:${state.id}`) ??
+              locationToSvg(state.location, geometry);
             const isSelected =
               selected?.kind === kind && selected.id === state.id;
             return (
@@ -252,6 +322,16 @@ export default function InteractiveCourt({
     <div
       className="drill-canvas drill-builder-canvas"
       data-orientation={orientation}
+      data-playing={playing}
+      style={{
+        width: `${sizeScale}%`,
+        // The top_down cap scales with the slider (100% → 540px), matching
+        // the viewer, so a magnified court never exceeds the pane width.
+        maxWidth:
+          orientation === "top_down"
+            ? `${Math.round(540 * (sizeScale / 100))}px`
+            : undefined,
+      }}
     >
       <DrillSide orientation={orientation} side={definition.side} />
       <svg
@@ -268,10 +348,12 @@ export default function InteractiveCourt({
           y={0}
           width={geometry.width}
           height={geometry.height}
-          onPointerDown={handleSurfacePointerDown}
+          onPointerDown={playing ? undefined : handleSurfacePointerDown}
         />
 
-        {renderLayer(nextStep, "next")}
+        {/* Ghosts are movement targets; while playing the animation IS the
+            target, so showing them too would double every marker. */}
+        {!playing && renderLayer(nextStep, "next")}
         {renderArrowsOfKind(
           currentStep.participants,
           currentStep.participant_movements,

@@ -1,7 +1,7 @@
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DrillDefinition } from "../../../drill/definition";
-import { buildSideGeometry } from "../../../drill/geometry";
+import { buildSideGeometry, locationToSvg } from "../../../drill/geometry";
 import InteractiveCourt, {
   type InteractiveCourtProps,
 } from "./InteractiveCourt";
@@ -51,6 +51,8 @@ function renderCourt(overrides: Partial<InteractiveCourtProps> = {}) {
     onSelect: vi.fn(),
     onMove: vi.fn(),
     onCourtClick: vi.fn(),
+    playing: false,
+    progress: 0,
     ...overrides,
   };
   const utils = render(<InteractiveCourt {...props} />);
@@ -120,5 +122,116 @@ describe("InteractiveCourt — layers", () => {
     };
     const { container } = renderCourt({ definition: withMovement });
     expect(container.querySelector(".drill-movement")).not.toBeNull();
+  });
+});
+/**
+ * The court doubles as the editor's playback preview. Checking the moves must
+ * never author them: while playing, the ghosts step aside, the current markers
+ * follow the viewer's own interpolation and pointer edits are suspended.
+ */
+describe("InteractiveCourt — playback preview", () => {
+  /** S1 moves P1 from (1,1) to (4,3); S2 places P1 at the destination. */
+  const moving: DrillDefinition = {
+    ...definition,
+    steps: [
+      {
+        ...definition.steps[0],
+        participant_movements: [
+          {
+            participant_id: "P1",
+            from: { side: "side_1", x: 1, y: 1 },
+            to: { side: "side_1", x: 4, y: 3 },
+          },
+        ],
+      },
+      definition.steps[1],
+    ],
+  };
+
+  it("hides the ghost layer while playing", () => {
+    const { container } = renderCourt({ playing: true });
+
+    expect(container.querySelector('[data-layer="next"]')).toBeNull();
+    expect(
+      container.querySelector('[data-layer="current"][data-entity-id="P1"]'),
+    ).not.toBeNull();
+  });
+
+  it("interpolates the current marker along its movement while playing", () => {
+    const { container, geometry } = renderCourt({
+      definition: moving,
+      playing: true,
+      progress: 0.5,
+    });
+
+    const from = locationToSvg({ side: "side_1", x: 1, y: 1 }, geometry);
+    const to = locationToSvg({ side: "side_1", x: 4, y: 3 }, geometry);
+    const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
+    const marker = container.querySelector(
+      '[data-layer="current"][data-entity-id="P1"] .drill-participant',
+    )!;
+
+    expect(marker.getAttribute("transform")).toBe(
+      `translate(${mid.x}, ${mid.y})`,
+    );
+  });
+
+  it("leaves markers at their authored spot when not playing", () => {
+    const { container, geometry } = renderCourt({ definition: moving });
+
+    const marker = container.querySelector(
+      '[data-layer="current"][data-entity-id="P1"] .drill-participant',
+    )!;
+    const authored = locationToSvg({ side: "side_1", x: 1, y: 1 }, geometry);
+
+    expect(marker.getAttribute("transform")).toBe(
+      `translate(${authored.x}, ${authored.y})`,
+    );
+  });
+
+  it("suspends editing while playing", () => {
+    const onMove = vi.fn();
+    const onCourtClick = vi.fn();
+    const { container, svg } = renderCourt({
+      playing: true,
+      onMove,
+      onCourtClick,
+    });
+
+    fireEvent.pointerDown(
+      container.querySelector('[data-layer="current"][data-entity-id="P1"]')!,
+      { clientX: 4, clientY: 4 },
+    );
+    fireEvent.pointerMove(svg, { clientX: 60, clientY: 50 });
+    fireEvent.pointerDown(
+      container.querySelector(".drill-builder-surface")!,
+      { clientX: 4, clientY: 4 },
+    );
+
+    expect(onMove).not.toHaveBeenCalled();
+    expect(onCourtClick).not.toHaveBeenCalled();
+  });
+
+  it("commits a drag when not playing", () => {
+    const onMove = vi.fn();
+    const { container, svg } = renderCourt({ onMove });
+
+    fireEvent.pointerDown(
+      container.querySelector('[data-layer="current"][data-entity-id="P1"]')!,
+      { clientX: 4, clientY: 4 },
+    );
+    fireEvent.pointerMove(svg, { clientX: 60, clientY: 50 });
+
+    expect(onMove).toHaveBeenCalled();
+  });
+
+  it("scales the canvas from the size control", () => {
+    const { container } = renderCourt({ sizeScale: 120 });
+
+    const canvas = container.querySelector(
+      ".drill-builder-canvas",
+    ) as HTMLElement;
+    expect(canvas.style.width).toBe("120%");
+    expect(canvas.getAttribute("data-playing")).toBe("false");
   });
 });

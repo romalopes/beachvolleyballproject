@@ -13,6 +13,7 @@
 import { useState } from "react";
 import type { ActionType } from "../../../drill/definition";
 import { ACTION_TYPES } from "../../../drill/definition";
+import LocationFields from "./LocationFields";
 import {
   addActionToStep,
   addEntityToStep,
@@ -21,7 +22,10 @@ import {
   removeEntityFromStep,
   removeMovement,
   setEntityActive,
+  setEntityLocation,
   setMovementDescription,
+  setMovementTarget,
+  type EntityKind,
 } from "./drill-model";
 import type {
   MovementEdit,
@@ -51,6 +55,11 @@ export default function StepBuilder({
 
   const step = definition.steps[stepIndex];
   if (!step) return null;
+  const nextStep = hasNext ? definition.steps[stepIndex + 1] : undefined;
+  const nextStateFor = (kind: EntityKind, id: string) =>
+    nextStep
+      ? statesFor(nextStep, kind).find((candidate) => candidate.id === id)
+      : undefined;
 
   const commitMovementEdit = () => {
     if (!movementEdit) return;
@@ -96,6 +105,12 @@ export default function StepBuilder({
             return (
               <fieldset key={kind} className="drill-builder-group">
                 <legend>{label}</legend>
+                {statesFor(step, kind).length > 0 && (
+                  <p className="drill-builder-hint">
+                    Add lands centre S1 — drag on the court, drag the ghost
+                    for the next step, or type coordinates below.
+                  </p>
+                )}
                 {statesFor(step, kind).length === 0 && (
                   <p className="drill-builder-empty">
                     Nothing placed on this step yet.
@@ -141,7 +156,23 @@ export default function StepBuilder({
                         />
                         active
                       </label>
-                                            <button
+                      <LocationFields
+                        location={state.location}
+                        legend={`Location of ${state.id}`}
+                        definition={definition}
+                        onCommit={(location) =>
+                          onChange(
+                            setEntityLocation(
+                              definition,
+                              stepIndex,
+                              kind,
+                              state.id,
+                              location,
+                            ),
+                          )
+                        }
+                      />
+                      <button
                         type="button"
                         className="admin-btn admin-btn-remove"
                         aria-label={`Remove ${state.id} from ${step.id}`}
@@ -158,6 +189,53 @@ export default function StepBuilder({
                       >
                         Remove
                       </button>
+                      {hasNext && state.active && state.location && nextStep && !nextStateFor(kind, state.id)?.active && (
+                        <div className="drill-builder-no-arrow">
+                          <span>
+                            No arrow: {state.id} is{" "}
+                            {nextStateFor(kind, state.id)
+                              ? "inactive"
+                              : "not placed"}{" "}
+                            in {nextStep.id}.
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (nextStateFor(kind, state.id)) {
+                                // Activate in place: the location survives.
+                                onChange(
+                                  setEntityActive(
+                                    definition,
+                                    stepIndex + 1,
+                                    kind,
+                                    state.id,
+                                    true,
+                                  ),
+                                );
+                                return;
+                              }
+                              // Place it at this step's position, then the
+                              // movement derives from the next drag (or edit).
+                              onChange(
+                                setEntityLocation(
+                                  addEntityToStep(
+                                    definition,
+                                    stepIndex + 1,
+                                    kind,
+                                    state.id,
+                                  ),
+                                  stepIndex + 1,
+                                  kind,
+                                  state.id,
+                                  state.location!,
+                                ),
+                              );
+                            }}
+                          >
+                            Activate {state.id} in {nextStep.id}
+                          </button>
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -188,6 +266,10 @@ export default function StepBuilder({
         <div className="drill-builder-column">
           <fieldset className="drill-builder-group">
             <legend>Movements from this step</legend>
+            <p className="drill-builder-hint">
+              Movements follow positions: from = this step, to = the next
+              step. Drag a marker or its ghost, or type coordinates below.
+            </p>
             {hasNext ? (
               ENTITY_KINDS.map(({ kind, label }) => {
                 const movements = movementListFor(step, kind);
@@ -207,6 +289,38 @@ export default function StepBuilder({
                               {movement.from ? formatLocation(movement.from) : "start"} →{" "}
                               {formatLocation(movement.to)}
                             </span>
+                            <LocationFields
+                              location={movement.from}
+                              legend={`Edit from of ${entityLabel}`}
+                              definition={definition}
+                              onCommit={(location) =>
+                                onChange(
+                                  setEntityLocation(
+                                    definition,
+                                    stepIndex,
+                                    kind,
+                                    entityLabel,
+                                    location,
+                                  ),
+                                )
+                              }
+                            />
+                            <LocationFields
+                              location={movement.to}
+                              legend={`Edit to of ${entityLabel} (next step)`}
+                              definition={definition}
+                              onCommit={(location) =>
+                                onChange(
+                                  setEntityLocation(
+                                    definition,
+                                    stepIndex + 1,
+                                    kind,
+                                    entityLabel,
+                                    location,
+                                  ),
+                                )
+                              }
+                            />
                             {editing ? (
                               <>
                                 <input
@@ -331,9 +445,84 @@ export default function StepBuilder({
               })
             ) : (
               <p className="drill-builder-empty">
-                The last step has no next step, so its movements stay as authored.
+                The last step has no next step, so its movements stay as
+                authored. Edit the origin below, or the destination on the
+                movement itself.
               </p>
             )}
+            {!hasNext &&
+              ENTITY_KINDS.map(({ kind, label }) => {
+                const movements = movementListFor(step, kind);
+                if (movements.length === 0) return null;
+                return (
+                  <div key={kind} className="drill-builder-movements-kind">
+                    <h4>{label}</h4>
+                    <ul className="drill-builder-movements">
+                      {movements.map((movement, index) => {
+                        const entityLabel = movementEntityId(kind, movement);
+                        return (
+                          <li key={`${entityLabel}-${index}`}>
+                            <span className="drill-builder-movement-label">
+                              {entityLabel}:{" "}
+                              {movement.from
+                                ? formatLocation(movement.from)
+                                : "start"}{" "}
+                              → {formatLocation(movement.to)}
+                            </span>
+                            <LocationFields
+                              location={movement.from}
+                              legend={`Edit from of ${entityLabel}`}
+                              definition={definition}
+                              onCommit={(location) =>
+                                onChange(
+                                  setEntityLocation(
+                                    definition,
+                                    stepIndex,
+                                    kind,
+                                    entityLabel,
+                                    location,
+                                  ),
+                                )
+                              }
+                            />
+                            <LocationFields
+                              location={movement.to}
+                              legend={`Edit to of ${entityLabel} (authored)`}
+                              definition={definition}
+                              onCommit={(location) =>
+                                onChange(
+                                  setMovementTarget(
+                                    definition,
+                                    stepIndex,
+                                    kind,
+                                    index,
+                                    location,
+                                  ),
+                                )
+                              }
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onChange(
+                                  removeMovement(
+                                    definition,
+                                    stepIndex,
+                                    kind,
+                                    index,
+                                  ),
+                                )
+                              }
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
           </fieldset>
         </div>
     </section>

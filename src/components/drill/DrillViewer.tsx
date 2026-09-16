@@ -1,10 +1,13 @@
 /**
  * DrillViewer — coordinates step state, side rendering, actions, animation
- * and playback. Owns the orientation toggle (a viewer concern; definitions
- * no longer carry orientation). Contains no side geometry calculations.
+ * and playback. Playback (the speed-aware RAF loop) and the per-entity frame
+ * interpolation live in the shared `useStepPlayback` / `playback` modules, so
+ * the editor's visualisation animates identically. Owns the orientation toggle
+ * (a viewer concern; definitions no longer carry orientation). Contains no side
+ * geometry calculations.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   DrillDefinition,
   EntityState,
@@ -22,8 +25,13 @@ import DrillObject from "./DrillObject";
 import MovementArrow from "./MovementArrow";
 import DrillStepControls from "./DrillStepControls";
 import DrillLegend from "./DrillLegend";
-
-const STEP_DURATION_MS = 1500;
+import {
+  entityFramePoint,
+  statesKeyFor,
+  STEP_DURATION_MS,
+  type MoveKey,
+} from "./playback";
+import { useStepPlayback } from "./useStepPlayback";
 
 interface Overlay {
   x: number;
@@ -32,18 +40,12 @@ interface Overlay {
   lines: string[];
 }
 
-type StateKey = "participants" | "balls" | "objects";
-type MoveKey = "participant_id" | "ball_id" | "object_id";
-
 export default function DrillViewer({
   definition,
 }: {
   definition: DrillDefinition;
 }) {
   const [stepIndex, setStepIndex] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const [playMode, setPlayMode] = useState<"all" | "step">("all");
-  const [progress, setProgress] = useState(0); // 0..1 within current step
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   // Orientation is a viewer concern: defaults to "lateral", toggled by the user.
   const [orientation, setOrientation] =
@@ -53,11 +55,6 @@ export default function DrillViewer({
   // Side display size: percentage of the container width; height follows the
   // fixed aspect ratio, so one slider scales the whole side. Purely visual.
   const [sideScale, setSideScale] = useState(100);
-  const rafRef = useRef<number | null>(null);
-  const lastTickRef = useRef<number | null>(null);
-  // Progress is mirrored in a ref so the RAF loop accumulates deltas without
-  // stale closures — that is what lets the speed slider change mid-playback.
-  const progressRef = useRef(0);
 
   const geometry = useMemo(
     () => buildSideGeometry(orientation, definition.side),
@@ -81,90 +78,22 @@ export default function DrillViewer({
     };
   }, [definition]);
 
-  /** Start playback in the given mode, always replaying the current step from 0. */
-  const startPlay = (mode: "all" | "step") => {
-    setPlayMode(mode);
-    lastTickRef.current = null;
-    progressRef.current = 0;
-    setProgress(0);
-    setPlaying(true);
-  };
-
-  // requestAnimationFrame loop while playing. Progress accumulates elapsed
-  // time divided by the speed-adjusted step duration, so changing the speed
-  // mid-playback takes effect smoothly from the next frame.
-  useEffect(() => {
-    if (!playing) {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-      return;
-    }
-    const tick = (t: number) => {
-      const dt = lastTickRef.current === null ? 0 : t - lastTickRef.current;
-      lastTickRef.current = t;
-      const p = Math.min(1, progressRef.current + dt / stepDurationMs);
-      progressRef.current = p;
-      setProgress(p);
-      if (p < 1) {
-        rafRef.current = requestAnimationFrame(tick);
-      } else if (playMode === "all" && stepIndex < steps.length - 1) {
-        lastTickRef.current = t;
-        progressRef.current = 0;
-        setProgress(0);
-        setStepIndex((i) => i + 1);
-      } else {
-        setPlaying(false);
-      }
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    };
-  }, [playing, playMode, stepIndex, steps.length, stepDurationMs]);
+  /**
+   * Playback state machine, shared with the editor's visualisation via
+   * `useStepPlayback`. The viewer owns the step cursor; the hook owns
+   * `playing`/`playMode`/`progress` and the speed-aware RAF loop.
+   */
+  const playback = useStepPlayback({
+    stepIndex,
+    stepCount: steps.length,
+    stepDurationMs,
+    onStepChange: setStepIndex,
+  });
+  const { playing, progress } = playback;
 
   if (!definition || !step) return null;
 
-  const statesKey = (key: MoveKey): StateKey =>
-    key === "participant_id"
-      ? "participants"
-      : key === "ball_id"
-        ? "balls"
-        : "objects";
-
-  /** SVG point for an entity at the current animation frame.
-   *
-   * At rest (paused or progress 0) this is exactly the current step state's
-   * location. While playing it interpolates movement.from → movement.to,
-   * converting each endpoint through locationToSvg() with its OWN side
-   * first and then lerping the SVG pixels. A Location cannot represent
-   * "between sides", so cross-side flights must interpolate in SVG space —
-   * pinning the whole trajectory to the target side flattens the launch
-   * point into the wrong side.
-   */
-  const framePoint = (
-    states: EntityState[],
-    nextStates: EntityState[] | undefined,
-    movements: Movement[] | undefined,
-    key: MoveKey,
-    id: string,
-  ): { x: number; y: number } | null => {
-    const current = states.find((s) => s.id === id && s.active);
-    if (!current?.location) return null;
-    const movement = movements?.find((m) => m[key] === id);
-    if (!movement || !playing || progress === 0) return svg(current.location);
-    const fromLoc = movement.from ?? current.location;
-    const toLoc =
-      movement.to ??
-      nextStates?.find((s) => s.id === id && s.active)?.location ??
-      current.location;
-    const fromSvg = svg(fromLoc);
-    const toSvg = svg(toLoc);
-    return {
-      x: fromSvg.x + (toSvg.x - fromSvg.x) * progress,
-      y: fromSvg.y + (toSvg.y - fromSvg.y) * progress,
-    };
-  };
-
+  /** `Location` → SVG point for the current geometry. */
   const svg = (loc: Location) => locationToSvg(loc, geometry);
 
   const renderEntities = (
@@ -175,10 +104,19 @@ export default function DrillViewer({
   ) =>
     states.map((s) => {
       if (!s.active || !s.location) return null;
-      const point = framePoint(states, nextStates, movements, key, s.id);
+      const point = entityFramePoint({
+        states,
+        nextStates,
+        movements,
+        key,
+        id: s.id,
+        progress,
+        playing,
+        toSvg: svg,
+      });
       if (!point) return null;
       const { x, y } = point;
-      const meta = entityMap[statesKey(key)][s.id];
+      const meta = entityMap[statesKeyFor(key)][s.id];
       const actions = step.actions
         .filter((a) => a.participant_id === s.id)
         .map((a) => a.action.type);
@@ -245,7 +183,8 @@ export default function DrillViewer({
   ) =>
     (movements ?? []).map((m, i) => {
       const from =
-        m.from ?? step[statesKey(key)].find((s) => s.id === m[key])?.location;
+        m.from ??
+        step[statesKeyFor(key)].find((s) => s.id === m[key])?.location;
       if (!from) return null;
       const f = svg(from);
       const t = svg(m.to);
@@ -393,33 +332,13 @@ export default function DrillViewer({
       <DrillStepControls
         stepIndex={stepIndex}
         stepCount={steps.length}
-        playing={playing}
-        onPrev={() => {
-          setPlaying(false);
-          lastTickRef.current = null;
-          progressRef.current = 0;
-          setProgress(0);
-          setStepIndex((i) => Math.max(0, i - 1));
-        }}
-        onNext={() => {
-          setPlaying(false);
-          lastTickRef.current = null;
-          progressRef.current = 0;
-          setProgress(0);
-          setStepIndex((i) => Math.min(steps.length - 1, i + 1));
-        }}
-        playMode={playMode}
-        onTogglePlay={() => (playing ? setPlaying(false) : startPlay("all"))}
-        onPlayStep={() =>
-          playing && playMode === "step" ? setPlaying(false) : startPlay("step")
-        }
-        onSelect={(i) => {
-          setPlaying(false);
-          lastTickRef.current = null;
-          progressRef.current = 0;
-          setProgress(0);
-          setStepIndex(i);
-        }}
+        playing={playback.playing}
+        onPrev={playback.prev}
+        onNext={playback.next}
+        playMode={playback.playMode}
+        onTogglePlay={playback.togglePlay}
+        onPlayStep={playback.playStep}
+        onSelect={playback.select}
       />
       {step.description && (
         <p className="drill-step-description">{step.description}</p>

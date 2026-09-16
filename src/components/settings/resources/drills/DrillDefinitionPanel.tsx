@@ -19,6 +19,7 @@
 
 import { useState } from "react";
 import type { DrillDefinition } from "../../../drill/definition";
+import { SAMPLE_DRILL_DEFINITION } from "../../../drill/definition";
 import type { DrillSchemaIssue } from "../../../../services/drillSchema";
 import LineNumberedCode from "../../../../components/LineNumberedCode";
 import { EMPTY_DEFINITION } from "./drill-model";
@@ -97,6 +98,36 @@ export default function DrillDefinitionPanel({
               definition={definition ?? EMPTY_DEFINITION}
               onChange={onDefinitionChange}
             />
+            <div className="drill-definition-bootstrap" role="group" aria-label="Start from">
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Load the sample drill? This replaces the current definition.",
+                    )
+                  ) {
+                    onDefinitionChange(SAMPLE_DRILL_DEFINITION);
+                  }
+                }}
+              >
+                Load sample
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Clear the definition? This replaces the current definition with an empty draft.",
+                    )
+                  ) {
+                    onDefinitionChange(EMPTY_DEFINITION);
+                  }
+                }}
+              >
+                Clear definition
+              </button>
+            </div>
             <DrillDefinitionBuilder
               definition={definition}
               onChange={onDefinitionChange}
