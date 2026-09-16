@@ -251,4 +251,51 @@ describe("EntityCatalog — removing", () => {
     render(<EntityCatalog definition={referencingP1()} onChange={vi.fn()} />);
     expect(screen.getByText("in use")).toBeInTheDocument();
   });
+
+  it("removes an unreferenced ball", () => {
+    const onChange = vi.fn();
+    render(
+      <EntityCatalog
+        definition={{ ...base(), balls: [{ id: "B1", type: "volleyball" }] }}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: /balls/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove B1" }));
+
+    expect(lastEmitted(onChange).balls).toEqual([]);
+  });
+
+  it("refuses to remove a ball a step still places", () => {
+    const onChange = vi.fn();
+    render(
+      <EntityCatalog
+        definition={{
+          ...base(),
+          balls: [{ id: "B1", type: "volleyball" }],
+          steps: [
+            {
+              ...emptyStep("S1"),
+              balls: [
+                {
+                  id: "B1",
+                  active: true,
+                  location: { side: "side_1", x: 1, y: 1 },
+                },
+              ],
+            },
+          ],
+        }}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: /balls/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove B1" }));
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Cannot remove B1");
+    expect(screen.getByRole("alert")).toHaveTextContent("S1");
+  });
 });

@@ -9,11 +9,18 @@
  * view, keep the JSON preview truthful, and hand each edit to the right
  * callback.
  */
+import { useMemo, useState } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DrillDefinition } from "../../../drill/definition";
+import { parseAndValidateDefinition } from "../../../../services/drillSchema";
 import DrillDefinitionPanel from "./DrillDefinitionPanel";
-import { emptyStep } from "./drill-model";
+import {
+  definitionToJsonText,
+  emptyStep,
+  jsonTextToDefinition,
+  normalizeDefinition,
+} from "./drill-model";
 
 vi.mock("./InteractiveCourt", () => ({
   __esModule: true,
@@ -140,5 +147,95 @@ describe("DrillDefinitionPanel", () => {
     expect(
       screen.getByRole("tab", { name: /^Participants/ }),
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * The panel wired the way `DrillForm` wires it: the model and the JSON text are
+ * both state, a visual edit re-derives the text ("the JSON on time"), a manual
+ * edit re-parses it back into the model, and a malformed draft only sets the
+ * parse error. That round-trip is the reason the panel exists, so it is tested
+ * against a stateful harness rather than a frozen prop.
+ */
+function Wired({ initial }: { initial: DrillDefinition }) {
+  const [definition, setDefinition] = useState<DrillDefinition | null>(initial);
+  const [jsonText, setJsonText] = useState(() => definitionToJsonText(initial));
+  const parseResult = useMemo(
+    () => parseAndValidateDefinition(jsonText),
+    [jsonText],
+  );
+
+  return (
+    <DrillDefinitionPanel
+      definition={definition}
+      onDefinitionChange={(next) => {
+        setDefinition(next);
+        setJsonText(definitionToJsonText(next));
+      }}
+      jsonText={jsonText}
+      onJsonTextChange={(text) => {
+        setJsonText(text);
+        const parsed = jsonTextToDefinition(text);
+        if (parsed !== null) setDefinition(normalizeDefinition(parsed));
+      }}
+      parseError={parseResult.parseError}
+      issues={parseResult.issues}
+      onFormat={() => {}}
+      storedDefinitionMissing={false}
+    />
+  );
+}
+
+describe("DrillDefinitionPanel — wired to a form-owned model", () => {
+  it("re-derives the JSON preview from a visual edit", () => {
+    render(<Wired initial={definition()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /add participant/i }));
+
+    // The catalog shows the new entity...
+    expect(screen.getByLabelText("Type of P2")).toBeInTheDocument();
+    // ...and the preview is derived from the new model, not the text it opened
+    // with, so the JSON stays "on time" with the panes.
+    const preview = JSON.parse(
+      screen.getByTestId("json-preview").textContent ?? "",
+    ) as DrillDefinition;
+    expect(preview.participants.map((p) => p.id)).toEqual(["P1", "P2"]);
+    expect(preview.side).toEqual({ grid: { columns: 5, rows: 4 } });
+  });
+
+  it("rehydrates the visual model from a manual JSON edit", () => {
+    render(<Wired initial={definition()} />);
+    switchToJson();
+
+    const edited: DrillDefinition = {
+      ...definition(),
+      participants: [{ id: "P9", type: "coach", role: "feeder" }],
+      steps: [emptyStep("S1"), emptyStep("S2")],
+    };
+    fireEvent.change(jsonTextarea(), {
+      target: { value: definitionToJsonText(edited) },
+    });
+
+    switchToVisual();
+
+    // The builder is showing the editor's model, not the one it opened with.
+    expect(screen.getByLabelText("Type of P9")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Type of P1")).toBeNull();
+  });
+
+  it("shows the parse error for a malformed draft without corrupting the model", () => {
+    render(<Wired initial={definition()} />);
+    switchToJson();
+
+    fireEvent.change(jsonTextarea(), { target: { value: "{ nope" } });
+
+    expect(screen.getByText(/Invalid JSON:/)).toBeInTheDocument();
+    expect(jsonTextarea()).toHaveAttribute("aria-invalid", "true");
+
+    // The model the builder works from is still the last good one, so switching
+    // back to visual shows the drill rather than an empty or broken panel.
+    switchToVisual();
+    expect(screen.getByLabelText("Type of P1")).toBeInTheDocument();
+    expect(screen.queryByText(/Invalid JSON:/)).toBeNull();
   });
 });

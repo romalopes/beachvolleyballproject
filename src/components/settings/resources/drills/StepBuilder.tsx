@@ -401,92 +401,6 @@ export default function StepBuilder({
                         </li>
                       );
                     })}
-
-                    <fieldset className="drill-builder-group">
-                      <legend>Actions in this step</legend>
-                      {step.actions.length === 0 && (
-                        <p className="drill-builder-empty">No actions yet.</p>
-                      )}
-                      <ul className="drill-builder-actions">
-                        {step.actions.map((entry, index) => (
-                          <li key={`${entry.participant_id}-${index}`}>
-                            <span>
-                              {entry.participant_id} — {entry.action.type}
-                              {entry.action.description
-                                ? `: ${entry.action.description}`
-                                : ""}
-                            </span>
-                            <button
-                              className="admin-btn admin-btn-remove"
-                              type="button"
-                              onClick={() =>
-                                onChange(
-                                  removeActionFromStep(
-                                    definition,
-                                    stepIndex,
-                                    index,
-                                  ),
-                                )
-                              }
-                            >
-                              Remove
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="drill-builder-add-action">
-                        <label>
-                          Participant
-                          <select
-                            value={actionParticipant}
-                            onChange={(event) =>
-                              setActionParticipant(event.target.value)
-                            }
-                          >
-                            <option value="">Select…</option>
-                            {step.participants.map((state) => (
-                              <option key={state.id} value={state.id}>
-                                {state.id}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label>
-                          Action
-                          <select
-                            value={actionType}
-                            onChange={(event) =>
-                              setActionType(event.target.value as ActionType)
-                            }
-                          >
-                            {ACTION_TYPES.map((type) => (
-                              <option key={type} value={type}>
-                                {type}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label>
-                          Description
-                          <input
-                            type="text"
-                            value={actionDescription}
-                            onChange={(event) =>
-                              setActionDescription(event.target.value)
-                            }
-                            placeholder="Optional"
-                          />
-                        </label>
-                        <button
-                          className="admin-btn admin-btn-add"
-                          type="button"
-                          disabled={!canAddAction}
-                          onClick={handleAddAction}
-                        >
-                          Add action
-                        </button>
-                      </div>
-                    </fieldset>
                   </ul>
                 </div>
               );
@@ -573,6 +487,92 @@ export default function StepBuilder({
                 </div>
               );
             })}
+        </fieldset>
+
+        <fieldset className="drill-builder-group">
+          <legend>Actions in this step</legend>
+          {step.actions.length === 0 && (
+            <p className="drill-builder-empty">No actions yet.</p>
+          )}
+          <ul className="drill-builder-actions">
+            {step.actions.map((entry, index) => (
+              <li key={`${entry.participant_id}-${index}`}>
+                <span>
+                  {entry.participant_id} — {entry.action.type}
+                  {entry.action.description
+                    ? `: ${entry.action.description}`
+                    : ""}
+                </span>
+                <button
+                  className="admin-btn admin-btn-remove"
+                  type="button"
+                  onClick={() =>
+                    onChange(
+                      removeActionFromStep(
+                        definition,
+                        stepIndex,
+                        index,
+                      ),
+                    )
+                  }
+                >
+                  Remove
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="drill-builder-add-action">
+            <label>
+              Participant
+              <select
+                value={actionParticipant}
+                onChange={(event) =>
+                  setActionParticipant(event.target.value)
+                }
+              >
+                <option value="">Select…</option>
+                {step.participants.map((state) => (
+                  <option key={state.id} value={state.id}>
+                    {state.id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Action
+              <select
+                value={actionType}
+                onChange={(event) =>
+                  setActionType(event.target.value as ActionType)
+                }
+              >
+                {ACTION_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Description
+              <input
+                type="text"
+                value={actionDescription}
+                onChange={(event) =>
+                  setActionDescription(event.target.value)
+                }
+                placeholder="Optional"
+              />
+            </label>
+            <button
+              className="admin-btn admin-btn-add"
+              type="button"
+              disabled={!canAddAction}
+              onClick={handleAddAction}
+            >
+              Add action
+            </button>
+          </div>
         </fieldset>
       </div>
     </section>

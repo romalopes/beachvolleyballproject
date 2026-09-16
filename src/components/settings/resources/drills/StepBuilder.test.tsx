@@ -400,4 +400,196 @@ describe("StepBuilder", () => {
       y: 1,
     });
   });
+
+  it("adds an action event to the step, once a participant is chosen", () => {
+    const definition: DrillDefinition = {
+      ...catalogDrill(),
+      steps: [
+        {
+          ...emptyStep("S1"),
+          participants: [
+            { id: "P1", active: true, location: { side: "side_1", x: 2, y: 1 } },
+          ],
+        },
+        emptyStep("S2"),
+      ],
+    };
+    const onChange = vi.fn();
+    render(
+      <StepBuilder
+        definition={definition}
+        stepIndex={0}
+        hasNext
+        selected={null}
+        onSelect={vi.fn()}
+        onChange={onChange}
+      />,
+    );
+
+    // There is nothing to attach an action to until a participant is picked —
+    // the action belongs to an entity that is actually placed on this step.
+    const addAction = screen.getByRole("button", { name: "Add action" });
+    expect(addAction).toBeDisabled();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Participant" }), {
+      target: { value: "P1" },
+    });
+    expect(addAction).toBeEnabled();
+    fireEvent.change(screen.getByRole("combobox", { name: "Action" }), {
+      target: { value: "attack" },
+    });
+    fireEvent.change(screen.getByLabelText("Description"), {
+      target: { value: "down the line" },
+    });
+    fireEvent.click(addAction);
+
+    const next = onChange.mock.calls[0][0] as DrillDefinition;
+    expect(next.steps[0].actions).toEqual([
+      {
+        participant_id: "P1",
+        action: { type: "attack", description: "down the line" },
+      },
+    ]);
+    // Adding an action is an addition, not a re-placement.
+    expect(next.steps[0].participants).toEqual(definition.steps[0].participants);
+    expect(next.steps[1]).toEqual(definition.steps[1]);
+  });
+
+  it("removes an action from the step", () => {
+    const definition: DrillDefinition = {
+      ...catalogDrill(),
+      steps: [
+        {
+          ...emptyStep("S1"),
+          participants: [
+            { id: "P1", active: true, location: { side: "side_1", x: 2, y: 1 } },
+          ],
+          actions: [{ participant_id: "P1", action: { type: "serve" } }],
+        },
+        emptyStep("S2"),
+      ],
+    };
+    const onChange = vi.fn();
+    render(
+      <StepBuilder
+        definition={definition}
+        stepIndex={0}
+        hasNext
+        selected={null}
+        onSelect={vi.fn()}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByText("P1 — serve")).toBeInTheDocument();
+    // The only button whose accessible name is exactly "Remove": the placed
+    // entity's own Remove carries an aria-label ("Remove P1 from S1").
+    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+
+    const next = onChange.mock.calls[0][0] as DrillDefinition;
+    expect(next.steps[0].actions).toEqual([]);
+  });
+
+  it("shows one actions group even when several kinds have movements", () => {
+    const definition: DrillDefinition = {
+      ...catalogDrill(),
+      balls: [{ id: "B1", type: "volleyball" }],
+      steps: [
+        {
+          ...emptyStep("S1"),
+          participants: [
+            { id: "P1", active: true, location: { side: "side_1", x: 2, y: 1 } },
+          ],
+          participant_movements: [
+            {
+              participant_id: "P1",
+              from: { side: "side_1", x: 2, y: 1 },
+              to: { side: "side_1", x: 3, y: 1 },
+            },
+          ],
+          balls: [
+            { id: "B1", active: true, location: { side: "side_1", x: 3, y: 1 } },
+          ],
+          ball_movements: [
+            {
+              ball_id: "B1",
+              from: { side: "side_1", x: 3, y: 1 },
+              to: { side: "side_1", x: 4, y: 2 },
+            },
+          ],
+        },
+        {
+          ...emptyStep("S2"),
+          participants: [
+            { id: "P1", active: true, location: { side: "side_1", x: 3, y: 1 } },
+          ],
+          balls: [
+            { id: "B1", active: true, location: { side: "side_1", x: 4, y: 2 } },
+          ],
+        },
+      ],
+    };
+    render(
+      <StepBuilder
+        definition={definition}
+        stepIndex={0}
+        hasNext
+        selected={null}
+        onSelect={vi.fn()}
+        onChange={vi.fn()}
+      />,
+    );
+
+    // Two kinds have movements, but "Actions in this step" describes the step:
+    // one group, one add-action row — and it is there even without movements.
+    expect(screen.getAllByText("Actions in this step")).toHaveLength(1);
+    expect(
+      screen.getAllByRole("button", { name: "Add action" }),
+    ).toHaveLength(1);
+  });
+
+  it("lists a derived ball movement by its endpoints and keeps them when noted", () => {
+    const from = { side: "side_1" as const, x: 3, y: 1 };
+    const to = { side: "side_1" as const, x: 4, y: 2 };
+    const definition: DrillDefinition = {
+      ...catalogDrill(),
+      balls: [{ id: "B1", type: "volleyball" }],
+      steps: [
+        {
+          ...emptyStep("S1"),
+          balls: [{ id: "B1", active: true, location: from }],
+          ball_movements: [{ ball_id: "B1", from, to }],
+        },
+        {
+          ...emptyStep("S2"),
+          balls: [{ id: "B1", active: true, location: to }],
+        },
+      ],
+    };
+    const onChange = vi.fn();
+    render(
+      <StepBuilder
+        definition={definition}
+        stepIndex={0}
+        hasNext
+        selected={null}
+        onSelect={vi.fn()}
+        onChange={onChange}
+      />,
+    );
+
+    // The movement reads as from → to, and the note editor adds to it rather
+    // than replacing it: { ball_id, from, to, description }.
+    expect(screen.getByText(/B1: S1 \(3, 1\) → S1 \(4, 2\)/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+    fireEvent.change(screen.getByLabelText("Movement note for B1"), {
+      target: { value: "P1 sets" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    const next = onChange.mock.calls[0][0] as DrillDefinition;
+    expect(next.steps[0].ball_movements).toEqual([
+      { ball_id: "B1", from, to, description: "P1 sets" },
+    ]);
+  });
 });
