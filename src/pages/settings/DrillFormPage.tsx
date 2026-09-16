@@ -43,7 +43,13 @@ export default function DrillFormPage() {
       backLabel="Back"
     >
       {error && <div className="auth-flash auth-flash-error">{error}</div>}
+      {/*
+        Remount per drill: the form seeds its state once on mount (no effect
+        writes state on the first render), so a different drill — or switching
+        to a brand-new one — needs a fresh instance.
+      */}
       <DrillForm
+        key={isNew ? "new" : slug}
         initial={isNew ? null : initial}
         onCancel={() => navigate(backTo)}
         onSuccess={(saved) => navigate(`/drills/${saved.slug}`)}

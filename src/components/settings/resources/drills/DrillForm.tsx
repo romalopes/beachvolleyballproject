@@ -57,29 +57,80 @@ const EMPTY: DrillFormValues = {
   jsonText: "",
 };
 
+/**
+ * The model the form opens with, always a render-safe draft: Rails defaults the
+ * `definition` column to `{}`, so an existing drill can arrive without a `steps`
+ * array at all. For a definition that already satisfies the v1 shape
+ * `normalizeDefinition` is a no-op, so healthy drills round-trip exactly.
+ */
+function initialDefinition(
+  initial: Drill | null | undefined,
+): DrillDefinition | null {
+  if (!initial || initial.definition == null) return null;
+  return normalizeDefinition(initial.definition);
+}
+
+/** Form values for a drill, or the blank form when there is nothing to edit. */
+function initialValues(initial: Drill | null | undefined): DrillFormValues {
+  if (!initial) return EMPTY;
+  const model = initialDefinition(initial);
+  return {
+    title: initial.title,
+    setup_instructions: initial.setup_instructions ?? "",
+    training_stage: initial.training_stage,
+    difficulty_level: initial.difficulty_level,
+    min_players: String(initial.min_players),
+    max_players: String(initial.max_players),
+    ideal_num_players: String(initial.ideal_num_players),
+    // The textarea shows the same draft the panes render, keeping the JSON "on
+    // time"; a definition that cannot be rendered leaves the field blank.
+    jsonText: model ? definitionToJsonText(model) : "",
+  };
+}
+
+/** Skills the drill already uses. */
+function initialSkillIds(initial: Drill | null | undefined): number[] {
+  return (initial?.skills ?? []).map((skill) => skill.id);
+}
+
 export default function DrillForm({
   initial,
   onSuccess,
   onCancel,
 }: DrillFormProps) {
-  const [values, setValues] = useState<DrillFormValues>(EMPTY);
+  // Seeded once per mount. The caller keys this form by the drill it edits
+  // (`DrillFormPage`), so switching drills remounts with fresh state instead of
+  // an effect writing state during the first render — the same reason the
+  // entity catalog keys each row by `entity.id`.
+  const [values, setValues] = useState<DrillFormValues>(() =>
+    initialValues(initial),
+  );
   /**
    * The shared `DrillDefinition` model. `values.jsonText` is the JSON buffer the
    * textarea shows: a visual edit makes the model win and re-derives the text
    * ("the JSON on time"), while a JSON edit keeps the raw text verbatim and only
    * rehydrates the model when the text parses.
    */
-  const [definition, setDefinition] = useState<DrillDefinition | null>(null);
+  const [definition, setDefinition] = useState<DrillDefinition | null>(() =>
+    initialDefinition(initial),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([]);
   const [availableCategories, setAvailableCategories] = useState<Category[]>(
     [],
   );
-  const [skillCategoryFilter, setSkillCategoryFilter] = useState<
-    number | "all"
-  >("all");
-  const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>([]);
+  /**
+   * The category the picker shows. `null` means "follow the first category", so
+   * the picker opens on a real category without an extra render — there is no
+   * "all skills" mode.
+   */
+  const [skillCategoryFilter, setSkillCategoryFilter] = useState<number | null>(
+    null,
+  );
+  const [selectedSkillIds, setSelectedSkillIds] = useState<number[]>(() =>
+    initialSkillIds(initial),
+  );
   const [skillsError, setSkillsError] = useState<string | null>(null);
   const [serverFeedback, setServerFeedback] = useState<{
     definition: string;
@@ -104,38 +155,6 @@ export default function DrillForm({
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    if (initial) {
-      // The model is always a render-safe draft: Rails defaults the column to
-      // `{}`, so an existing drill can arrive without a `steps` array at all.
-      // The textarea shows that same draft, keeping the JSON "on time" with the
-      // panes; for a definition that already satisfies the v1 shape
-      // `normalizeDefinition` is a no-op, so healthy drills round-trip exactly.
-      const model =
-        initial.definition == null
-          ? null
-          : normalizeDefinition(initial.definition);
-      setValues({
-        title: initial.title,
-        setup_instructions: initial.setup_instructions ?? "",
-        training_stage: initial.training_stage,
-        difficulty_level: initial.difficulty_level,
-        min_players: String(initial.min_players),
-        max_players: String(initial.max_players),
-        ideal_num_players: String(initial.ideal_num_players),
-        jsonText: model ? definitionToJsonText(model) : "",
-      });
-      setDefinition(model);
-      setSelectedSkillIds((initial.skills ?? []).map((s) => s.id));
-      setSkillsError(null);
-    } else {
-      setValues(EMPTY);
-      setDefinition(null);
-      setSelectedSkillIds([]);
-      setSkillsError(null);
-    }
-  }, [initial]);
 
   const set = (key: keyof DrillFormValues, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -360,18 +379,21 @@ function DrillFormFields({
   onFormat: () => void;
   availableSkills: Skill[];
   availableCategories: Category[];
-  skillCategoryFilter: number | "all";
-  onSkillCategoryChange: (value: number | "all") => void;
+  skillCategoryFilter: number | null;
+  onSkillCategoryChange: (value: number) => void;
   selectedSkillIds: number[];
   skillsError: string | null;
   onToggleSkill: (id: number) => void;
 }) {
+  // One category at a time, opening on the first the API returned. A `null`
+  // filter follows that first category; with no categories at all (not loaded,
+  // or the fetch failed) every skill is shown rather than none.
+  const activeCategory =
+    skillCategoryFilter ?? availableCategories[0]?.id ?? null;
   const filteredSkills =
-    skillCategoryFilter === "all"
+    activeCategory === null
       ? availableSkills
-      : availableSkills.filter(
-          (skill) => skill.category_id === skillCategoryFilter,
-        );
+      : availableSkills.filter((skill) => skill.category_id === activeCategory);
   return (
     <form onSubmit={onSubmit} className="admin-form drill-form">
       {error && <div className="auth-flash auth-flash-error">{error}</div>}
@@ -471,14 +493,9 @@ function DrillFormFields({
           <label htmlFor="drill-skill-category">Category:</label>
           <select
             id="drill-skill-category"
-            value={skillCategoryFilter}
-            onChange={(e) =>
-              onSkillCategoryChange(
-                e.target.value === "all" ? "all" : Number(e.target.value),
-              )
-            }
+            value={activeCategory ?? ""}
+            onChange={(e) => onSkillCategoryChange(Number(e.target.value))}
           >
-            <option value="all">All Categories</option>
             {availableCategories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
@@ -510,10 +527,8 @@ function DrillFormFields({
                     checked={checked}
                     onChange={() => onToggleSkill(skill.id)}
                   />
-                  <span>
-                    {skill.title}
-                    {skill.category ? ` (${skill.category.name})` : ""}
-                  </span>
+                  {/* One category on screen, so the name would just repeat. */}
+                  <span>{skill.title}</span>
                 </label>
               );
             })

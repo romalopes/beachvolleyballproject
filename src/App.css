@@ -3299,6 +3299,30 @@
   border-top: none;
 }
 
+/* A saved action is one short line, so it reads better as a row: the summary on
+   the left, Remove on the right — not a button stacked under the text. The text
+   needs its own size too, or the bare <span> inherits the 1rem body size and
+   dwarfs everything else in the builder. */
+.drill-builder-actions > li {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.drill-builder-actions > li > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: var(--charcoal);
+}
+
+.drill-builder-actions .admin-btn,
+.drill-builder-add-action .admin-btn {
+  flex: 0 0 auto;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+}
+
 /* Element header: chip and active flag, with Remove pushed to the far right so
    it belongs to this element instead of trailing under its location box. */
 .drill-builder-placed-head {
@@ -3364,12 +3388,15 @@
   color: var(--text-secondary);
 }
 
-/* Add-action row: label above its own control, controls on one baseline. */
+/* Add-action row: the editor for a new action, so a rule sets it apart from the
+   saved ones above; label above its own control, controls on one baseline. */
 .drill-builder-add-action {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-light);
 }
 
 .drill-builder-add-action label {

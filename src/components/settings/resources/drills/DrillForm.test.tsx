@@ -12,8 +12,9 @@ vi.mock("../../../../api", () => {
   class ApiValidationError extends Error {}
   return {
     api: {
-      skills: () => Promise.resolve([]),
-      categories: () => Promise.resolve([]),
+      // `vi.fn` so a test can hand the picker specific categories/skills.
+      skills: vi.fn(() => Promise.resolve([])),
+      categories: vi.fn(() => Promise.resolve([])),
       adminCreateDrill: () => Promise.resolve({}),
       adminUpdateDrill: () => Promise.resolve({}),
     },
@@ -24,7 +25,8 @@ vi.mock("../../../../api", () => {
 import DrillForm from "./DrillForm";
 import { SAMPLE_DRILL_DEFINITION } from "../../../drill/definition";
 import type { DrillDefinition } from "../../../drill/definition";
-import type { Drill } from "../../../../api";
+import { api } from "../../../../api";
+import type { Category, Drill, Skill } from "../../../../api";
 
 /**
  * The visual builder and the JSON textarea are two views of one model. These
@@ -33,7 +35,12 @@ import type { Drill } from "../../../../api";
  * never destroys the model the builder is working from.
  */
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  // The lookups are overridden per test; put the "nothing loaded" default back.
+  vi.mocked(api.skills).mockResolvedValue([]);
+  vi.mocked(api.categories).mockResolvedValue([]);
+});
 
 const renderForm = () =>
   render(<DrillForm initial={null} onSuccess={vi.fn()} onCancel={vi.fn()} />);
@@ -210,5 +217,52 @@ describe("DrillForm — stored definitions", () => {
     await waitFor(() => expect(jsonField().value).not.toBe(""));
 
     expect(screen.queryByText(/has no saved definition yet/i)).toBeNull();
+  });
+});
+
+/**
+ * The picker shows one category at a time — there is no "All Categories" escape
+ * hatch, so a drill is always authored against a concrete category. It opens on
+ * the first category the API returns and lists only that category's skills.
+ */
+const category = (id: number, name: string): Category => ({
+  id,
+  name,
+  slug: name.toLowerCase(),
+});
+
+const skill = (id: number, title: string, cat: Category): Skill => ({
+  id,
+  title,
+  slug: title.toLowerCase().replace(/\s+/g, "-"),
+  description: null,
+  category_id: cat.id,
+  category: cat,
+});
+
+describe("DrillForm — skills picker", () => {
+  it("opens on the first category and lists only its skills", async () => {
+    const serve = category(10, "Serve");
+    const pass = category(20, "Pass");
+    vi.mocked(api.categories).mockResolvedValue([serve, pass]);
+    vi.mocked(api.skills).mockResolvedValue([
+      skill(1, "Float serve", serve),
+      skill(2, "Bump pass", pass),
+    ]);
+
+    renderForm();
+
+    // The first category is selected without the user choosing anything.
+    const picker = await screen.findByLabelText("Category:");
+    await waitFor(() => expect(picker).toHaveValue("10"));
+    expect(screen.getByText("Float serve")).toBeInTheDocument();
+    // The other category's skills are not offered, and neither is "All".
+    expect(screen.queryByText("Bump pass")).toBeNull();
+    expect(screen.queryByText("All Categories")).toBeNull();
+
+    // Switching category swaps the visible skills.
+    fireEvent.change(picker, { target: { value: "20" } });
+    await waitFor(() => expect(screen.getByText("Bump pass")).toBeInTheDocument());
+    expect(screen.queryByText("Float serve")).toBeNull();
   });
 });
