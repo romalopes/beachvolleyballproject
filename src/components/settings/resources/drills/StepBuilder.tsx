@@ -116,43 +116,62 @@ export default function StepBuilder({
               <ul className="drill-builder-placed">
                 {statesFor(step, kind).map((state) => (
                   <li key={state.id}>
-                    <button
-                      type="button"
-                      className={
-                        selected?.kind === kind && selected.id === state.id
-                          ? "drill-builder-chip selected"
-                          : "drill-builder-chip"
-                      }
-                      onClick={() => onSelect(kind, state.id)}
-                      title={
-                        state.location
-                          ? formatLocation(state.location)
-                          : "Not placed yet"
-                      }
-                      aria-label={`Select ${state.id}`}
-                    >
-                      {state.id}
-                      {!state.active && " (off)"}
-                    </button>
-                    <label className="drill-builder-active">
-                      <input
-                        type="checkbox"
-                        aria-label={`Mark ${state.id} as active on this step`}
-                        checked={state.active}
-                        onChange={(event) =>
+                    <div className="drill-builder-placed-head">
+                      <button
+                        type="button"
+                        className={
+                          selected?.kind === kind && selected.id === state.id
+                            ? "drill-builder-chip selected"
+                            : "drill-builder-chip"
+                        }
+                        onClick={() => onSelect(kind, state.id)}
+                        title={
+                          state.location
+                            ? formatLocation(state.location)
+                            : "Not placed yet"
+                        }
+                        aria-label={`Select ${state.id}`}
+                      >
+                        {state.id}
+                        {!state.active && " (off)"}
+                      </button>
+                      <label className="drill-builder-active">
+                        <input
+                          type="checkbox"
+                          aria-label={`Mark ${state.id} as active on this step`}
+                          checked={state.active}
+                          onChange={(event) =>
+                            onChange(
+                              setEntityActive(
+                                definition,
+                                stepIndex,
+                                kind,
+                                state.id,
+                                event.target.checked,
+                              ),
+                            )
+                          }
+                        />
+                        active
+                      </label>
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn-remove drill-builder-placed-remove"
+                        aria-label={`Remove ${state.id} from ${step.id}`}
+                        onClick={() =>
                           onChange(
-                            setEntityActive(
+                            removeEntityFromStep(
                               definition,
                               stepIndex,
                               kind,
                               state.id,
-                              event.target.checked,
                             ),
                           )
                         }
-                      />
-                      active
-                    </label>
+                      >
+                        Remove
+                      </button>
+                    </div>
                     <LocationFields
                       location={state.location}
                       legend={`Location of ${state.id}`}
@@ -169,23 +188,6 @@ export default function StepBuilder({
                         )
                       }
                     />
-                    <button
-                      type="button"
-                      className="admin-btn admin-btn-remove"
-                      aria-label={`Remove ${state.id} from ${step.id}`}
-                      onClick={() =>
-                        onChange(
-                          removeEntityFromStep(
-                            definition,
-                            stepIndex,
-                            kind,
-                            state.id,
-                          ),
-                        )
-                      }
-                    >
-                      Remove
-                    </button>
                     {hasNext &&
                       state.active &&
                       state.location &&
@@ -200,6 +202,7 @@ export default function StepBuilder({
                             in {nextStep.id}.
                           </span>
                           <button
+                            className="admin-btn admin-btn-add"
                             type="button"
                             onClick={() => {
                               if (nextStateFor(kind, state.id)) {
@@ -363,7 +366,7 @@ export default function StepBuilder({
                                 {movement.description ?? "No description"}
                               </span>
                               <button
-                                className="admin-btn admin-btn-remove"
+                                className="admin-btn admin-btn-add"
                                 type="button"
                                 onClick={() =>
                                   setMovementEdit({
@@ -475,7 +478,7 @@ export default function StepBuilder({
                           />
                         </label>
                         <button
-                          className="admin-btn admin-btn-remove"
+                          className="admin-btn admin-btn-add"
                           type="button"
                           disabled={!canAddAction}
                           onClick={handleAddAction}

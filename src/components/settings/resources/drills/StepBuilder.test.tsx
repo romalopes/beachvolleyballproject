@@ -121,6 +121,65 @@ describe("StepBuilder", () => {
     expect(chip.className).toContain("selected");
   });
 
+  it("groups each placed element's chip, flag and Remove above its location box", () => {
+    const placed: DrillDefinition = {
+      ...catalogDrill(),
+      participants: [
+        { id: "P1", type: "player" },
+        { id: "P2", type: "player" },
+      ],
+      steps: [
+        {
+          ...emptyStep("S1"),
+          participants: [
+            { id: "P1", active: true, location: { side: "side_1", x: 2, y: 1 } },
+            { id: "P2", active: true, location: { side: "side_1", x: 3, y: 2 } },
+          ],
+        },
+        emptyStep("S2"),
+      ],
+    };
+    render(
+      <StepBuilder
+        definition={placed}
+        stepIndex={0}
+        hasNext
+        selected={null}
+        onSelect={vi.fn()}
+        onChange={vi.fn()}
+      />,
+    );
+
+    // The element card's layout is CSS-only, so assert the DOM contract it
+    // depends on: chip + "active" + Remove share a header row, that row is a
+    // direct child of the element, and the location box sits below it (never
+    // inside it) with one element per list item, which is what draws the
+    // divider between two configured elements.
+    const p1HeaderRow = screen
+      .getByRole("button", { name: "Select P1" })
+      .closest("li")!;
+    const p2Row = screen
+      .getByRole("button", { name: "Select P2" })
+      .closest("li")!;
+    expect(p1HeaderRow.parentElement?.className).toBe("drill-builder-placed");
+    expect(p2Row.parentElement).toBe(p1HeaderRow.parentElement);
+
+    const header = p1HeaderRow.querySelector(".drill-builder-placed-head")!;
+    expect(header.parentElement).toBe(p1HeaderRow);
+    expect(
+      header.contains(screen.getByLabelText("Mark P1 as active on this step")),
+    ).toBe(true);
+    expect(
+      header.contains(screen.getByRole("button", { name: "Remove P1 from S1" })),
+    ).toBe(true);
+
+    expect(
+      p1HeaderRow.querySelector(".drill-location-fields")?.parentElement,
+    ).toBe(p1HeaderRow);
+    // Each element owns its own header, so the header is never shared.
+    expect(p2Row.querySelector(".drill-builder-placed-head")).not.toBe(header);
+  });
+
   it("commits a typed location through setEntityLocation", () => {
     const placed: DrillDefinition = {
       ...catalogDrill(),
