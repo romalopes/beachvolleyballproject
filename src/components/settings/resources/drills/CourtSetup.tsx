@@ -169,7 +169,7 @@ export default function CourtSetup({ definition, onChange }: CourtSetupProps) {
               setReport(null);
             }}
           >
-            <option value="">Viewer default</option>
+            {/* <option value="">Viewer default</option> */}
             <option value="lateral">Lateral</option>
             <option value="top_down">Top down</option>
           </select>
