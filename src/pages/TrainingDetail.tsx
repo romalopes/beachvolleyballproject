@@ -1,43 +1,91 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { api, type TrainingSession } from '../api';
+import { api, type Drill, type TrainingSession } from '../api';
+import { useAuth } from '../auth/AuthContext';
 import EmptyState from '../components/EmptyState';
 import Tag from '../components/Tag';
-import { ArrowLeft, CalendarDays, MapPin, Dumbbell, Target } from 'lucide-react';
-import {
-  idealLabel,
-  isValidDrillRange,
-  playerRangeLabel,
-  trainingStageLabel,
-} from '../utils/drills';
+import DrillViewer from '../components/drill/DrillViewer';
+import { resolveDrillDefinition } from '../components/drill/definition';
+import DeleteConfirm from '../components/settings/DeleteConfirm';
+import { ArrowLeft, CalendarDays, Clock, Dumbbell, MapPin, Target } from 'lucide-react';
+import { canManageTrainings, formatTrainingDateRange, statusLabel } from '../utils/training';
+
+function formatDuration(minutes: number | null): string {
+  if (minutes == null) return 'Duration not set';
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+}
+
+function DrillSteps({ drill }: { drill: Drill }) {
+  const definition = resolveDrillDefinition(drill.definition);
+  const steps = definition?.steps ?? [];
+  if (steps.length === 0) return null;
+  return (
+    <ol className="training-drill-steps">
+      {steps.map((step, index) => (
+        <li key={step.id || index}>
+          <strong>Step {index + 1}</strong>
+          {step.description ? `: ${step.description}` : ''}
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 export default function TrainingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canManage = canManageTrainings(user);
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
-    api.trainingSession(Number(id))
-      .then(setSession)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    api
+      .trainingSession(Number(id))
+      .then((loaded) => {
+        if (cancelled) return;
+        setSession(loaded);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        console.error(err);
+        setError(err instanceof Error ? err.message : 'Failed to load training.');
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
-  if (loading) return <div className="loading">Loading...</div>;
-  if (!session) return <EmptyState title="Training session not found" />;
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+  const handleDelete = async () => {
+    if (!session) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.deleteTrainingSession(session.id);
+      navigate('/training');
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Failed to delete training.');
+    } finally {
+      setDeleting(false);
+    }
   };
+
+  if (loading) return <div className="loading">Loading...</div>;
+  if (error || !session)
+    return <EmptyState title="Training session not found" description={error ?? undefined} />;
+
+  const focuses = [...(session.training_focuses ?? [])].sort((a, b) => a.position - b.position);
+  const drills = [...(session.training_session_drills ?? [])].sort(
+    (a, b) => a.position - b.position
+  );
 
   return (
     <div className="page">
@@ -47,73 +95,151 @@ export default function TrainingDetail() {
           Back to Training
         </button>
         <span className="section-label">Training Session</span>
-        <h1>{session.drill?.title || 'Training Session'}</h1>
+        <h1>{session.title}</h1>
         <div className="tags" style={{ marginTop: '1rem' }}>
-          <Tag variant="primary">Session</Tag>
-          {session.drill && isValidDrillRange(session.drill) && (
-            <>
-              <Tag variant="teal">{session.drill.difficulty_level}</Tag>
-              <Tag>{trainingStageLabel(session.drill.training_stage)}</Tag>
-              <Tag>{playerRangeLabel(session.drill.min_players, session.drill.max_players)}</Tag>
-              <Tag>{idealLabel(session.drill.ideal_num_players)}</Tag>
-            </>
+          <Tag variant="primary">{statusLabel(session.status)}</Tag>
+          {session.duration_minutes != null && (
+            <Tag>
+              <Clock size={12} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              {session.duration_minutes} min
+            </Tag>
           )}
+          {session.location && <Tag>{session.location}</Tag>}
         </div>
       </div>
+
+      {canManage && (
+        <div className="admin-actions-bar">
+          <div className="admin-table-actions">
+            <button
+              type="button"
+              className="admin-btn admin-btn-add"
+              onClick={() => navigate(`/training/${session.id}/edit`)}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className="admin-btn admin-btn-remove"
+              onClick={() => setConfirming(true)}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
+
+      {confirming && (
+        <DeleteConfirm
+          entityName={session.title}
+          onCancel={() => {
+            setConfirming(false);
+            setDeleteError(null);
+          }}
+          onConfirm={handleDelete}
+          deleting={deleting}
+          error={deleteError}
+        />
+      )}
 
       <section className="detail-section">
         <h2>Session Details</h2>
         <p>
           <CalendarDays size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-          <strong>Scheduled:</strong> {formatDate(session.scheduled_at)}
-          <br />
+          {formatTrainingDateRange(session.starts_at, session.ends_at)}
           {session.location && (
             <>
+              <br />
               <MapPin size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-              <strong>Location:</strong> {session.location}
+              {session.location}
             </>
           )}
         </p>
       </section>
 
-      {session.notes && (
+      {session.description && (
         <section className="detail-section">
-          <h2>Notes</h2>
-          <p>{session.notes}</p>
+          <h2>Description</h2>
+          <p>{session.description}</p>
         </section>
       )}
 
-      {session.drill && (
-        <section className="detail-section">
-          <h2>Related Drill</h2>
-          <Link to={`/drills/${session.drill.slug}`} className="related-item">
-            <span className="related-item-title">
-              <Dumbbell size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-              {session.drill.title}
-            </span>
-            <span className="related-item-meta">
-              {session.drill.difficulty_level} &middot; {playerRangeLabel(session.drill.min_players, session.drill.max_players)} &middot; {trainingStageLabel(session.drill.training_stage)}
-            </span>
-          </Link>
-        </section>
-      )}
-
-      {session.drill?.skills && session.drill.skills.length > 0 && (
-        <section className="detail-section">
-          <h2>Skills in this Session</h2>
-          <div className="related-list">
-            {session.drill.skills.map((skill) => (
-              <Link key={skill.id} to={`/skills/${skill.slug || skill.id}`} className="related-item">
-                <span className="related-item-title">
-                  <Target size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
-                  {skill.title}
+      <section className="detail-section">
+        <h2>Training Focuses</h2>
+        {focuses.length === 0 ? (
+          <EmptyState title="No focuses yet" description="Focuses will appear here when added." />
+        ) : (
+          <ol className="training-focus-list">
+            {focuses.map((focus, index) => (
+              <li key={focus.id} className="training-focus-item">
+                <span className="training-focus-title">
+                  {index + 1}.{' '}
+                  {focus.skill ? (
+                    <Link to={`/skills/${focus.skill.slug}`}>{focus.skill.title}</Link>
+                  ) : (
+                    focus.custom_focus
+                  )}
                 </span>
-                <span className="related-item-meta">{skill.category?.name}</span>
-              </Link>
+                {focus.skill?.category && (
+                  <span className="related-item-meta"> · {focus.skill.category.name}</span>
+                )}
+                {focus.description && <p>{focus.description}</p>}
+              </li>
             ))}
+          </ol>
+        )}
+      </section>
+
+      <section className="detail-section">
+        <h2>Drills</h2>
+        {drills.length === 0 ? (
+          <EmptyState title="No drills yet" description="Drills will appear here when added." />
+        ) : (
+          <div className="training-drill-list">
+            {drills.map((row, index) => {
+              const drill = row.drill;
+              if (!drill) return null;
+              const definition = resolveDrillDefinition(drill.definition);
+              return (
+                <article key={row.id} className="training-drill">
+                  <h3>
+                    {index + 1}. <Link to={`/drills/${drill.slug}`}>{drill.title}</Link>
+                  </h3>
+                  <p className="training-drill-meta">
+                    <Clock size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                    {formatDuration(row.duration_minutes)}
+                  </p>
+                  {row.notes && (
+                    <p className="training-drill-notes">
+                      <strong>Notes:</strong> {row.notes}
+                    </p>
+                  )}
+                  {drill.setup_instructions && <p>{drill.setup_instructions}</p>}
+                  {definition ? <DrillViewer definition={definition} /> : <EmptyState title="No visualisation yet" />}
+                  <h4>Steps</h4>
+                  <DrillSteps drill={drill} />
+                  {drill.skills && drill.skills.length > 0 && (
+                    <div className="tags">
+                      {drill.skills.map((skill) => (
+                        <span key={skill.id} className="tag">
+                          <Target size={12} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                          {skill.title}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="related-item-meta">
+                    <Dumbbell size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                    <Link to={`/drills/${drill.slug}`}>Open full drill</Link>
+                  </p>
+                </article>
+              );
+            })}
           </div>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 }
+
+
