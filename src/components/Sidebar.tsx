@@ -19,6 +19,7 @@ const navItems = [
   { path: "/drills", label: "Drills", icon: Dumbbell },
   { path: "/videos", label: "Videos", icon: PlayCircle },
   { path: "/training", label: "Training", icon: ClipboardList },
+  { path: "/calendar", label: "Calendar", icon: CalendarDays },
   { path: "/schedule", label: "Schedule", icon: CalendarDays },
 ];
 

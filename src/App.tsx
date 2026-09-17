@@ -18,6 +18,7 @@ import DrillDetail from "./pages/DrillDetail";
 import Videos from "./pages/Videos";
 import Training from "./pages/Training";
 import TrainingDetail from "./pages/TrainingDetail";
+import TrainingCalendar from "./pages/TrainingCalendar";
 import Schedule from "./pages/Schedule";
 import AdminUsers from "./pages/AdminUsers";
 import SettingsDashboard from "./pages/settings/SettingsDashboard";
@@ -117,6 +118,7 @@ export default function App() {
             <Route path="/videos" element={<Videos />} />
             <Route path="/training" element={<Training />} />
             <Route path="/training/:id" element={<TrainingDetail />} />
+            <Route path="/calendar" element={<TrainingCalendar />} />
             <Route path="/schedule" element={<Schedule />} />
             <Route
               path="/admin/users"

@@ -702,6 +702,140 @@
 .schedule-info p {
   font-size: 0.875rem;
 }
+/* Training calendar */
+.training-calendar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.training-view-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.training-view-toggle .filter-btn {
+  padding: 0.375rem 0.875rem;
+}
+
+.training-calendar-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1.5rem 0 1rem;
+}
+
+.training-calendar-nav h2 {
+  margin: 0 0 0 0.75rem;
+  font-size: 1.125rem;
+}
+
+.training-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.training-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+
+.training-calendar-day {
+  min-height: 110px;
+  padding: 0.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.training-calendar-day.today {
+  border-color: var(--amber-500);
+}
+
+.training-calendar-day.outside-month {
+  opacity: 0.5;
+}
+
+.training-calendar-date {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--charcoal);
+}
+
+.training-calendar-week .training-calendar-day {
+  min-height: 220px;
+}
+
+.training-calendar-event {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  text-align: left;
+  padding: 0.375rem 0.5rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--white);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.training-calendar-event:hover {
+  border-color: var(--amber-500);
+  box-shadow: var(--shadow-sm);
+}
+
+.training-calendar-event-time {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--amber-600);
+}
+
+.training-calendar-event-title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--charcoal);
+}
+
+.training-calendar-event .tag {
+  font-size: 0.625rem;
+  padding: 0.125rem 0.5rem;
+}
+
+.training-calendar-event.status-cancelled {
+  background: var(--sand-100);
+  text-decoration: line-through;
+}
+
+.training-calendar-event.status-cancelled .training-calendar-event-title {
+  color: var(--text-secondary);
+}
+
+.training-cancelled h4 {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
+.training-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  white-space: nowrap;
+}
+
 
 /* Empty state */
 .empty-state {
