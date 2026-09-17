@@ -8,7 +8,10 @@ import CopyButton from "../components/CopyButton";
 import { useAuth } from "../auth/AuthContext";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
 import LineNumberedCode from "../components/LineNumberedCode";
-import { resolveDrillDefinition, SAMPLE_DRILL_DEFINITION } from "../components/drill/definition";
+import {
+  resolveDrillDefinition,
+  SAMPLE_DRILL_DEFINITION,
+} from "../components/drill/definition";
 import { ArrowLeft, Target, Users } from "lucide-react";
 import {
   idealLabel,
@@ -50,7 +53,9 @@ export default function DrillDetail() {
       await api.adminDestroyDrill(drill.id);
       navigate("/drills");
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : "Failed to delete drill.");
+      setDeleteError(
+        e instanceof Error ? e.message : "Failed to delete drill.",
+      );
     } finally {
       setDeleting(false);
     }
@@ -185,7 +190,7 @@ export default function DrillDetail() {
         )}
       </section>
 
-                  <section className="detail-section">
+      <section className="detail-section">
         <h2>Drill Definition (JSON)</h2>
         {/* Always the value the API returned for this drill — never the sample,
             so this section cannot be mistaken for data the drill does not have. */}

@@ -1,5 +1,4 @@
-// Mirror of the backend version reported by GET /api/v1/health/detailed
-// (beachvolleyballproject_api/config/initializers/app_version.rb).
-// Keep in sync manually — the "Backend Version Matches Frontend Constant"
-// health check flags drift.
-export const BACK_END_VERSION = "0.0.1";
+// Single source of truth for the application version (mirrors
+// APP_VERSION / config.health_version in beachvolleyballproject_api).
+// The "Backend Version Matches APP_VERSION" health check flags drift.
+export const APP_VERSION = "0.0.21";

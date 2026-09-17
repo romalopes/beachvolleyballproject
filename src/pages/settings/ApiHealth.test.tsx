@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../../auth/AuthContext";
 import { api } from "../../api";
+import { APP_VERSION } from "../../constants/versions";
 import ApiHealth from "./ApiHealth";
 
 vi.mock("../../api", async (importOriginal) => {
@@ -45,7 +46,9 @@ const playerUser = {
 };
 
 // Default: every endpoint the runner can hit returns a healthy payload.
-function stubHealthyApi() {
+// `backendVersion` simulates what the Rails /health/detailed endpoint reports,
+// so version display can be tested independently of APP_VERSION.
+function stubHealthyApi(backendVersion: string = "0.0.21") {
   return vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input);
     if (url.endsWith("/health")) return jsonResponse({ status: "ok" });
@@ -55,7 +58,7 @@ function stubHealthyApi() {
         service: "bvb-api",
         database: "ok",
         environment: "test",
-        version: "0.0.1",
+        version: backendVersion,
         timestamp: new Date().toISOString(),
         database_details: { adapter: "postgresql", pool: 5 },
         server: { rails_version: "8.1.3", pid: 1 },
@@ -74,9 +77,7 @@ function stubHealthyApi() {
         { id: 1, title: "Serve", slug: "serve", category_id: 1 },
       ]);
     if (url.endsWith("/drills"))
-      return jsonResponse([
-        { id: 1, title: "D1", slug: "d1", skills: [] },
-      ]);
+      return jsonResponse([{ id: 1, title: "D1", slug: "d1", skills: [] }]);
     if (url.endsWith("/drill_skills"))
       return jsonResponse([{ id: 1, drill_id: 1, skill_id: 1 }]);
     if (url.endsWith("/training_sessions"))
@@ -95,7 +96,7 @@ function renderPage() {
       <AuthProvider>
         <ApiHealth />
       </AuthProvider>
-    </MemoryRouter>
+    </MemoryRouter>,
   );
 }
 
@@ -112,12 +113,12 @@ describe("ApiHealth page", () => {
     await waitFor(() =>
       expect(
         screen.getByText(
-          "You do not have permission to view API health diagnostics."
-        )
-      ).toBeInTheDocument()
+          "You do not have permission to view API health diagnostics.",
+        ),
+      ).toBeInTheDocument(),
     );
     expect(
-      screen.queryByRole("button", { name: "Run All Checks" })
+      screen.queryByRole("button", { name: "Run All Checks" }),
     ).not.toBeInTheDocument();
   });
 
@@ -126,15 +127,17 @@ describe("ApiHealth page", () => {
     renderPage();
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Run All Checks" })
-      ).toBeInTheDocument()
+        screen.getByRole("button", { name: "Run All Checks" }),
+      ).toBeInTheDocument(),
     );
     expect(screen.getByText("Public Liveness Check")).toBeInTheDocument();
     expect(
-      screen.getByText("Unauthenticated /me Rejection")
+      screen.getByText("Unauthenticated /me Rejection"),
     ).toBeInTheDocument();
     expect(screen.getByText("Categories List")).toBeInTheDocument();
-    expect(screen.getByText("Drills List (definition excluded)")).toBeInTheDocument();
+    expect(
+      screen.getByText("Drills List (definition excluded)"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Write Sandbox")).toBeInTheDocument();
     // Infrastructure panel only appears after the detailed check runs.
     expect(screen.queryByText("Infrastructure")).not.toBeInTheDocument();
@@ -147,18 +150,53 @@ describe("ApiHealth page", () => {
     renderPage();
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Run All Checks" })
-      ).toBeInTheDocument()
+        screen.getByRole("button", { name: "Run All Checks" }),
+      ).toBeInTheDocument(),
     );
     await user.click(screen.getAllByRole("button", { name: "Test" })[0]);
     await waitFor(() =>
-      expect(screen.getAllByText("PASS").length).toBeGreaterThan(0)
+      expect(screen.getAllByText("PASS").length).toBeGreaterThan(0),
     );
     // Running the detailed check populates the Infrastructure panel.
     await user.click(screen.getAllByRole("button", { name: "Test" })[1]);
     await waitFor(() =>
-      expect(screen.getByText("Infrastructure")).toBeInTheDocument()
+      expect(screen.getByText("Infrastructure")).toBeInTheDocument(),
     );
     expect(screen.getByText("Record counts")).toBeInTheDocument();
+  });
+});
+
+describe("ApiHealth version display", () => {
+  it("shows a version match when the backend reports APP_VERSION (0.0.21)", async () => {
+    expect(APP_VERSION).toBe("0.0.21");
+    vi.mocked(api.me).mockResolvedValue(adminUser);
+    vi.stubGlobal("fetch", stubHealthyApi("0.0.21"));
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      await screen.findByRole("button", { name: "Run All Checks" }),
+    );
+
+    // The displayed version comes from the backend API response.
+    expect(
+      await screen.findByText("✓ Version match: backend 0.0.21"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows backend 0.0.19 from the API even though the React version is 0.0.21", async () => {
+    vi.mocked(api.me).mockResolvedValue(adminUser);
+    vi.stubGlobal("fetch", stubHealthyApi("0.0.20"));
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(
+      await screen.findByRole("button", { name: "Run All Checks" }),
+    );
+
+    expect(
+      await screen.findByText(
+        `⚠ Version mismatch: backend reports 0.0.20 but frontend expects ${APP_VERSION}`,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/✓ Version match/)).not.toBeInTheDocument();
   });
 });

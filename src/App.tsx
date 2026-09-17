@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { AuthProvider } from "./auth/AuthContext";
 import { useAuth } from "./auth/AuthContext";
 import Sidebar from "./components/Sidebar";
+import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import Skills from "./pages/Skills";
 import SkillDetail from "./pages/SkillDetail";
@@ -90,7 +91,10 @@ function Layout({ children }: { children: React.ReactNode }) {
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      <main className="main">{children}</main>
+      <main className="main">
+        {children}
+        <Footer />
+      </main>
     </div>
   );
 }

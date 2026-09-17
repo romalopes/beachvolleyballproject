@@ -48,8 +48,9 @@ export default function DrillViewer({
   const [stepIndex, setStepIndex] = useState(0);
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   // Orientation is a viewer concern: defaults to "lateral", toggled by the user.
-  const [orientation, setOrientation] =
-    useState<Orientation>(DEFAULT_ORIENTATION);
+  const [orientation, setOrientation] = useState<Orientation>(
+    definition.view?.orientation ?? DEFAULT_ORIENTATION,
+  );
   // Speed is a viewer concern too: multiplier applied to the base step duration.
   const [speed, setSpeed] = useState(1);
   // Side display size: percentage of the container width; height follows the

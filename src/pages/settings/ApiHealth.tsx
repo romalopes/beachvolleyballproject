@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BACK_END_VERSION } from "../../constants/versions";
+import { APP_VERSION } from "../../constants/versions";
 import { getApiToken } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
@@ -274,13 +274,13 @@ export default function ApiHealth() {
     | undefined;
   const backendVersion = detailedPayload?.version;
   const versionMatched = backendVersion
-    ? backendVersion === BACK_END_VERSION
+    ? backendVersion === APP_VERSION
     : null;
 
   return (
     <SettingsLayout
       title="API Health & Diagnostics"
-      description={`${API_CHECKS.length} checks configured · backend ${BACK_END_VERSION}`}
+      description={`${API_CHECKS.length} checks configured · app version ${APP_VERSION}`}
       backTo="/settings"
       backLabel="Back to Settings"
     >
@@ -301,7 +301,7 @@ export default function ApiHealth() {
         >
           {versionMatched
             ? `✓ Version match: backend ${backendVersion}`
-            : `⚠ Version mismatch: backend reports ${backendVersion} but frontend expects ${BACK_END_VERSION}`}
+            : `⚠ Version mismatch: backend reports ${backendVersion} but frontend expects ${APP_VERSION}`}
         </div>
       )}
 

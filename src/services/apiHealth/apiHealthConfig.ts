@@ -1,4 +1,4 @@
-import { BACK_END_VERSION } from "../../constants/versions";
+import { APP_VERSION } from "../../constants/versions";
 import {
   hasStatusOk,
   isAuthMePayload,
@@ -113,15 +113,15 @@ export const API_CHECKS: ApiCheck[] = [
   {
     id: "system-version-match",
     category: API_CATEGORIES.SYSTEM,
-    name: "Backend Version Matches Frontend Constant",
+    name: "Backend Version Matches APP_VERSION",
     method: "GET",
     url: "/health/detailed",
     expectedStatus: 200,
     requiresAuth: true,
     validate: (data) =>
-      (data as { version?: string } | null)?.version === BACK_END_VERSION,
+      (data as { version?: string } | null)?.version === APP_VERSION,
     describeFailure: (data) =>
-      `Backend version "${(data as { version?: string } | null)?.version ?? "unknown"}" does not match frontend BACK_END_VERSION "${BACK_END_VERSION}"`,
+      `Backend version "${(data as { version?: string } | null)?.version ?? "unknown"}" does not match APP_VERSION "${APP_VERSION}"`,
   },
   {
     id: "auth-me-valid",
