@@ -11,6 +11,7 @@ interface AuthContextValue {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, confirmation: string) => Promise<void>;
+  resetPassword: (token: string, password: string, confirmation: string) => Promise<void>;
   logout: () => Promise<void>;
   impersonation: ImpersonationState;
   startImpersonating: (userId: number) => Promise<void>;
@@ -45,6 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await api.register(name, email, password, confirmation));
   };
 
+  const resetPassword = async (token: string, password: string, confirmation: string) => {
+    setUser(await api.resetPassword(token, password, confirmation));
+  };
+
   const logout = async () => {
     await api.logout();
     setUser(null);
@@ -64,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, impersonation, startImpersonating, stopImpersonating }}>
+    <AuthContext.Provider value={{ user, loading, login, register, resetPassword, logout, impersonation, startImpersonating, stopImpersonating }}>
       {children}
     </AuthContext.Provider>
   );

@@ -30,6 +30,7 @@ const userFixture = {
   name: "Bea Volley",
   email_address: "bea@example.com",
   roles: ["player"],
+  token: "auth-token",
 };
 
 beforeEach(() => {

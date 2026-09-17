@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { api } from '../api';
+import { useAuth } from '../auth/AuthContext';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
+  const { resetPassword } = useAuth();
 
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -17,8 +18,8 @@ export default function ResetPassword() {
     setError(null);
     setSubmitting(true);
     try {
-      await api.resetPassword(token, password, confirmation);
-      navigate('/login', { state: { from: '/' } });
+      await resetPassword(token, password, confirmation);
+      navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Password reset failed.');
     } finally {

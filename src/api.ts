@@ -152,7 +152,7 @@ export interface User {
 }
 
 export interface UserWithToken extends User {
-  token?: string;
+  token: string;
 }
 
 export interface AdminUser {
@@ -409,10 +409,14 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
   requestPasswordReset: (email_address: string) =>
     postJSON<void>("/passwords", { email_address }),
   resetPassword: (token: string, password: string, password_confirmation: string) =>
-    postJSON<void>(`/passwords/${encodeURIComponent(token)}`, {
+    postJSON<UserWithToken>(`/passwords/${encodeURIComponent(token)}`, {
       password,
       password_confirmation,
-    }, "PUT"),
+      api: true,
+    }).then((data) => {
+      if (data.token) setToken(data.token);
+      return data;
+    }),
 
   // Admin audit logs (read-only)
   adminLogs: (params: {

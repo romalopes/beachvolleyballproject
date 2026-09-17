@@ -57,6 +57,7 @@ describe("Login page", () => {
       name: "Bea",
       email_address: "bea@example.com",
       roles: ["player"],
+      token: "login-token",
     });
     renderLogin();
 
