@@ -92,7 +92,13 @@ describe("apiHealthValidators", () => {
   });
 
   it("validates training sessions and media assets lists", () => {
-    const session = { id: 1, drill_id: 2, scheduled_at: "2026-01-01" };
+    const session = {
+      id: 1,
+      title: "Morning Training",
+      starts_at: "2026-01-01T09:00:00Z",
+      ends_at: "2026-01-01T11:00:00Z",
+      status: "scheduled",
+    };
     const asset = {
       id: 1,
       drill_id: 2,

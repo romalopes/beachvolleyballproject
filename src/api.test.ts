@@ -211,3 +211,79 @@ describe("admin drill definition payloads", () => {
     expect(JSON.parse(init.body as string)).toEqual({ drill: { definition: null } });
   });
 });
+
+describe("training sessions client", () => {
+  const input = {
+    title: "Morning Training",
+    description: "Structured practice.",
+    starts_at: "2026-10-01T09:00:00Z",
+    ends_at: "2026-10-01T11:00:00Z",
+    location: "Coogee Beach",
+    status: "scheduled" as const,
+    training_focuses_attributes: [
+      { skill_id: 3, description: "Platform angle", position: 0 },
+      { custom_focus: "Transition communication", position: 1 },
+    ],
+    training_session_drills_attributes: [
+      { drill_id: 5, duration_minutes: 15, notes: "Round two harder", position: 0 },
+    ],
+  };
+
+  it("lists sessions without query params by default", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, body: [] });
+    await api.trainingSessions();
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/training_sessions");
+  });
+
+  it("builds a date-range + status query for the calendar", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, body: [] });
+    await api.trainingSessions({
+      starts_at_from: "2026-10-01",
+      starts_at_to: "2026-10-31",
+      status: "scheduled",
+    });
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain("/training_sessions?");
+    expect(url).toContain("starts_at_from=2026-10-01");
+    expect(url).toContain("starts_at_to=2026-10-31");
+    expect(url).toContain("status=scheduled");
+  });
+
+  it("fetches a single session by id", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, body: { id: 7 } });
+    await api.trainingSession(7);
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/training_sessions/7");
+  });
+
+  it("creates a session with nested focuses and drills", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 201, body: { id: 9 } });
+    await api.createTrainingSession(input);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/training_sessions");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      training_session: input,
+    });
+  });
+
+  it("updates a session with PATCH", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, body: { id: 9 } });
+    await api.updateTrainingSession(9, { title: "Evening Training" });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/training_sessions/9");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({
+      training_session: { title: "Evening Training" },
+    });
+  });
+
+  it("deletes a session with DELETE", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 204 });
+    await api.deleteTrainingSession(9);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/training_sessions/9");
+    expect(init.method).toBe("DELETE");
+  });
+});

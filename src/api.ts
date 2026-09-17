@@ -135,13 +135,78 @@ export interface MediaAsset {
   thumbnail_url: string | null;
 }
 
-export interface TrainingSession {
+export type TrainingSessionStatus = "draft" | "scheduled" | "cancelled" | "completed";
+
+export interface TrainingFocusSkill {
+  id: number;
+  title: string;
+  slug: string;
+  description: string | null;
+  category?: Category;
+}
+
+export interface TrainingFocus {
+  id: number;
+  skill_id: number | null;
+  custom_focus: string | null;
+  description: string | null;
+  position: number;
+  label?: string;
+  skill?: TrainingFocusSkill | null;
+}
+
+export interface TrainingSessionDrillRow {
   id: number;
   drill_id: number;
-  scheduled_at: string;
-  location: string | null;
+  position: number;
+  duration_minutes: number | null;
   notes: string | null;
   drill?: Drill;
+}
+
+export interface TrainingSession {
+  id: number;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  ends_at: string;
+  location: string | null;
+  status: TrainingSessionStatus;
+  created_by_id: number | null;
+  duration_minutes?: number;
+  status_label?: string;
+  created_by?: { id: number; name: string } | null;
+  training_focuses?: TrainingFocus[];
+  training_session_drills?: TrainingSessionDrillRow[];
+}
+
+export interface TrainingFocusInput {
+  id?: number;
+  skill_id?: number | null;
+  custom_focus?: string | null;
+  description?: string | null;
+  position?: number;
+  _destroy?: boolean;
+}
+
+export interface TrainingSessionDrillInput {
+  id?: number;
+  drill_id?: number;
+  position?: number;
+  duration_minutes?: number | null;
+  notes?: string | null;
+  _destroy?: boolean;
+}
+
+export interface TrainingSessionInput {
+  title: string;
+  description?: string | null;
+  starts_at: string;
+  ends_at: string;
+  location?: string | null;
+  status?: TrainingSessionStatus;
+  training_focuses_attributes?: TrainingFocusInput[];
+  training_session_drills_attributes?: TrainingSessionDrillInput[];
 }
 
 export interface User {
@@ -251,9 +316,32 @@ export const api = {
   drills: () => fetchAPI<Drill[]>("/drills"),
   drill: (slugOrId: string) => fetchAPI<Drill>(`/drills/${encodeURIComponent(slugOrId)}`),
   mediaAssets: () => fetchAPI<MediaAsset[]>("/media_assets"),
-  trainingSessions: () => fetchAPI<TrainingSession[]>("/training_sessions"),
+  trainingSessions: (params?: {
+    starts_at_from?: string;
+    starts_at_to?: string;
+    status?: TrainingSessionStatus;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params?.starts_at_from) qs.set("starts_at_from", params.starts_at_from);
+    if (params?.starts_at_to) qs.set("starts_at_to", params.starts_at_to);
+    if (params?.status) qs.set("status", params.status);
+    const query = qs.toString();
+    return fetchAPI<TrainingSession[]>(
+      `/training_sessions${query ? `?${query}` : ""}`
+    );
+  },
   trainingSession: (id: number) =>
     fetchAPI<TrainingSession>(`/training_sessions/${id}`),
+  createTrainingSession: (data: TrainingSessionInput) =>
+    postJSON<TrainingSession>("/training_sessions", { training_session: data }),
+  updateTrainingSession: (id: number, data: Partial<TrainingSessionInput>) =>
+    postJSON<TrainingSession>(
+      `/training_sessions/${id}`,
+      { training_session: data },
+      "PATCH"
+    ),
+  deleteTrainingSession: (id: number) =>
+    postJSON<void>(`/training_sessions/${id}`, {}, "DELETE"),
 
 
   // Admin

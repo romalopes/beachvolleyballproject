@@ -225,7 +225,7 @@ export const API_CHECKS: ApiCheck[] = [
     url: "/training_sessions",
     validate: isTrainingSessionListPayload,
     describeFailure: () =>
-      "Expected an array of { id, drill_id, scheduled_at } sessions",
+      "Expected an array of { id, title, starts_at, ends_at, status } sessions",
   }),
   listCheck({
     id: "media-assets-list",

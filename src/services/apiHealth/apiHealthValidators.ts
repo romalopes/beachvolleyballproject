@@ -63,8 +63,10 @@ export const isDrillListPayload = (data: unknown): boolean =>
 export const isTrainingSessionPayload = (data: unknown): boolean =>
   isRecord(data) &&
   typeof data.id === "number" &&
-  typeof data.drill_id === "number" &&
-  typeof data.scheduled_at === "string";
+  typeof data.title === "string" &&
+  typeof data.starts_at === "string" &&
+  typeof data.ends_at === "string" &&
+  typeof data.status === "string";
 
 export const isTrainingSessionListPayload = (data: unknown): boolean =>
   isValidArray(data) && data.every(isTrainingSessionPayload);
