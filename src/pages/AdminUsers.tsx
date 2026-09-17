@@ -90,7 +90,7 @@ export default function AdminUsers() {
                 ))}
               </div>
               <div className="admin-user-actions">
-                {(["guest", "player", "coach", "admin"] as const).map((role) => {
+                {(["guest", "player", "coach", "curator", "admin"] as const).map((role) => {
                     const present = hasRole(u, role);
                     const isOwnAdminRole =
                       role === "admin" && u.id === user?.id;
