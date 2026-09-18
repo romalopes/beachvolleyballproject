@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   api,
   ApiValidationError,
@@ -9,26 +9,35 @@ import {
   type TrainingSession,
   type TrainingSessionInput,
   type TrainingSessionStatus,
-} from '../api';
-import { useAuth } from '../auth/AuthContext';
-import EmptyState from '../components/EmptyState';
-import PageHeader from '../components/PageHeader';
-import TrainingDrillList from '../components/training/TrainingDrillList';
-import TrainingFocusList from '../components/training/TrainingFocusList';
-import DrillSelector, { type DrillDraft } from '../components/training/DrillSelector';
-import SkillFocusSelector from '../components/training/SkillFocusSelector';
+} from "../api";
+import { useAuth } from "../auth/AuthContext";
+import EmptyState from "../components/EmptyState";
+import PageHeader from "../components/PageHeader";
+import TrainingDrillList from "../components/training/TrainingDrillList";
+import TrainingFocusList from "../components/training/TrainingFocusList";
+import DrillSelector, {
+  type DrillDraft,
+} from "../components/training/DrillSelector";
+import SkillFocusSelector from "../components/training/SkillFocusSelector";
 import {
   createCustomFocus,
   createSkillFocus,
   type FocusDraft,
-} from '../components/training/focusDraft';
-import { canManageTrainings, TRAINING_STATUSES } from '../utils/training';
+} from "../components/training/focusDraft";
+import {
+  canManageTrainings,
+  DEFAULT_TRAINING_DURATION_MINUTES,
+  durationChoices,
+  TRAINING_DURATION_OPTIONS,
+  TRAINING_STATUSES,
+  trainingDurationLabel,
+} from "../utils/training";
 
 function toLocalInput(iso: string | null | undefined): string {
-  if (!iso) return '';
+  if (!iso) return "";
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
@@ -36,12 +45,17 @@ function fromLocalInput(value: string): string {
   return new Date(value).toISOString();
 }
 
+/** Turns a local "YYYY-MM-DDTHH:mm" start plus a length into the session end. */
+function addMinutes(localValue: string, minutes: number): string {
+  return new Date(new Date(localValue).getTime() + minutes * 60_000).toISOString();
+}
+
 const emptyPreviewRow = (index: number) => ({ id: index });
 
 export default function TrainingFormPage() {
   const { id } = useParams<{ id: string }>();
   const isNew = id === undefined;
-  const invalidId = !isNew && (id === 'new' || Number.isNaN(Number(id)));
+  const invalidId = !isNew && (id === "new" || Number.isNaN(Number(id)));
   const sessionId = isNew || invalidId ? null : Number(id);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -52,13 +66,15 @@ export default function TrainingFormPage() {
   const [drills, setDrills] = useState<Drill[]>([]);
   const [referenceError, setReferenceError] = useState<string | null>(null);
 
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [date, setDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
-  const [location, setLocation] = useState('');
-  const [status, setStatus] = useState<TrainingSessionStatus>('draft');
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [date, setDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [durationMinutes, setDurationMinutes] = useState<number>(
+    DEFAULT_TRAINING_DURATION_MINUTES,
+  );
+  const [location, setLocation] = useState("");
+  const [status, setStatus] = useState<TrainingSessionStatus>("draft");
   const [focuses, setFocuses] = useState<FocusDraft[]>([]);
   const [selectedDrills, setSelectedDrills] = useState<DrillDraft[]>([]);
   const [originalFocusIds, setOriginalFocusIds] = useState<number[]>([]);
@@ -81,7 +97,9 @@ export default function TrainingFormPage() {
       .catch((err: unknown) => {
         if (cancelled) return;
         console.error(err);
-        setReferenceError(err instanceof Error ? err.message : 'Failed to load catalogue.');
+        setReferenceError(
+          err instanceof Error ? err.message : "Failed to load catalogue.",
+        );
       });
     return () => {
       cancelled = true;
@@ -96,27 +114,45 @@ export default function TrainingFormPage() {
       .then((session: TrainingSession) => {
         if (cancelled) return;
         setTitle(session.title);
-        setDescription(session.description ?? '');
+        setDescription(session.description ?? "");
         const startLocal = toLocalInput(session.starts_at);
-        const endLocal = toLocalInput(session.ends_at);
         setDate(startLocal.slice(0, 10));
         setStartTime(startLocal.slice(11, 16));
-        setEndTime(endLocal.slice(11, 16));
-        setLocation(session.location ?? '');
+        // The form edits the session length, not its end time. Deriving it keeps
+        // a session that is not one of the presets (e.g. 1:45h) intact.
+        const loadedMinutes = Math.round(
+          (new Date(session.ends_at).getTime() -
+            new Date(session.starts_at).getTime()) /
+            60_000,
+        );
+        setDurationMinutes(
+          Number.isFinite(loadedMinutes) && loadedMinutes > 0
+            ? loadedMinutes
+            : DEFAULT_TRAINING_DURATION_MINUTES,
+        );
+        setLocation(session.location ?? "");
         setStatus(session.status);
         const orderedFocuses = [...(session.training_focuses ?? [])].sort(
-          (a, b) => a.position - b.position
+          (a, b) => a.position - b.position,
         );
         setFocuses(
           orderedFocuses.map((focus) =>
             focus.skill_id
-              ? createSkillFocus(focus.skill_id, focus.description ?? '')
-              : createCustomFocus(focus.custom_focus ?? '', focus.description ?? '')
-          )
+              ? createSkillFocus(
+                  focus.skill_id,
+                  focus.description ?? "",
+                  focus.id,
+                )
+              : createCustomFocus(
+                  focus.custom_focus ?? "",
+                  focus.description ?? "",
+                  focus.id,
+                ),
+          ),
         );
         setOriginalFocusIds(orderedFocuses.map((focus) => focus.id));
         const orderedDrills = [...(session.training_session_drills ?? [])].sort(
-          (a, b) => a.position - b.position
+          (a, b) => a.position - b.position,
         );
         setSelectedDrills(
           orderedDrills
@@ -127,8 +163,8 @@ export default function TrainingFormPage() {
               drill_id: row.drill_id,
               drill: row.drill!,
               duration_minutes: row.duration_minutes,
-              notes: row.notes ?? '',
-            }))
+              notes: row.notes ?? "",
+            })),
         );
         setOriginalDrillIds(orderedDrills.map((row) => row.id));
         setLoadingSession(false);
@@ -136,7 +172,9 @@ export default function TrainingFormPage() {
       .catch((err: unknown) => {
         if (cancelled) return;
         console.error(err);
-        setLoadError(err instanceof Error ? err.message : 'Failed to load training.');
+        setLoadError(
+          err instanceof Error ? err.message : "Failed to load training.",
+        );
         setLoadingSession(false);
       });
     return () => {
@@ -149,21 +187,37 @@ export default function TrainingFormPage() {
       focuses
         .map((focus) => focus.skill_id)
         .filter((skillId): skillId is number => skillId != null),
-    [focuses]
+    [focuses],
   );
 
   const focusSkillNames = useMemo(() => {
     const byId = new Map(skills.map((skill) => [skill.id, skill.title]));
-    return focusSkillIds.map((skillId) => byId.get(skillId) ?? 'Unknown skill');
+    return focusSkillIds.map((skillId) => byId.get(skillId) ?? "Unknown skill");
   }, [focusSkillIds, skills]);
+
+  // Presets plus the loaded value, so saving never rewrites a custom length.
+  const durationOptions = useMemo(
+    () =>
+      durationChoices(
+        TRAINING_DURATION_OPTIONS.map((option) => option.value),
+        durationMinutes,
+      ),
+    [durationMinutes],
+  );
 
   const previewSession: TrainingSession = useMemo(
     () => ({
       id: sessionId ?? 0,
-      title: title.trim() || 'Untitled training',
+      title: title.trim() || "Untitled training",
       description: description.trim() || null,
-      starts_at: date && startTime ? fromLocalInput(`${date}T${startTime}`) : new Date().toISOString(),
-      ends_at: date && endTime ? fromLocalInput(`${date}T${endTime}`) : new Date().toISOString(),
+      starts_at:
+        date && startTime
+          ? fromLocalInput(`${date}T${startTime}`)
+          : new Date().toISOString(),
+      ends_at:
+        date && startTime
+          ? addMinutes(`${date}T${startTime}`, durationMinutes)
+          : new Date().toISOString(),
       location: location.trim() || null,
       status,
       created_by_id: null,
@@ -171,11 +225,14 @@ export default function TrainingFormPage() {
         ...emptyPreviewRow(index),
         skill_id: focus.skill_id ?? null,
         custom_focus: focus.skill_id ? null : (focus.custom_focus ?? null),
-        description: focus.description?.trim() ? focus.description.trim() : null,
+        description: focus.description?.trim()
+          ? focus.description.trim()
+          : null,
         position: index + 1,
         label: focus.skill_id
-          ? (skills.find((skill) => skill.id === focus.skill_id)?.title ?? 'Skill focus')
-          : (focus.custom_focus ?? 'Custom focus'),
+          ? (skills.find((skill) => skill.id === focus.skill_id)?.title ??
+            "Skill focus")
+          : (focus.custom_focus ?? "Custom focus"),
         skill: (() => {
           if (!focus.skill_id) return null;
           const skill = skills.find((s) => s.id === focus.skill_id);
@@ -185,7 +242,9 @@ export default function TrainingFormPage() {
             title: skill.title,
             slug: skill.slug,
             description: skill.description,
-            category: categories.find((category) => category.id === skill.category_id),
+            category: categories.find(
+              (category) => category.id === skill.category_id,
+            ),
           };
         })(),
       })),
@@ -198,13 +257,26 @@ export default function TrainingFormPage() {
         drill: row.drill,
       })),
     }),
-    [sessionId, title, description, date, startTime, endTime, location, status, focuses, selectedDrills, skills, categories]
+    [
+      sessionId,
+      title,
+      description,
+      date,
+      startTime,
+      durationMinutes,
+      location,
+      status,
+      focuses,
+      selectedDrills,
+      skills,
+      categories,
+    ],
   );
 
   if (!canManage) {
     return (
       <div className="page">
-        <PageHeader title={isNew ? 'New Training' : 'Edit Training'} />
+        <PageHeader title={isNew ? "New Training" : "Edit Training"} />
         <EmptyState
           title="Not authorized"
           description="Only coaches, curators and admins can manage training sessions."
@@ -223,30 +295,29 @@ export default function TrainingFormPage() {
   }
 
   if (loadingSession) return <div className="loading">Loading...</div>;
-  if (loadError) return <EmptyState title="Training session not found" description={loadError} />;
+  if (loadError)
+    return (
+      <EmptyState title="Training session not found" description={loadError} />
+    );
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setErrors([]);
     if (!title.trim()) {
-      setErrors(['Title is required.']);
+      setErrors(["Title is required."]);
       return;
     }
-    if (!date || !startTime || !endTime) {
-      setErrors(['Date, start time and end time are required.']);
+    if (!date || !startTime) {
+      setErrors(["Date and start time are required."]);
       return;
     }
     const startsAt = fromLocalInput(`${date}T${startTime}`);
-    const endsAt = fromLocalInput(`${date}T${endTime}`);
-    if (new Date(endsAt) <= new Date(startsAt)) {
-      setErrors(['End time must be after start time.']);
-      return;
-    }
+    const endsAt = addMinutes(`${date}T${startTime}`, durationMinutes);
     const removedFocusIds = originalFocusIds.filter(
-      (id) => !focuses.some((focus) => focus.id === id)
+      (id) => !focuses.some((focus) => focus.id === id),
     );
     const removedDrillIds = originalDrillIds.filter(
-      (id) => !selectedDrills.some((row) => row.id === id)
+      (id) => !selectedDrills.some((row) => row.id === id),
     );
     const payload: TrainingSessionInput = {
       title: title.trim(),
@@ -259,8 +330,12 @@ export default function TrainingFormPage() {
         ...focuses.map((focus, index) => ({
           id: focus.id,
           skill_id: focus.skill_id ?? null,
-          custom_focus: focus.skill_id ? null : (focus.custom_focus?.trim() || null),
-          description: focus.description?.trim() ? focus.description.trim() : null,
+          custom_focus: focus.skill_id
+            ? null
+            : focus.custom_focus?.trim() || null,
+          description: focus.description?.trim()
+            ? focus.description.trim()
+            : null,
           position: index + 1,
         })),
         ...removedFocusIds.map((id) => ({ id, _destroy: true })),
@@ -286,19 +361,19 @@ export default function TrainingFormPage() {
       if (err instanceof ApiValidationError) {
         setErrors(err.errors);
       } else {
-        setErrors([err instanceof Error ? err.message : 'Failed to save training.']);
+        setErrors([
+          err instanceof Error ? err.message : "Failed to save training.",
+        ]);
       }
     } finally {
       setSaving(false);
     }
   };
 
-
-
   return (
     <div className="page">
       <PageHeader
-        title={isNew ? 'New Training' : 'Edit Training'}
+        title={isNew ? "New Training" : "Edit Training"}
         description="Define the session, its focuses and its drills. The preview below updates as you type."
       />
       {referenceError && <div className="admin-error">{referenceError}</div>}
@@ -340,12 +415,19 @@ export default function TrainingFormPage() {
               />
             </label>
             <label>
-              End time
-              <input
-                type="time"
-                value={endTime}
-                onChange={(event) => setEndTime(event.target.value)}
-              />
+              Duration
+              <select
+                value={durationMinutes}
+                onChange={(event) =>
+                  setDurationMinutes(Number(event.target.value))
+                }
+              >
+                {durationOptions.map((minutes) => (
+                  <option key={minutes} value={minutes}>
+                    {trainingDurationLabel(minutes)}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
           <label>
@@ -359,7 +441,12 @@ export default function TrainingFormPage() {
           </label>
           <label>
             Status
-            <select value={status} onChange={(event) => setStatus(event.target.value as TrainingSessionStatus)}>
+            <select
+              value={status}
+              onChange={(event) =>
+                setStatus(event.target.value as TrainingSessionStatus)
+              }
+            >
               {TRAINING_STATUSES.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
@@ -369,10 +456,14 @@ export default function TrainingFormPage() {
           </label>
         </div>
 
-        <SkillFocusSelector categories={categories} skills={skills} focuses={focuses} onChange={setFocuses} />
+        <SkillFocusSelector
+          categories={categories}
+          skills={skills}
+          focuses={focuses}
+          onChange={setFocuses}
+        />
 
         <DrillSelector
-          categories={categories}
           skills={skills}
           drills={drills}
           focusSkillIds={focusSkillIds}
@@ -392,13 +483,19 @@ export default function TrainingFormPage() {
         )}
 
         <div className="admin-form-actions">
-          <button type="submit" className="admin-btn admin-btn-add" disabled={saving}>
-            {saving ? 'Saving...' : isNew ? 'Create Training' : 'Save Changes'}
+          <button
+            type="submit"
+            className="admin-btn admin-btn-add"
+            disabled={saving}
+          >
+            {saving ? "Saving..." : isNew ? "Create Training" : "Save Changes"}
           </button>
           <button
             type="button"
             className="admin-btn"
-            onClick={() => navigate(isNew ? '/training' : `/training/${sessionId}`)}
+            onClick={() =>
+              navigate(isNew ? "/training" : `/training/${sessionId}`)
+            }
           >
             Cancel
           </button>

@@ -3,7 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthContext";
-import { api, type Category, type Drill, type Skill } from "../api";
+import {
+  api,
+  type Category,
+  type Drill,
+  type Skill,
+  type TrainingSession,
+} from "../api";
 import { SAMPLE_DRILL_DEFINITION } from "../components/drill/definition";
 import TrainingFormPage from "./TrainingFormPage";
 
@@ -72,6 +78,9 @@ const renderForm = (route = "/training/new") =>
         <Routes>
           <Route path="/training/new" element={<TrainingFormPage />} />
           <Route path="/training/:id/edit" element={<TrainingFormPage />} />
+          {/* Stub for the post-save redirect so the router never warns about a
+              location that has no match in this focused test. */}
+          <Route path="/training/:id" element={<div>Training detail</div>} />
         </Routes>
       </AuthProvider>
     </MemoryRouter>,
@@ -112,7 +121,14 @@ describe("TrainingFormPage — new training", () => {
     expect(screen.getByLabelText(/focus description/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Date$/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/start time/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/end time/i)).toBeInTheDocument();
+    const duration = screen.getByLabelText(/^Duration$/i);
+    // A 1:30h session is the default, offered alongside the other presets.
+    expect(duration).toHaveValue("90");
+    expect(
+      within(duration)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["30min", "1hour", "1:30h", "2:00h"]);
     expect(screen.getByLabelText(/location/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/status/i)).toBeInTheDocument();
   });
@@ -193,8 +209,13 @@ describe("TrainingFormPage — new training", () => {
     expect(drillRowTitles()).toEqual(["1. Game Simulation", "2. Serve Receive Progression"]);
 
     const duration = drillSection().getAllByLabelText(/duration/i)[0];
-    await userEvent.clear(duration);
-    await userEvent.type(duration, "15");
+    // Drill lengths come from a fixed list instead of free text.
+    expect(
+      within(duration)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["Not set", "5", "10", "15", "20", "30", "40", "60"]);
+    await userEvent.selectOptions(duration, "15");
     await userEvent.type(drillSection().getAllByLabelText(/notes/i)[0], "Use stronger serves");
     expect(screen.getByDisplayValue("15")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Use stronger serves")).toBeInTheDocument();
@@ -211,7 +232,7 @@ describe("TrainingFormPage — new training", () => {
     await userEvent.type(screen.getByLabelText(/^Title$/i), "Serve Reception Training");
     await userEvent.type(screen.getByLabelText(/^Date$/i), "2026-09-21");
     await userEvent.type(screen.getByLabelText(/start time/i), "09:00");
-    await userEvent.type(screen.getByLabelText(/end time/i), "11:00");
+    await userEvent.selectOptions(screen.getByLabelText(/^Duration$/i), "120");
     await userEvent.type(screen.getByLabelText(/location/i), "Coogee Beach");
     await addSkillFocus();
     await userEvent.click(drillSection().getByRole("button", { name: /^Add$/i }));
@@ -221,21 +242,200 @@ describe("TrainingFormPage — new training", () => {
     const payload = mockedApi.createTrainingSession.mock.calls[0][0];
     expect(payload.title).toBe("Serve Reception Training");
     expect(payload.status).toBe("draft");
+    // 09:00 + the picked 2:00h becomes the end time the API expects.
+    expect(payload.starts_at).toBe(new Date("2026-09-21T09:00").toISOString());
+    expect(payload.ends_at).toBe(new Date("2026-09-21T11:00").toISOString());
     expect(payload.training_focuses_attributes?.[0]?.skill_id).toBe(5);
     expect(payload.training_session_drills_attributes?.[0]?.drill_id).toBe(10);
     expect(payload.training_session_drills_attributes?.[0]?.position).toBe(1);
   });
 
-  it("blocks submission when the end time is not after the start time", async () => {
+  it("defaults to a 1:30h session and derives the end time", async () => {
     renderForm();
     await screen.findByLabelText(/^Title$/i);
-    await userEvent.type(screen.getByLabelText(/^Title$/i), "Bad times");
+    await userEvent.type(screen.getByLabelText(/^Title$/i), "Default length");
     await userEvent.type(screen.getByLabelText(/^Date$/i), "2026-09-21");
-    await userEvent.type(screen.getByLabelText(/start time/i), "11:00");
-    await userEvent.type(screen.getByLabelText(/end time/i), "09:00");
+    await userEvent.type(screen.getByLabelText(/start time/i), "09:00");
+    expect(screen.getByLabelText(/^Duration$/i)).toHaveValue("90");
+
     await userEvent.click(screen.getByRole("button", { name: /Create Training/i }));
-    expect(await screen.findByText(/End time must be after start time/i)).toBeInTheDocument();
+
+    const payload = mockedApi.createTrainingSession.mock.calls[0][0];
+    expect(payload.ends_at).toBe(new Date("2026-09-21T10:30").toISOString());
+  });
+
+  it("blocks submission when the start time is missing", async () => {
+    renderForm();
+    await screen.findByLabelText(/^Title$/i);
+    await userEvent.type(screen.getByLabelText(/^Title$/i), "No start time");
+    await userEvent.type(screen.getByLabelText(/^Date$/i), "2026-09-21");
+    await userEvent.click(screen.getByRole("button", { name: /Create Training/i }));
+    expect(
+      await screen.findByText(/Date and start time are required/i),
+    ).toBeInTheDocument();
     expect(mockedApi.createTrainingSession).not.toHaveBeenCalled();
+  });
+
+  it("narrows the drill list as the coach types a name", async () => {
+    renderForm();
+    await screen.findByLabelText(/^Title$/i);
+    await focusSection().findByLabelText(/^Category$/i);
+    await addSkillFocus();
+
+    // Recommended mode: only "Serve Receive Progression" matches "serve".
+    const search = drillSection().getByLabelText(/search drills/i);
+    await userEvent.type(search, "serve");
+    expect(screen.getByText("Serve Receive Progression")).toBeInTheDocument();
+    expect(screen.queryByText("Game Simulation")).not.toBeInTheDocument();
+
+    // A recommended-mode search that finds nothing points at the toggle.
+    await userEvent.clear(search);
+    await userEvent.type(search, "game");
+    expect(
+      screen.getByText(/No recommended drills match/i),
+    ).toBeInTheDocument();
+
+    // Unticking "Recommended only" searches the whole catalogue instead.
+    await userEvent.click(
+      drillSection().getByRole("checkbox", { name: /recommended only/i }),
+    );
+    expect(screen.getByText("Game Simulation")).toBeInTheDocument();
+    expect(screen.queryByText("Serve Receive Progression")).not.toBeInTheDocument();
+
+    await userEvent.clear(search);
+    await userEvent.type(search, "zzz");
+    expect(screen.getByText(/No drills match/i)).toBeInTheDocument();
+  });
+});
+
+describe("TrainingFormPage — editing an existing training", () => {
+  const existingSession: TrainingSession = {
+    id: 2,
+    title: "Existing Training",
+    description: "Weekly session",
+    starts_at: "2026-09-21T09:00:00.000Z",
+    ends_at: "2026-09-21T11:00:00.000Z",
+    location: "Coogee Beach",
+    status: "scheduled",
+    created_by_id: 2,
+    training_focuses: [
+      {
+        id: 7,
+        skill_id: 5,
+        custom_focus: null,
+        description: "Platform angle",
+        position: 1,
+        label: "Serve Reception",
+      },
+    ],
+    training_session_drills: [
+      {
+        id: 8,
+        drill_id: 10,
+        position: 1,
+        duration_minutes: 15,
+        notes: "Strong serves",
+        drill: drills[0],
+      },
+    ],
+  };
+
+  it("updates existing focuses and drills in place instead of duplicating them", async () => {
+    mockedApi.trainingSession.mockResolvedValue(existingSession);
+    mockedApi.updateTrainingSession.mockResolvedValue({ id: 2 } as never);
+
+    renderForm("/training/2/edit");
+
+    expect(await screen.findByDisplayValue("Existing Training")).toBeInTheDocument();
+    expect(focusSection().getByText("1. Serve Reception")).toBeInTheDocument();
+    expect(drillRowTitles()).toEqual(["1. Serve Receive Progression"]);
+
+    await userEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    expect(mockedApi.createTrainingSession).not.toHaveBeenCalled();
+    expect(mockedApi.updateTrainingSession).toHaveBeenCalledTimes(1);
+    const [id, payload] = mockedApi.updateTrainingSession.mock.calls[0];
+
+    expect(id).toBe(2);
+    // The persisted focus keeps its id, so the API updates it rather than
+    // inserting a second focus for the same skill (which is rejected as
+    // "skill has already been taken").
+    expect(payload.training_focuses_attributes).toEqual([
+      {
+        id: 7,
+        skill_id: 5,
+        custom_focus: null,
+        description: "Platform angle",
+        position: 1,
+      },
+    ]);
+    expect(payload.training_session_drills_attributes).toEqual([
+      {
+        id: 8,
+        drill_id: 10,
+        position: 1,
+        duration_minutes: 15,
+        notes: "Strong serves",
+      },
+    ]);
+  });
+
+  it("marks a removed focus for destruction instead of dropping it", async () => {
+    mockedApi.trainingSession.mockResolvedValue(existingSession);
+    mockedApi.updateTrainingSession.mockResolvedValue({ id: 2 } as never);
+
+    renderForm("/training/2/edit");
+    await screen.findByDisplayValue("Existing Training");
+
+    await userEvent.click(focusSection().getByRole("button", { name: "Remove focus 1" }));
+    await userEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    const [, payload] = mockedApi.updateTrainingSession.mock.calls[0];
+    expect(payload.training_focuses_attributes).toEqual([{ id: 7, _destroy: true }]);
+  });
+
+  it("preserves a session length that is not one of the presets", async () => {
+    mockedApi.trainingSession.mockResolvedValue({
+      ...existingSession,
+      ends_at: "2026-09-21T10:45:00.000Z",
+    });
+    mockedApi.updateTrainingSession.mockResolvedValue({ id: 2 } as never);
+
+    renderForm("/training/2/edit");
+    await screen.findByDisplayValue("Existing Training");
+
+    // 09:00 → 10:45 is 1h45m, so the form offers that length back (105) instead
+    // of silently snapping the session to one of the presets.
+    const duration = screen.getByLabelText(/^Duration$/i);
+    expect(duration).toHaveValue("105");
+    expect(within(duration).getByRole("option", { name: "1:45h" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    const [, payload] = mockedApi.updateTrainingSession.mock.calls[0];
+    expect(payload.ends_at).toBe("2026-09-21T10:45:00.000Z");
+  });
+
+  it("preserves a drill duration that is not one of the presets", async () => {
+    mockedApi.trainingSession.mockResolvedValue({
+      ...existingSession,
+      training_session_drills: [
+        { ...existingSession.training_session_drills![0], duration_minutes: 25 },
+      ],
+    });
+    mockedApi.updateTrainingSession.mockResolvedValue({ id: 2 } as never);
+
+    renderForm("/training/2/edit");
+    await screen.findByDisplayValue("Existing Training");
+
+    const duration = drillSection().getAllByLabelText(/duration/i)[0];
+    expect(duration).toHaveValue("25");
+    expect(within(duration).getByRole("option", { name: "25" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    const [, payload] = mockedApi.updateTrainingSession.mock.calls[0];
+    expect(payload.training_session_drills_attributes?.[0]?.duration_minutes).toBe(25);
   });
 });
 

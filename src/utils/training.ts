@@ -19,6 +19,52 @@ export function statusLabel(status: TrainingSessionStatus): string {
   return TRAINING_STATUSES.find((s) => s.value === status)?.label ?? status;
 }
 
+/** Session lengths offered when scheduling a training (the end time is derived). */
+export const TRAINING_DURATION_OPTIONS = [
+  { value: 30, label: "30min" },
+  { value: 60, label: "1hour" },
+  { value: 90, label: "1:30h" },
+  { value: 120, label: "2:00h" },
+] as const;
+
+/** A new training defaults to a 90 minute session. */
+export const DEFAULT_TRAINING_DURATION_MINUTES = 90;
+
+/** Lengths offered for a single drill inside a training. */
+export const DRILL_DURATION_OPTIONS = [5, 10, 15, 20, 30, 40, 60] as const;
+
+/** "30min" / "1hour" / "1:30h" — a label for any length. */
+function formatDurationLabel(minutes: number): string {
+  if (minutes < 60) return `${minutes}min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest === 0 ? `${hours}hour` : `${hours}:${String(rest).padStart(2, "0")}h`;
+}
+
+/**
+ * The label shown for a session length: the preset's own wording when it is one
+ * of the offered sessions, otherwise a formatted one (e.g. 1:45h).
+ */
+export function trainingDurationLabel(minutes: number): string {
+  return (
+    TRAINING_DURATION_OPTIONS.find((option) => option.value === minutes)?.label ??
+    formatDurationLabel(minutes)
+  );
+}
+
+/**
+ * The offered presets plus the persisted value when it is not one of them, so
+ * editing an existing training can never silently rewrite its length.
+ */
+export function durationChoices(
+  presets: readonly number[],
+  current?: number | null,
+): number[] {
+  const values = new Set<number>(presets);
+  if (current != null && current > 0) values.add(current);
+  return [...values].sort((a, b) => a - b);
+}
+
 export function formatTrainingTime(startsAt: string, endsAt: string): string {
   const time = (iso: string) =>
     new Date(iso).toLocaleTimeString("en-US", {
