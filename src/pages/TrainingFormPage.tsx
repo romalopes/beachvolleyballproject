@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   api,
@@ -11,6 +11,7 @@ import {
   type TrainingSessionStatus,
 } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import type { DrillDefinition } from "../components/drill/definition";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
 import TrainingDrillList from "../components/training/TrainingDrillList";
@@ -79,6 +80,15 @@ export default function TrainingFormPage() {
   const [selectedDrills, setSelectedDrills] = useState<DrillDraft[]>([]);
   const [originalFocusIds, setOriginalFocusIds] = useState<number[]>([]);
   const [originalDrillIds, setOriginalDrillIds] = useState<number[]>([]);
+  // The drills index endpoint strips `definition` (it is a large JSONB column
+  // the catalogue lists never need), so drills picked in the selector arrive
+  // without their visualisation. Fetching the full drill per selected id
+  // restores it for the preview; on edit the session payload already carries
+  // the definitions, so only newly added drills are fetched.
+  const [fetchedDefinitions, setFetchedDefinitions] = useState<
+    Record<number, DrillDefinition | null>
+  >({});
+  const definitionsInFlightRef = useRef<Set<number>>(new Set());
 
   const [loadingSession, setLoadingSession] = useState(!isNew);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -182,6 +192,36 @@ export default function TrainingFormPage() {
     };
   }, [isNew, invalidId, sessionId]);
 
+  // A drill whose `definition` key is absent (the drills index strips it) gets
+  // its full record fetched once, so the preview can render the visualisation.
+  // `{}`/null from the API means the drill genuinely has none — no retry.
+  useEffect(() => {
+    selectedDrills.forEach((row) => {
+      const drill = row.drill;
+      if (
+        drill.definition !== undefined ||
+        drill.id in fetchedDefinitions ||
+        definitionsInFlightRef.current.has(drill.id)
+      ) {
+        return;
+      }
+      definitionsInFlightRef.current.add(drill.id);
+      api
+        .drill(drill.slug)
+        .then((full) =>
+          setFetchedDefinitions((prev) => ({
+            ...prev,
+            [drill.id]: full.definition ?? null,
+          })),
+        )
+        .catch((err: unknown) => {
+          console.error(err);
+          setFetchedDefinitions((prev) => ({ ...prev, [drill.id]: null }));
+        })
+        .finally(() => definitionsInFlightRef.current.delete(drill.id));
+    });
+  }, [selectedDrills, fetchedDefinitions]);
+
   const focusSkillIds = useMemo(
     () =>
       focuses
@@ -254,7 +294,13 @@ export default function TrainingFormPage() {
         position: index + 1,
         duration_minutes: row.duration_minutes ?? null,
         notes: row.notes?.trim() ? row.notes.trim() : null,
-        drill: row.drill,
+        drill:
+          row.drill.definition !== undefined
+            ? row.drill
+            : {
+                ...row.drill,
+                definition: fetchedDefinitions[row.drill.id] ?? null,
+              },
       })),
     }),
     [
@@ -270,6 +316,7 @@ export default function TrainingFormPage() {
       selectedDrills,
       skills,
       categories,
+      fetchedDefinitions,
     ],
   );
 

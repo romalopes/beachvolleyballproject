@@ -25,6 +25,7 @@ vi.mock("../api", async (importOriginal) => {
       createTrainingSession: vi.fn(),
       updateTrainingSession: vi.fn(),
       trainingSession: vi.fn(),
+      drill: vi.fn(),
     },
   };
 });
@@ -69,6 +70,19 @@ const drills: Drill[] = [
     definition: SAMPLE_DRILL_DEFINITION,
     skills: [],
   },
+  {
+    id: 12,
+    title: "Defensive Shuffle",
+    slug: "defensive-shuffle",
+    setup_instructions: "",
+    training_stage: "beginning",
+    difficulty_level: "beginner",
+    min_players: 3,
+    max_players: 6,
+    ideal_num_players: 6,
+    definition: SAMPLE_DRILL_DEFINITION,
+    skills: [{ id: 6, title: "Defensive Movement", slug: "defensive-movement", description: null, category_id: 1 }],
+  },
 ];
 
 const renderForm = (route = "/training/new") =>
@@ -106,9 +120,9 @@ const drillRowTitles = () =>
     ),
   ).map((el) => el.textContent);
 
-const addSkillFocus = async () => {
+const addSkillFocus = async (skillId = "5") => {
   await userEvent.selectOptions(focusSection().getByLabelText(/^Category$/i), "1");
-  await userEvent.selectOptions(focusSection().getByLabelText(/^Skill$/i), "5");
+  await userEvent.selectOptions(focusSection().getByLabelText(/^Skill$/i), skillId);
   await userEvent.click(focusSection().getByRole("button", { name: "Add focus" }));
 };
 
@@ -191,6 +205,29 @@ describe("TrainingFormPage — new training", () => {
     expect(
       drillSection().getByText((_, el) => el?.textContent === "1. Serve Receive Progression"),
     ).toBeInTheDocument();
+  });
+
+  it("shows the visualisation for a newly added drill whose index payload lacks a definition", async () => {
+    // The drills index endpoint strips `definition`; the full drill detail
+    // (fetched per selected drill) carries it back.
+    mockedApi.drills.mockResolvedValue(
+      drills.map((drill) => ({ ...drill, definition: undefined })),
+    );
+    mockedApi.drill.mockResolvedValue(drills[0]);
+
+    renderForm();
+    await screen.findByLabelText(/^Title$/i);
+    await focusSection().findByLabelText(/^Category$/i);
+    await addSkillFocus();
+
+    await userEvent.click(drillSection().getAllByRole("button", { name: /^Add$/i })[0]);
+    expect(
+      drillSection().getByText((_, el) => el?.textContent === "1. Serve Receive Progression"),
+    ).toBeInTheDocument();
+
+    // The fetched definition renders instead of the empty placeholder.
+    expect(drillSection().queryByText(/no visualisation yet/i)).not.toBeInTheDocument();
+    expect(mockedApi.drill).toHaveBeenCalledWith("serve-receive-progression");
   });
 
   it("edits duration, notes, removes and reorders selected drills", async () => {
@@ -305,6 +342,61 @@ describe("TrainingFormPage — new training", () => {
     await userEvent.clear(search);
     await userEvent.type(search, "zzz");
     expect(screen.getByText(/No drills match/i)).toBeInTheDocument();
+  });
+
+  it("filters the drill list by the selected focus skill", async () => {
+    renderForm();
+    await screen.findByLabelText(/^Title$/i);
+    await focusSection().findByLabelText(/^Category$/i);
+    await addSkillFocus("5");
+    await addSkillFocus("6");
+
+    const skillFilter = drillSection().getByLabelText(/filter drills by skill/i);
+    expect(
+      within(skillFilter)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["All skills", "Serve Reception", "Defensive Movement"]);
+
+    // Picking a skill narrows the recommended drills to that skill's drills.
+    await userEvent.selectOptions(skillFilter, "6");
+    expect(screen.getByText("Defensive Shuffle")).toBeInTheDocument();
+    expect(screen.queryByText("Serve Receive Progression")).not.toBeInTheDocument();
+
+    // "All skills" restores the combined recommendation.
+    await userEvent.selectOptions(skillFilter, "");
+    expect(screen.getByText("Serve Receive Progression")).toBeInTheDocument();
+
+    // The same filter composes with the full-catalogue view.
+    await userEvent.click(
+      drillSection().getByRole("checkbox", { name: /recommended only/i }),
+    );
+    expect(screen.getByText("Game Simulation")).toBeInTheDocument();
+    await userEvent.selectOptions(
+      drillSection().getByLabelText(/filter drills by skill/i),
+      "6",
+    );
+    expect(screen.getByText("Defensive Shuffle")).toBeInTheDocument();
+    expect(screen.queryByText("Game Simulation")).not.toBeInTheDocument();
+  });
+
+  it("clears the skill filter when that focus is removed", async () => {
+    renderForm();
+    await screen.findByLabelText(/^Title$/i);
+    await focusSection().findByLabelText(/^Category$/i);
+    await addSkillFocus("5");
+    await addSkillFocus("6");
+    await userEvent.selectOptions(
+      drillSection().getByLabelText(/filter drills by skill/i),
+      "6",
+    );
+    expect(screen.queryByText("Serve Receive Progression")).not.toBeInTheDocument();
+
+    // Removing the Defensive Movement focus resets the filter, so the remaining
+    // skill's drills come back instead of an empty list.
+    await userEvent.click(focusSection().getByRole("button", { name: "Remove focus 2" }));
+    expect(drillSection().getByLabelText(/filter drills by skill/i)).toHaveValue("");
+    expect(screen.getByText("Serve Receive Progression")).toBeInTheDocument();
   });
 });
 

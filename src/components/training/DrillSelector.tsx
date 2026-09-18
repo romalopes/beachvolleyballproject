@@ -1,8 +1,8 @@
-import { useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Plus, Search, Trash2 } from 'lucide-react';
-import type { Drill, Skill, TrainingSessionDrillInput } from '../../api';
-import { DRILL_DURATION_OPTIONS, durationChoices } from '../../utils/training';
-import { moveFocus } from './focusDraft';
+import { useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, Plus, Search, Trash2 } from "lucide-react";
+import type { Drill, Skill, TrainingSessionDrillInput } from "../../api";
+import { DRILL_DURATION_OPTIONS, durationChoices } from "../../utils/training";
+import { moveFocus } from "./focusDraft";
 
 export interface DrillDraft extends TrainingSessionDrillInput {
   key: string;
@@ -37,55 +37,102 @@ export default function DrillSelector({
   onChange,
 }: DrillSelectorProps) {
   const [recommendedOnly, setRecommendedOnly] = useState(true);
-  const [search, setSearch] = useState('');
-  const selectedIds = useMemo(() => new Set(selected.map((row) => row.drill_id)), [selected]);
+  const [search, setSearch] = useState("");
+  // The filter is bound to the exact set of focus skills it was chosen against,
+  // so changing the focuses above resets it — no effect needed.
+  const [skillFilter, setSkillFilter] = useState<{
+    skillId: number;
+    focusSkills: string;
+  } | null>(null);
+  const selectedIds = useMemo(
+    () => new Set(selected.map((row) => row.drill_id)),
+    [selected],
+  );
 
   // The focus skills drive the recommendation, so name them in the header. The
   // catalogue supplies the name; the focus is the fallback.
+  const skillLabel = (skillId: number, index: number) =>
+    skills.find((skill) => skill.id === skillId)?.title ??
+    focusSkillNames[index] ??
+    "Unknown skill";
+
   const focusSkillLabel = focusSkillIds
-    .map(
-      (skillId, index) =>
-        skills.find((skill) => skill.id === skillId)?.title ??
-        focusSkillNames[index] ??
-        'Unknown skill',
-    )
-    .join(', ');
+    .map((skillId, index) => skillLabel(skillId, index))
+    .join(", ");
 
   const recommended = useMemo(
-    () => drills.filter((drill) => drillSkillIds(drill).some((id) => focusSkillIds.includes(id))),
+    () =>
+      drills.filter((drill) =>
+        drillSkillIds(drill).some((id) => focusSkillIds.includes(id)),
+      ),
     [drills, focusSkillIds],
   );
 
+  // The per-skill filter only applies while the focus skills are unchanged.
+  const focusSkillsSignature = focusSkillIds.join(",");
+  const activeSkillFilter =
+    skillFilter?.focusSkills === focusSkillsSignature
+      ? skillFilter.skillId
+      : null;
+  const activeSkillName =
+    activeSkillFilter == null
+      ? null
+      : skillLabel(activeSkillFilter, focusSkillIds.indexOf(activeSkillFilter));
+
   // Selected drills leave the candidate list, so everything offered can still
-  // be added.
-  const candidates = (recommendedOnly ? recommended : drills).filter(
-    (drill) => !selectedIds.has(drill.id),
-  );
+  // be added. A chosen skill then narrows whichever set is on screen.
+  const candidates = (recommendedOnly ? recommended : drills)
+    .filter((drill) => !selectedIds.has(drill.id))
+    .filter(
+      (drill) =>
+        activeSkillFilter == null ||
+        drillSkillIds(drill).includes(activeSkillFilter),
+    );
 
   // Typing a name narrows whatever list is on screen: the recommended drills, or
   // the whole catalogue once "Recommended only" is unticked.
   const term = search.trim();
   const visibleCandidates = term
-    ? candidates.filter((drill) => drill.title.toLowerCase().includes(term.toLowerCase()))
+    ? candidates.filter((drill) =>
+        drill.title.toLowerCase().includes(term.toLowerCase()),
+      )
     : candidates;
 
-  const emptyMessage = term
-    ? recommendedOnly
-      ? `No recommended drills match "${term}". Untick "Recommended only" to search the full catalogue.`
-      : `No drills match "${term}".`
-    : recommendedOnly
-      ? 'No more recommended drills for these skills. Untick "Recommended only" to browse the full catalogue.'
-      : 'Every drill is already part of this training.';
+  const emptyMessage = (() => {
+    // "Defensive Movement drills" vs plain "drills" — the no-filter copy is
+    // unchanged.
+    const scope = activeSkillName ? `${activeSkillName} ` : "";
+    if (term) {
+      if (recommendedOnly) {
+        return `No recommended ${scope}drills match "${term}". Untick "Recommended only" to search the full catalogue.`;
+      }
+      return `No ${scope}drills match "${term}".`;
+    }
+    if (recommendedOnly) {
+      return activeSkillName
+        ? `No more ${activeSkillName} drills are recommended. Untick "Recommended only" to browse the full catalogue.`
+        : 'No more recommended drills for these skills. Untick "Recommended only" to browse the full catalogue.';
+    }
+    return "Every drill is already part of this training.";
+  })();
 
   const handleAdd = (drill: Drill) => {
     onChange([
       ...selected,
-      { key: nextDrillKey(), drill_id: drill.id, drill, duration_minutes: null, notes: '' },
+      {
+        key: nextDrillKey(),
+        drill_id: drill.id,
+        drill,
+        duration_minutes: null,
+        notes: "",
+      },
     ]);
   };
 
   const updateRow = (key: string, patch: Partial<DrillDraft>) => {
-    onChange(selected.map((row) => (row.key === key ? { ...row, ...patch } : row)));
+    onChange(
+      selected.map((row) => (row.key === key ? { ...row, ...patch } : row)),
+    );
   };
 
   const moveRow = (index: number, delta: -1 | 1) => {
@@ -101,7 +148,8 @@ export default function DrillSelector({
       <div className="training-editor-section" role="group" aria-label="Drills">
         <h3>Drills</h3>
         <p className="related-item-meta">
-          Add a skill-based focus above to see recommended drills for that skill.
+          Add a skill-based focus above to see recommended drills for that
+          skill.
         </p>
       </div>
     );
@@ -112,15 +160,43 @@ export default function DrillSelector({
       <h3>Drills</h3>
 
       <div className="training-drill-selector">
-        <p className="related-item-meta">Recommended drills based on {focusSkillLabel}.</p>
-        <label className="training-drill-recommended-toggle">
-          <input
-            type="checkbox"
-            checked={recommendedOnly}
-            onChange={(event) => setRecommendedOnly(event.target.checked)}
-          />
-          Recommended only
-        </label>
+        <p className="related-item-meta">
+          Recommended drills based on {focusSkillLabel}.
+        </p>
+        <div className="training-drill-filters">
+          <label className="training-drill-recommended-toggle">
+            <input
+              type="checkbox"
+              checked={recommendedOnly}
+              onChange={(event) => setRecommendedOnly(event.target.checked)}
+            />
+            Recommended only
+          </label>
+          <label className="training-drill-skill-filter">
+            Skill
+            <select
+              value={activeSkillFilter ?? ""}
+              aria-label="Filter drills by skill"
+              onChange={(event) =>
+                setSkillFilter(
+                  event.target.value
+                    ? {
+                        skillId: Number(event.target.value),
+                        focusSkills: focusSkillsSignature,
+                      }
+                    : null,
+                )
+              }
+            >
+              <option value="">All skills</option>
+              {focusSkillIds.map((skillId, index) => (
+                <option key={skillId} value={skillId}>
+                  {skillLabel(skillId, index)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
 
         <div className="search-bar training-drill-search">
           <span className="search-bar-icon">
@@ -141,7 +217,9 @@ export default function DrillSelector({
           <ul className="training-drill-candidates">
             {visibleCandidates.map((drill) => (
               <li key={drill.id} className="training-drill-candidate">
-                <span className="training-drill-candidate-title">{drill.title}</span>
+                <span className="training-drill-candidate-title">
+                  {drill.title}
+                </span>
                 <button
                   type="button"
                   className="admin-btn admin-btn-add"
@@ -157,7 +235,9 @@ export default function DrillSelector({
       </div>
 
       {selected.length === 0 ? (
-        <p className="related-item-meta">No drills selected yet. Add one from above.</p>
+        <p className="related-item-meta">
+          No drills selected yet. Add one from above.
+        </p>
       ) : (
         <ul className="training-drill-editor-list">
           {selected.map((row, index) => (
@@ -168,28 +248,33 @@ export default function DrillSelector({
               <label className="training-drill-editor-field">
                 Duration (minutes)
                 <select
-                  value={row.duration_minutes ?? ''}
+                  value={row.duration_minutes ?? "20"}
                   onChange={(event) =>
                     updateRow(row.key, {
-                      duration_minutes: event.target.value ? Number(event.target.value) : null,
+                      duration_minutes: event.target.value
+                        ? Number(event.target.value)
+                        : null,
                     })
                   }
                 >
                   <option value="">Not set</option>
-                  {durationChoices(DRILL_DURATION_OPTIONS, row.duration_minutes).map(
-                    (minutes) => (
-                      <option key={minutes} value={minutes}>
-                        {minutes}
-                      </option>
-                    ),
-                  )}
+                  {durationChoices(
+                    DRILL_DURATION_OPTIONS,
+                    row.duration_minutes,
+                  ).map((minutes) => (
+                    <option key={minutes} value={minutes}>
+                      {minutes}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="training-drill-editor-field">
                 Session notes
                 <textarea
-                  value={row.notes ?? ''}
-                  onChange={(event) => updateRow(row.key, { notes: event.target.value })}
+                  value={row.notes ?? ""}
+                  onChange={(event) =>
+                    updateRow(row.key, { notes: event.target.value })
+                  }
                   placeholder="Training-specific instructions (the drill itself is unchanged)."
                   rows={2}
                 />
@@ -229,4 +314,3 @@ export default function DrillSelector({
     </div>
   );
 }
-
