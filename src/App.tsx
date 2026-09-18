@@ -19,6 +19,7 @@ import Videos from "./pages/Videos";
 import Training from "./pages/Training";
 import TrainingDetail from "./pages/TrainingDetail";
 import TrainingCalendar from "./pages/TrainingCalendar";
+import TrainingFormPage from "./pages/TrainingFormPage";
 import Schedule from "./pages/Schedule";
 import AdminUsers from "./pages/AdminUsers";
 import SettingsDashboard from "./pages/settings/SettingsDashboard";
@@ -46,6 +47,14 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   if (loading) return null;
   const isAdmin = user?.roles?.includes("admin");
   if (!isAdmin) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+function ManagerRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  const canManage = user?.roles?.some((role) => role === "coach" || role === "curator" || role === "admin");
+  if (!canManage) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
@@ -117,6 +126,8 @@ export default function App() {
             <Route path="/drills/:slug" element={<DrillDetail />} />
             <Route path="/videos" element={<Videos />} />
             <Route path="/training" element={<Training />} />
+            <Route path="/training/new" element={<ManagerRoute><TrainingFormPage /></ManagerRoute>} />
+            <Route path="/training/:id/edit" element={<ManagerRoute><TrainingFormPage /></ManagerRoute>} />
             <Route path="/training/:id" element={<TrainingDetail />} />
             <Route path="/calendar" element={<TrainingCalendar />} />
             <Route path="/schedule" element={<Schedule />} />

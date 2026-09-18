@@ -36,18 +36,22 @@ export default function TrainingDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const canManage = canManageTrainings(user);
+  const numericId = Number(id);
+  const invalidId = !id || Number.isNaN(numericId);
   const [session, setSession] = useState<TrainingSession | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(!invalidId);
+  const [error, setError] = useState<string | null>(
+    invalidId ? 'Training session not found.' : null,
+  );
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (invalidId) return;
     let cancelled = false;
     api
-      .trainingSession(Number(id))
+      .trainingSession(numericId)
       .then((loaded) => {
         if (cancelled) return;
         setSession(loaded);
@@ -62,7 +66,7 @@ export default function TrainingDetail() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [invalidId, numericId]);
 
   const handleDelete = async () => {
     if (!session) return;
