@@ -85,6 +85,24 @@ describe("VideoList", () => {
     expect(document.querySelector("iframe")).toBeNull();
   });
 
+  it("shows the Add button for a manager when the list is empty and opens the form", async () => {
+    const user = userEvent.setup();
+    renderList([]);
+
+    expect(screen.getByText("No videos yet")).toBeInTheDocument();
+    const add = screen.getByRole("button", { name: /add video/i });
+    await user.click(add);
+    // The create form replaces the empty state (URL / library mode toggle).
+    expect(screen.getByRole("radiogroup", { name: /video source/i })).toBeInTheDocument();
+    expect(screen.queryByText("No videos yet")).toBeNull();
+  });
+
+  it("hides the Add button for visitors when the list is empty", () => {
+    renderList([], { canManage: false });
+    expect(screen.getByText("No videos yet")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /add video/i })).toBeNull();
+  });
+
   it("renders the single video's embedded player", () => {
     renderList([youtubeRef]);
     expect(screen.getByTitle("Clip 11")).toHaveAttribute(
@@ -111,13 +129,29 @@ describe("VideoList", () => {
     ).toHaveAttribute("href", "https://www.instagram.com/p/Cabc123/");
   });
 
-  it("orders the list by position", () => {
+  it("orders the list by position and numbers the rows distinctly", () => {
     const late = reference(13, youtubeVideo, { position: 5, title: "Last clip" });
     renderList([late, youtubeRef, instagramRef]);
     const titles = Array.from(
       document.querySelectorAll(".video-list-item-title"),
     ).map((el) => el.textContent);
-    expect(titles).toEqual(["Clip 11", "Clip 12", "Last clip"]);
+    expect(titles).toEqual(["1. Clip 11", "2. Clip 12", "3. Last clip"]);
+  });
+
+  it("lets a manager edit/remove a single video", async () => {
+    const user = userEvent.setup();
+    renderList([youtubeRef]);
+    expect(
+      screen.getByRole("button", { name: "Remove Clip 11" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Remove Clip 11" }));
+    expect(mockedApi.removeVideoReference).toHaveBeenCalledWith("drills", 7, 11);
+  });
+
+  it("shows a single video without a redundant list for visitors", () => {
+    renderList([youtubeRef], { canManage: false });
+    expect(screen.getByTitle("Clip 11")).toBeInTheDocument();
+    expect(document.querySelector(".video-list-selector")).toBeNull();
   });
 
   it("deletes a reference through the api and notifies the page", async () => {

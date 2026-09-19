@@ -138,6 +138,7 @@ export interface Video {
 /** Row of GET /videos — a video plus its playback/usage summary. */
 export interface VideoSummary extends Video {
   can_embed: boolean;
+  embed_url: string | null;
   external_url: string;
   reference_count: number;
 }
@@ -352,6 +353,8 @@ export const api = {
   drills: () => fetchAPI<Drill[]>("/drills"),
   drill: (slugOrId: string) => fetchAPI<Drill>(`/drills/${encodeURIComponent(slugOrId)}`),
   videos: () => fetchAPI<VideoSummary[]>("/videos"),
+  createVideo: (data: { source_url: string; title?: string; description?: string }) =>
+    postJSON<VideoSummary>("/videos", { video: data }),
   createVideoReference: (
     target: VideoReferenceTarget,
     targetId: number,

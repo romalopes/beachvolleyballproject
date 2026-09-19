@@ -9,6 +9,7 @@ import {
   type TrainingSession,
   type TrainingSessionInput,
   type TrainingSessionStatus,
+  type VideoReference,
 } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import type { DrillDefinition } from "../components/drill/definition";
@@ -25,6 +26,7 @@ import {
   createSkillFocus,
   type FocusDraft,
 } from "../components/training/focusDraft";
+import VideoList from "../components/video/VideoList";
 import {
   canManageTrainings,
   DEFAULT_TRAINING_DURATION_MINUTES,
@@ -80,6 +82,8 @@ export default function TrainingFormPage() {
   const [selectedDrills, setSelectedDrills] = useState<DrillDraft[]>([]);
   const [originalFocusIds, setOriginalFocusIds] = useState<number[]>([]);
   const [originalDrillIds, setOriginalDrillIds] = useState<number[]>([]);
+  /** Videos attached to the edited session (edit mode only). */
+  const [sessionVideos, setSessionVideos] = useState<VideoReference[]>([]);
   // The drills index endpoint strips `definition` (it is a large JSONB column
   // the catalogue lists never need), so drills picked in the selector arrive
   // without their visualisation. Fetching the full drill per selected id
@@ -177,6 +181,7 @@ export default function TrainingFormPage() {
             })),
         );
         setOriginalDrillIds(orderedDrills.map((row) => row.id));
+        setSessionVideos(session.video_references ?? []);
         setLoadingSession(false);
       })
       .catch((err: unknown) => {
@@ -548,6 +553,30 @@ export default function TrainingFormPage() {
           </button>
         </div>
       </form>
+
+      {isNew || sessionId == null ? (
+        <p className="video-form-note">
+          Save the training first — videos can then be added here or from the
+          training's page.
+        </p>
+      ) : (
+        <section className="detail-section">
+          <h2>Videos</h2>
+          <VideoList
+            references={sessionVideos}
+            target="training_sessions"
+            targetId={sessionId}
+            canManage={canManage}
+            onChanged={() => {
+              if (sessionId == null) return;
+              api
+                .trainingSession(sessionId)
+                .then((loaded) => setSessionVideos(loaded.video_references ?? []))
+                .catch(console.error);
+            }}
+          />
+        </section>
+      )}
 
       <section className="detail-section">
         <h2>Preview</h2>

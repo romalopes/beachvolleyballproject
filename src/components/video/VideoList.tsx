@@ -44,14 +44,27 @@ export default function VideoList({
 
   if (ordered.length === 0 && !adding) {
     return (
-      <EmptyState
-        title="No videos yet"
-        description={
-          canManage
-            ? "Add a video with the button above."
-            : "Videos will appear here when added by a coach."
-        }
-      />
+      <div className="video-list">
+        {canManage && targetId != null && (
+          <div className="admin-table-actions">
+            <button
+              type="button"
+              className="admin-btn admin-btn-add"
+              onClick={() => setAdding(true)}
+            >
+              <Plus size={14} /> Add video
+            </button>
+          </div>
+        )}
+        <EmptyState
+          title="No videos yet"
+          description={
+            canManage
+              ? "Add a video with the button above."
+              : "Videos will appear here when added by a coach."
+          }
+        />
+      </div>
     );
   }
 
@@ -109,7 +122,9 @@ export default function VideoList({
 
       {active && !adding && !editing && <VideoPlayer reference={active} />}
 
-      {ordered.length > 1 && (
+      {/* The list also renders for a single video when the visitor manages the
+          page — otherwise that one video could never be edited or removed. */}
+      {ordered.length > 0 && (ordered.length > 1 || canManage) && (
         <ul className="video-list-selector">
           {ordered.map((reference, index) => (
             <li key={reference.id}>
@@ -124,7 +139,7 @@ export default function VideoList({
                   <span className="video-thumb-placeholder">▶</span>
                 )}
                 <span className="video-list-item-title">
-                  {reference.title || reference.video.title || "Video"}
+                  {index + 1}. {reference.title || reference.video.title || `Video ${index + 1}`}
                 </span>
                 <span className="video-window">
                   {formatReferenceWindow(reference.start_seconds, reference.end_seconds) ?? ""}

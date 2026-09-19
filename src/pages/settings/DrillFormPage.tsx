@@ -4,6 +4,7 @@ import { api, type Drill } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 import DrillForm from "../../components/settings/resources/drills/DrillForm";
+import VideoList from "../../components/video/VideoList";
 
 export default function DrillFormPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -54,6 +55,30 @@ export default function DrillFormPage() {
         onCancel={() => navigate(backTo)}
         onSuccess={(saved) => navigate(`/drills/${saved.slug}`)}
       />
+
+      {isNew || !initial ? (
+        <p className="video-form-note">
+          Save the drill first — videos can then be added here or from the
+          drill's page.
+        </p>
+      ) : (
+        <section className="detail-section">
+          <h2>Videos</h2>
+          <VideoList
+            references={initial.video_references}
+            target="drills"
+            targetId={initial.id}
+            canManage
+            onChanged={() => {
+              if (!slug) return;
+              api
+                .adminDrill(slug)
+                .then(setInitial)
+                .catch((e: Error) => setError(e.message));
+            }}
+          />
+        </section>
+      )}
     </SettingsLayout>
   );
 }

@@ -159,6 +159,7 @@ describe("VideoForm", () => {
         duration_seconds: null,
         provider_label: "YouTube",
         can_embed: true,
+        embed_url: "https://www.youtube-nocookie.com/embed/ABC123",
         external_url: "https://www.youtube.com/watch?v=ABC123",
         reference_count: 2,
       },

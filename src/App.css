@@ -4265,6 +4265,9 @@
 
 .video-card {
   margin: 0 0 1rem;
+  /* The player must not stretch to the full column width (the edit-page
+     layout would turn it into a huge square). */
+  max-width: 640px;
 }
 
 .video-embed {
@@ -4425,6 +4428,43 @@
   object-fit: cover;
 }
 
+/* Inline playback on the library page: one iframe at a time fills the card. */
+.videos-thumbnail .video-embed {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  border: 0;
+}
+
+.videos-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 3rem;
+  height: 3rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.videos-links {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.videos-links button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--teal-600);
+  font-weight: 600;
+}
+
 .videos-info {
   display: flex;
   flex-direction: column;
@@ -4483,6 +4523,12 @@
 .video-form-provider {
   margin: 0;
   font-size: 0.85rem;
+  color: var(--slate-500, #64748b);
+}
+
+.video-form-note {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
   color: var(--slate-500, #64748b);
 }
 
