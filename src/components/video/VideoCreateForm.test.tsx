@@ -10,6 +10,9 @@ vi.mock("../../api", async (importOriginal) => {
     ...actual,
     api: {
       createVideo: vi.fn(),
+      videoCategories: vi.fn().mockResolvedValue([]),
+      videoTags: vi.fn().mockResolvedValue([]),
+      adminCreateVideoTag: vi.fn(),
     },
   };
 });
@@ -48,10 +51,12 @@ describe("VideoCreateForm — standalone library videos", () => {
     await user.type(screen.getByLabelText(/^Title$/i), "Library clip");
     await user.click(screen.getByRole("button", { name: /^Save$/i }));
 
-    expect(mockedApi.createVideo).toHaveBeenCalledWith({
-      source_url: "https://youtu.be/Lib1",
-      title: "Library clip",
-    });
+    expect(mockedApi.createVideo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source_url: "https://youtu.be/Lib1",
+        title: "Library clip",
+      }),
+    );
     await vi.waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 

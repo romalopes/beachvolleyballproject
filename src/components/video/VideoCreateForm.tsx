@@ -2,12 +2,18 @@ import { useState } from "react";
 import {
   api,
   ApiValidationError,
+  type VideoSummary,
 } from "../../api";
 import { detectVideoProvider } from "../../utils/videos";
+import VideoCategorySelect from "./VideoCategorySelect";
+import VideoTagPicker from "./VideoTagPicker";
 
 interface VideoCreateFormProps {
-  onSaved: () => void;
+  /** Called with the created video so callers can navigate/refresh. */
+  onSaved: (video: VideoSummary) => void;
   onCancel: () => void;
+  /** Admins may create a new tag inline; coaches only pick existing ones. */
+  allowTagCreate?: boolean;
 }
 
 /**
@@ -15,10 +21,16 @@ interface VideoCreateFormProps {
  * without being attached to anything and is attached later from the
  * drill/skill/training video forms ("Choose from library").
  */
-export default function VideoCreateForm({ onSaved, onCancel }: VideoCreateFormProps) {
+export default function VideoCreateForm({
+  onSaved,
+  onCancel,
+  allowTagCreate = false,
+}: VideoCreateFormProps) {
   const [sourceUrl, setSourceUrl] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [categoryId, setCategoryId] = useState<number | null>(null);
+  const [tagIds, setTagIds] = useState<number[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -35,12 +47,14 @@ export default function VideoCreateForm({ onSaved, onCancel }: VideoCreateFormPr
     setSaving(true);
     setErrors([]);
     try {
-      await api.createVideo({
+      const created = await api.createVideo({
         source_url: sourceUrl.trim(),
         title: title.trim() || undefined,
         description: description.trim() || undefined,
+        video_category_id: categoryId,
+        video_tag_ids: tagIds,
       });
-      onSaved();
+      onSaved(created);
     } catch (err) {
       setErrors(
         err instanceof ApiValidationError
@@ -89,6 +103,19 @@ export default function VideoCreateForm({ onSaved, onCancel }: VideoCreateFormPr
           onChange={(event) => setDescription(event.target.value)}
         />
       </label>
+      <label>
+        Category
+        <VideoCategorySelect value={categoryId} onChange={setCategoryId} />
+      </label>
+      <fieldset className="video-form-tags">
+        <legend>Tags</legend>
+        <VideoTagPicker
+          value={tagIds}
+          onChange={setTagIds}
+          searchable
+          allowCreate={allowTagCreate}
+        />
+      </fieldset>
       {errors.length > 0 && (
         <div className="admin-error">
           <ul>

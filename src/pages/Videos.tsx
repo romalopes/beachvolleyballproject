@@ -1,124 +1,164 @@
-import { useEffect, useState } from 'react';
-import { ExternalLink, PlayCircle, Plus } from 'lucide-react';
-import { api, type VideoSummary } from '../api';
-import { useAuth } from '../auth/AuthContext';
-import PageHeader from '../components/PageHeader';
-import EmptyState from '../components/EmptyState';
-import VideoCreateForm from '../components/video/VideoCreateForm';
-import VideoProviderBadge from '../components/video/VideoProviderBadge';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Plus } from "lucide-react";
+import { api, type VideoCategory, type VideoSummary } from "../api";
+import { useAuth } from "../auth/AuthContext";
+import PageHeader from "../components/PageHeader";
+import EmptyState from "../components/EmptyState";
+import VideoCard from "../components/video/VideoCard";
+import VideoCreateForm from "../components/video/VideoCreateForm";
+
+interface VideoGroup {
+  /** null is the "Uncategorized" bucket, always rendered last. */
+  category: VideoCategory | null;
+  videos: VideoSummary[];
+}
 
 /**
- * Public video library. A Video is the media resource; the page shows where
- * it is referenced (Drill/Skill) and a safe "Watch on [Provider]" action —
- * no inline iframe here, to keep the page light. Coaches/admins can create
- * standalone videos ("for later") here; they are attached to drills,
- * skills or trainings afterwards via "Choose from library".
+ * The video library: every video grouped under its category.
+ *
+ * Grouping is derived from the videos themselves (so a video whose category is
+ * missing from a partially-failed categories request still shows up), then
+ * ordered by the category `position`. Empty categories are skipped, and
+ * uncategorized videos are collected into a final section.
  */
 export default function Videos() {
   const { user } = useAuth();
-  const [videos, setVideos] = useState<VideoSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
-  /** The one library video currently playing inline (never several iframes). */
-  const [playingId, setPlayingId] = useState<number | null>(null);
-  const canManage = user?.roles?.some((role) => role === 'coach' || role === 'admin') ?? false;
+  const canManage =
+    user?.roles?.some((role) => role === "coach" || role === "curator" || role === "admin") ?? false;
+  const isAdmin = user?.roles?.includes("admin") ?? false;
 
-  const load = () =>
-    api.videos()
-      .then(setVideos)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+  const [videos, setVideos] = useState<VideoSummary[]>([]);
+  const [categories, setCategories] = useState<VideoCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    load();
-  }, []);
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    Promise.all([api.videos(), api.videoCategories()])
+      .then(([videoList, categoryList]) => {
+        if (cancelled) return;
+        setVideos(videoList);
+        setCategories(categoryList);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        console.error(err);
+        setError(err instanceof Error ? err.message : "Failed to load the video library.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
-  if (loading) return <div className="loading">Loading...</div>;
+  const reload = useCallback(() => setReloadKey((key) => key + 1), []);
+
+  const groups = useMemo<VideoGroup[]>(() => {
+    const ordered = [...categories].sort(
+      (a, b) => a.position - b.position || a.name.localeCompare(b.name),
+    );
+    const positionById = new Map(ordered.map((category, index) => [category.id, index]));
+
+    const buckets = new Map<number, VideoGroup>();
+    const uncategorized: VideoSummary[] = [];
+
+    for (const video of videos) {
+      const category = video.video_category;
+      if (!category) {
+        uncategorized.push(video);
+        continue;
+      }
+      const bucket = buckets.get(category.id) ?? { category, videos: [] };
+      bucket.videos.push(video);
+      buckets.set(category.id, bucket);
+    }
+
+    const result = [...buckets.values()].sort((a, b) => {
+      const aIndex = positionById.get(a.category!.id) ?? Number.MAX_SAFE_INTEGER;
+      const bIndex = positionById.get(b.category!.id) ?? Number.MAX_SAFE_INTEGER;
+      if (aIndex !== bIndex) return aIndex - bIndex;
+      return a.category!.name.localeCompare(b.category!.name);
+    });
+
+    if (uncategorized.length > 0) {
+      result.push({ category: null, videos: uncategorized });
+    }
+    return result;
+  }, [categories, videos]);
 
   return (
     <div className="page">
       <PageHeader
-        title="Videos"
-        description="Watch skill demonstrations, drill walkthroughs, and training footage."
-      />
-
-      {canManage && !adding && (
-        <div className="admin-table-actions">
-          <button type="button" className="admin-btn admin-btn-add" onClick={() => setAdding(true)}>
+        title="Video Library"
+        description={
+          loading
+            ? "Loading videos…"
+            : `${videos.length} video${videos.length === 1 ? "" : "s"} across ${groups.length} section${
+                groups.length === 1 ? "" : "s"
+              }.`
+        }
+      >
+        {canManage && !adding && (
+          <button
+            type="button"
+            className="admin-btn admin-btn-add"
+            onClick={() => setAdding(true)}
+          >
             <Plus size={14} /> Add video
           </button>
-        </div>
-      )}
+        )}
+      </PageHeader>
+
       {adding && (
         <VideoCreateForm
+          allowTagCreate={isAdmin}
           onSaved={() => {
             setAdding(false);
-            load();
+            reload();
           }}
           onCancel={() => setAdding(false)}
         />
       )}
 
-      {videos.length === 0 ? (
-        <EmptyState title="No videos available" description="Videos will appear here when added to the library." />
-      ) : (
-        <div className="videos-grid">
-          {videos.map((video) => {
-            const playing = playingId === video.id && video.can_embed && !!video.embed_url;
-            return (
-              <div key={video.id} className="videos-card">
-                <div className="videos-thumbnail">
-                  {playing ? (
-                    <iframe
-                      className="video-embed"
-                      src={video.embed_url ?? undefined}
-                      title={video.title || "Video"}
-                      loading="lazy"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <>
-                      {video.thumbnail_url ? (
-                        <img src={video.thumbnail_url} alt={video.title ?? 'Video'} />
-                      ) : (
-                        <PlayCircle size={24} color="var(--amber-500)" style={{ position: 'absolute' }} />
-                      )}
-                      {video.can_embed && video.embed_url && (
-                        <button
-                          type="button"
-                          className="videos-play"
-                          aria-label={`Play ${video.title || 'video'}`}
-                          onClick={() => setPlayingId(video.id)}
-                        >
-                          ▶
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-                <div className="videos-info">
-                  <h4>{video.title || 'Untitled video'}</h4>
-                  <p>
-                    <VideoProviderBadge label={video.provider_label} />
-                    {video.reference_count > 0 &&
-                      ` · used in ${video.reference_count} place${video.reference_count === 1 ? '' : 's'}`}
-                  </p>
-                  <p className="videos-links">
-                    {playing && (
-                      <button type="button" onClick={() => setPlayingId(null)}>
-                        Stop
-                      </button>
-                    )}
-                    <a href={video.external_url} target="_blank" rel="noreferrer noopener">
-                      Watch on {video.provider_label} <ExternalLink size={13} />
-                    </a>
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {error && <div className="admin-error">{error}</div>}
+
+      {!loading && !error && videos.length === 0 && (
+        <EmptyState
+          title="No videos yet"
+          description={
+            canManage
+              ? "Add a video with the button above to start the library."
+              : "Videos will appear here when a coach adds them."
+          }
+        />
       )}
+
+      {groups.map((group) => (
+        <section
+          className="videos-section"
+          key={group.category?.id ?? "uncategorized"}
+          aria-label={group.category?.name ?? "Uncategorized"}
+        >
+          <h2 className="videos-section-title">
+            {group.category?.name ?? "Uncategorized"}
+            <span className="videos-section-count">{group.videos.length}</span>
+          </h2>
+          {group.category?.description && (
+            <p className="videos-section-description">{group.category.description}</p>
+          )}
+          <div className="videos-grid">
+            {group.videos.map((video) => (
+              <VideoCard key={video.id} video={video} />
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

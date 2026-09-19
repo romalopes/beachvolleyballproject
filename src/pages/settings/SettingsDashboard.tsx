@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Target, Tags, Dumbbell, FileText, Shield, Activity } from "lucide-react";
+import { Target, Tags, Dumbbell, FileText, Shield, Activity, PlayCircle } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 
@@ -15,6 +15,18 @@ const RESOURCES = [
     label: "Skills",
     desc: "Manage skills taught in drills.",
     icon: Target,
+  },
+  {
+    to: "/settings/video-categories",
+    label: "Video Categories",
+    desc: "Manage the sections of the video library.",
+    icon: PlayCircle,
+  },
+  {
+    to: "/settings/video-tags",
+    label: "Video Tags",
+    desc: "Manage the tags coaches can attach to videos.",
+    icon: Tags,
   },
   {
     to: "/settings/drills",

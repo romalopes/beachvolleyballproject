@@ -12,6 +12,9 @@ vi.mock("../../api", async (importOriginal) => {
       createVideoReference: vi.fn(),
       updateVideoReference: vi.fn(),
       videos: vi.fn(),
+      videoCategories: vi.fn().mockResolvedValue([]),
+      videoTags: vi.fn().mockResolvedValue([]),
+      adminCreateVideoTag: vi.fn(),
     },
   };
 });

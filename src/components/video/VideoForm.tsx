@@ -6,32 +6,80 @@ import {
   type VideoReference,
   type VideoReferenceTarget,
 } from "../../api";
+import { useAuth } from "../../auth/AuthContext";
 import { detectVideoProvider, parseTimestamp } from "../../utils/videos";
+import VideoCategorySelect from "./VideoCategorySelect";
+import VideoTagPicker from "./VideoTagPicker";
 
 interface VideoFormProps {
-  target: VideoReferenceTarget;
-  targetId: number;
+  /** Reference mode target (drill/skill/training session). Absent in video mode. */
+  target?: VideoReferenceTarget;
+  targetId?: number;
   /** When set the form edits that reference (video URL stays read-only). */
   initial?: VideoReference | null;
-  onSaved: (reference: VideoReference) => void;
+  /** When set the form edits a standalone library Video (title/category/tags). */
+  video?: VideoSummary | null;
+  onSaved: (result: VideoReference | VideoSummary) => void;
   onCancel: () => void;
 }
 
 type CreateMode = "url" | "library";
 
 /**
- * Add/edit form for a VideoReference. On create the video can be supplied two
- * ways: pasting an external URL (creates or reuses the Video) or picking one
- * from the existing library (`video_id` — no duplicate Video is created).
- * Editing only touches the reference fields; the video stays fixed.
+ * Add/edit form for a VideoReference, or edit a standalone library Video.
+ *
+ * Reference mode: on create the video can be supplied two ways — pasting an
+ * external URL (creates or reuses the Video) or picking one from the existing
+ * library (`video_id`, no duplicate Video). Editing only touches the
+ * reference fields; the video stays fixed.
+ *
+ * Video mode (`video` prop): edits the library Video itself — title,
+ * description, category and tags.
  */
 export default function VideoForm({
+  video,
   target,
   targetId,
   initial,
   onSaved,
   onCancel,
 }: VideoFormProps) {
+  if (video) {
+    return (
+      <LibraryVideoEditForm
+        video={video}
+        onSaved={(saved) => onSaved(saved)}
+        onCancel={onCancel}
+      />
+    );
+  }
+
+  return (
+    <ReferenceVideoForm
+      target={target ?? "drills"}
+      targetId={targetId ?? 0}
+      initial={initial}
+      onSaved={(reference) => onSaved(reference)}
+      onCancel={onCancel}
+    />
+  );
+}
+
+interface ReferenceVideoFormProps {
+  target: VideoReferenceTarget;
+  targetId: number;
+  initial?: VideoReference | null;
+  onSaved: (reference: VideoReference) => void;
+  onCancel: () => void;
+}
+
+function ReferenceVideoForm({
+  target,
+  targetId,
+  initial,
+  onSaved,
+  onCancel,
+}: ReferenceVideoFormProps) {
   const editing = Boolean(initial);
   const [mode, setMode] = useState<CreateMode>("url");
   const [library, setLibrary] = useState<VideoSummary[]>([]);
@@ -261,6 +309,116 @@ export default function VideoForm({
           onChange={(event) => setDescription(event.target.value)}
         />
       </label>
+      {errors.length > 0 && (
+        <div className="admin-error">
+          <ul>
+            {errors.map((message, index) => (
+              <li key={index}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="admin-form-actions">
+        <button type="submit" className="admin-btn admin-btn-add" disabled={saving}>
+          {saving ? "Saving..." : "Save"}
+        </button>
+        <button type="button" className="admin-btn" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+interface LibraryVideoEditFormProps {
+  video: VideoSummary;
+  onSaved: (video: VideoSummary) => void;
+  onCancel: () => void;
+}
+
+/**
+ * Edits a standalone library Video: title, description, category and tags.
+ * Playback/source fields (URL, provider) are immutable — the Video's identity
+ * is its normalized provider id, so changing the URL would create a different
+ * Video rather than update this one.
+ *
+ * The whole form is hidden from non-managers; the server enforces ownership
+ * independently (`authorize_content_owner!` in the videos controller).
+ */
+function LibraryVideoEditForm({ video, onSaved, onCancel }: LibraryVideoEditFormProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes("admin") ?? false;
+
+  const [title, setTitle] = useState(video.title ?? "");
+  const [description, setDescription] = useState(video.description ?? "");
+  const [categoryId, setCategoryId] = useState<number | null>(
+    video.video_category?.id ?? null,
+  );
+  const [tagIds, setTagIds] = useState<number[]>(
+    (video.video_tags ?? []).map((tag) => tag.id),
+  );
+  const [errors, setErrors] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    setErrors([]);
+    try {
+      const updated = await api.updateVideo(video.id, {
+        title: title.trim() || null,
+        description: description.trim() || null,
+        video_category_id: categoryId,
+        video_tag_ids: tagIds,
+      });
+      onSaved(updated);
+    } catch (err) {
+      setErrors(
+        err instanceof ApiValidationError
+          ? err.errors
+          : [err instanceof Error ? err.message : "Failed to save the video."],
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form className="video-form" onSubmit={handleSubmit}>
+      <label>
+        Video URL
+        <input type="text" value={video.source_url} readOnly disabled />
+      </label>
+      <label>
+        Title
+        <input
+          type="text"
+          value={title}
+          placeholder="e.g. Beach volleyball masterclass"
+          onChange={(event) => setTitle(event.target.value)}
+        />
+      </label>
+      <label>
+        Description
+        <textarea
+          rows={2}
+          value={description}
+          placeholder="Optional note about this video"
+          onChange={(event) => setDescription(event.target.value)}
+        />
+      </label>
+      <label>
+        Category
+        <VideoCategorySelect value={categoryId} onChange={setCategoryId} />
+      </label>
+      <fieldset className="video-form-tags">
+        <legend>Tags</legend>
+        <VideoTagPicker
+          value={tagIds}
+          onChange={setTagIds}
+          searchable
+          allowCreate={isAdmin}
+        />
+      </fieldset>
       {errors.length > 0 && (
         <div className="admin-error">
           <ul>

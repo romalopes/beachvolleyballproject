@@ -4532,3 +4532,254 @@
   color: var(--slate-500, #64748b);
 }
 
+
+/* ---------- Video library page (categorized listing) ---------- */
+.videos-section {
+  margin-top: 2rem;
+}
+
+.videos-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.videos-section-count {
+  padding: 0.05rem 0.55rem;
+  border-radius: 999px;
+  background: var(--teal-50, #f0fdfa);
+  color: var(--teal-600);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.videos-section-description {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--slate-500, #64748b);
+}
+
+/* The shared reference-player .video-card has a max-width and bottom margin
+   for detail pages; grid cells size themselves, so neutralize both here. */
+.videos-grid .video-card {
+  margin: 0;
+  max-width: none;
+  height: 100%;
+}
+
+.video-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.video-card-thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: var(--slate-100, #f1f5f9);
+  overflow: hidden;
+}
+
+.video-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-card-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--slate-400, #94a3b8);
+}
+
+.video-card-provider {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.video-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+}
+
+.video-card-title {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.video-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.video-card-tag {
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: var(--sand-100, #f5f0e8);
+  color: var(--sand-800, #57534e);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+
+
+/* ---------- Video detail page ---------- */
+.video-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .video-detail {
+    grid-template-columns: 1fr;
+  }
+}
+
+.video-detail-player .video-embed,
+.video-detail-player .video-fallback {
+  margin: 0;
+}
+
+.video-detail-poster {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.video-detail-play {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+}
+
+.video-detail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.video-detail-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.video-detail-meta dt {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--slate-500, #64748b);
+}
+
+.video-detail-meta dd {
+  margin: 0;
+}
+
+.video-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+/* ---------- Video tag picker ---------- */
+.video-tag-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.video-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.video-tag-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--teal-50, #f0fdfa);
+  color: var(--teal-700, #0f766e);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.video-tag-chips button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.video-tag-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.video-tag-options button {
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--slate-200, #e2e8f0);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.video-tag-options button:hover {
+  border-color: var(--teal-500, #14b8a6);
+  background: var(--teal-50, #f0fdfa);
+}
+
+.video-tag-picker-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--slate-500, #64748b);
+}
+
+.video-form-tags {
+  border: 1px solid var(--slate-200, #e2e8f0);
+  border-radius: 8px;
+  padding: 0.75rem;
+}

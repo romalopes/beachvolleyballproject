@@ -128,11 +128,17 @@ export interface Drill {
 export interface Video {
   id: number;
   title: string | null;
+  description?: string | null;
   provider: string;
   source_url: string;
   thumbnail_url: string | null;
   duration_seconds: number | null;
   provider_label: string;
+  /** Owner of the Video row; drives who may edit/delete it in the UI. */
+  created_by_id?: number | null;
+  /** Videos belong to at most one category; null means "Uncategorized". */
+  video_category?: VideoCategory | null;
+  video_tags?: VideoTag[];
 }
 
 /** Row of GET /videos — a video plus its playback/usage summary. */
@@ -141,6 +147,27 @@ export interface VideoSummary extends Video {
   embed_url: string | null;
   external_url: string;
   reference_count: number;
+}
+
+/** Video category for grouping videos in the library. */
+export interface VideoCategory {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string | null;
+  position: number;
+  video_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Reusable tag for videos. */
+export interface VideoTag {
+  id: number;
+  name: string;
+  video_count?: number;
+  created_at: string;
+  updated_at: string;
 }
 
 /** How a Video is used by a Drill/Skill: relevance window, text, order. */
@@ -169,6 +196,19 @@ export interface VideoReferenceInput {
 
 /** Which resource a video reference is attached to (API path segment). */
 export type VideoReferenceTarget = "drills" | "skills" | "training_sessions";
+
+/**
+ * Payload for creating/updating a standalone library Video.
+ * `video_tag_ids` replaces the full tag set when present; omit it to leave the
+ * tags untouched (the backend only syncs tags when the key is sent).
+ */
+export interface VideoInput {
+  source_url?: string;
+  title?: string | null;
+  description?: string | null;
+  video_category_id?: number | null;
+  video_tag_ids?: number[];
+}
 
 
 export type TrainingSessionStatus = "draft" | "scheduled" | "cancelled" | "completed";
@@ -353,8 +393,18 @@ export const api = {
   drills: () => fetchAPI<Drill[]>("/drills"),
   drill: (slugOrId: string) => fetchAPI<Drill>(`/drills/${encodeURIComponent(slugOrId)}`),
   videos: () => fetchAPI<VideoSummary[]>("/videos"),
-  createVideo: (data: { source_url: string; title?: string; description?: string }) =>
+  video: (id: number | string) =>
+    fetchAPI<VideoSummary>(`/videos/${encodeURIComponent(String(id))}`),
+  createVideo: (data: VideoInput) =>
     postJSON<VideoSummary>("/videos", { video: data }),
+  updateVideo: (id: number | string, data: Partial<VideoInput>) =>
+    postJSON<VideoSummary>(
+      `/videos/${encodeURIComponent(String(id))}`,
+      { video: data },
+      "PATCH",
+    ),
+  deleteVideo: (id: number | string) =>
+    postJSON<void>(`/videos/${encodeURIComponent(String(id))}`, {}, "DELETE"),
   createVideoReference: (
     target: VideoReferenceTarget,
     targetId: number,
@@ -380,6 +430,21 @@ export const api = {
     targetId: number,
     id: number,
   ) => postJSON<void>(`/${target}/${targetId}/video_references/${id}`, {}, "DELETE"),
+
+  // ---------- Video categories (public read) ----------
+  videoCategories: () => fetchAPI<VideoCategory[]>("/video_categories"),
+  videoCategory: (id: number | string) =>
+    fetchAPI<VideoCategory>(`/video_categories/${encodeURIComponent(String(id))}`),
+
+  // ---------- Video tags (public read, optional search) ----------
+  videoTags: (search?: string) => {
+    const qs = new URLSearchParams();
+    if (search) qs.set("search", search);
+    const query = qs.toString();
+    return fetchAPI<VideoTag[]>(`/video_tags${query ? `?${query}` : ""}`);
+  },
+  videoTag: (id: number | string) =>
+    fetchAPI<VideoTag>(`/video_tags/${encodeURIComponent(String(id))}`),
   trainingSessions: (params?: {
     starts_at_from?: string;
     starts_at_to?: string;
@@ -473,6 +538,35 @@ export const api = {
       {},
       "DELETE"
     ),
+
+  // Admin — Video Categories
+  adminVideoCategories: () => fetchAPI<VideoCategory[]>("/admin/video_categories"),
+  adminCreateVideoCategory: (data: { name: string; description?: string | null; position?: number }) =>
+    postJSON<VideoCategory>("/admin/video_categories", { video_category: data }),
+  adminUpdateVideoCategory: (
+    id: string | number,
+    data: { name?: string; description?: string | null; position?: number }
+  ) =>
+    postJSON<VideoCategory>(
+      `/admin/video_categories/${encodeURIComponent(String(id))}`,
+      { video_category: data },
+      "PATCH"
+    ),
+  adminDestroyVideoCategory: (id: string | number) =>
+    postJSON<void>(`/admin/video_categories/${encodeURIComponent(String(id))}`, {}, "DELETE"),
+
+  // Admin — Video Tags
+  adminVideoTags: () => fetchAPI<VideoTag[]>("/admin/video_tags"),
+  adminCreateVideoTag: (data: { name: string }) =>
+    postJSON<VideoTag>("/admin/video_tags", { video_tag: data }),
+  adminUpdateVideoTag: (id: string | number, data: { name?: string }) =>
+    postJSON<VideoTag>(
+      `/admin/video_tags/${encodeURIComponent(String(id))}`,
+      { video_tag: data },
+      "PATCH"
+    ),
+  adminDestroyVideoTag: (id: string | number) =>
+    postJSON<void>(`/admin/video_tags/${encodeURIComponent(String(id))}`, {}, "DELETE"),
 
   // Admin Settings — Drills
   adminDrills: async (params?: { page?: number; per_page?: number }) => {

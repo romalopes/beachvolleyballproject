@@ -84,3 +84,12 @@ export function formatReferenceWindow(
   if (start && end) return `${start} – ${end}`;
   return start ?? end;
 }
+
+/**
+ * Tag names are normalized (trimmed + downcased) before they reach the
+ * database, so the raw `name` is lower case. Render the title-cased form in
+ * the UI while the API keeps owning the canonical value.
+ */
+export function formatVideoTagName(name: string): string {
+  return name.replace(/\b\w/g, (character) => character.toUpperCase());
+}

@@ -34,6 +34,9 @@ import Logs from "./pages/settings/Logs";
 import LogDetail from "./pages/settings/LogDetail";
 import SystemLogs from "./pages/settings/SystemLogs";
 import ApiHealth from "./pages/settings/ApiHealth";
+import VideoCategoriesSettings from "./pages/settings/VideoCategories";
+import VideoTagsSettings from "./pages/settings/VideoTags";
+import VideosDetail from "./pages/VideosDetail";
 
 import AccountPage from "./pages/Account";
 import Login from "./pages/Login";
@@ -125,6 +128,7 @@ export default function App() {
             <Route path="/drills" element={<Drills />} />
             <Route path="/drills/:slug" element={<DrillDetail />} />
             <Route path="/videos" element={<Videos />} />
+            <Route path="/videos/:id" element={<VideosDetail />} />
             <Route path="/training" element={<Training />} />
             <Route path="/training/new" element={<ManagerRoute><TrainingFormPage /></ManagerRoute>} />
             <Route path="/training/:id/edit" element={<ManagerRoute><TrainingFormPage /></ManagerRoute>} />
@@ -256,6 +260,22 @@ export default function App() {
               element={
                 <AdminRoute>
                   <ApiHealth />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/video-categories"
+              element={
+                <AdminRoute>
+                  <VideoCategoriesSettings />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/video-tags"
+              element={
+                <AdminRoute>
+                  <VideoTagsSettings />
                 </AdminRoute>
               }
             />
