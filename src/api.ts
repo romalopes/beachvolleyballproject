@@ -106,6 +106,7 @@ export interface Skill {
   description: string | null;
   category_id: number;
   category?: Category;
+  video_references?: VideoReference[];
 }
 
 export interface Drill {
@@ -121,6 +122,7 @@ export interface Drill {
   definition?: DrillDefinition | null;
   skills?: Skill[];
   media_assets?: MediaAsset[];
+  video_references?: VideoReference[];
 }
 
 export interface MediaAsset {
@@ -134,6 +136,45 @@ export interface MediaAsset {
   asset_type: string;
   thumbnail_url: string | null;
 }
+
+/** A reusable external video (provider + normalized identity), see README. */
+export interface Video {
+  id: number;
+  title: string | null;
+  provider: string;
+  source_url: string;
+  thumbnail_url: string | null;
+  duration_seconds: number | null;
+  provider_label: string;
+}
+
+/** How a Video is used by a Drill/Skill: relevance window, text, order. */
+export interface VideoReference {
+  id: number;
+  start_seconds: number | null;
+  end_seconds: number | null;
+  title: string | null;
+  description: string | null;
+  position: number;
+  can_embed: boolean;
+  embed_url: string | null;
+  external_url: string;
+  video: Video;
+}
+
+export interface VideoReferenceInput {
+  video_id?: number;
+  video?: { source_url: string; title?: string; description?: string };
+  start_seconds?: number | null;
+  end_seconds?: number | null;
+  title?: string;
+  description?: string;
+  position?: number;
+}
+
+/** Which resource a video reference is attached to (API path segment). */
+export type VideoReferenceTarget = "drills" | "skills";
+
 
 export type TrainingSessionStatus = "draft" | "scheduled" | "cancelled" | "completed";
 
@@ -316,6 +357,31 @@ export const api = {
   drills: () => fetchAPI<Drill[]>("/drills"),
   drill: (slugOrId: string) => fetchAPI<Drill>(`/drills/${encodeURIComponent(slugOrId)}`),
   mediaAssets: () => fetchAPI<MediaAsset[]>("/media_assets"),
+  createVideoReference: (
+    target: VideoReferenceTarget,
+    targetId: number,
+    data: VideoReferenceInput,
+  ) =>
+    postJSON<VideoReference>(
+      `/${target}/${targetId}/video_references`,
+      { video_reference: data },
+    ),
+  updateVideoReference: (
+    target: VideoReferenceTarget,
+    targetId: number,
+    id: number,
+    data: VideoReferenceInput,
+  ) =>
+    postJSON<VideoReference>(
+      `/${target}/${targetId}/video_references/${id}`,
+      { video_reference: data },
+      "PATCH",
+    ),
+  removeVideoReference: (
+    target: VideoReferenceTarget,
+    targetId: number,
+    id: number,
+  ) => postJSON<void>(`/${target}/${targetId}/video_references/${id}`, {}, "DELETE"),
   trainingSessions: (params?: {
     starts_at_from?: string;
     starts_at_to?: string;

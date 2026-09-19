@@ -8,6 +8,7 @@ import CopyButton from "../components/CopyButton";
 import { useAuth } from "../auth/AuthContext";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
 import LineNumberedCode from "../components/LineNumberedCode";
+import VideoList from "../components/video/VideoList";
 import {
   resolveDrillDefinition,
   SAMPLE_DRILL_DEFINITION,
@@ -33,8 +34,11 @@ export default function DrillDetail() {
    * definition must never silently display one as if it were its own data.
    */
   const [showSample, setShowSample] = useState(false);
+  /** Bumped after video reference changes so the drill (and its videos) refetch. */
+  const [videosReloadKey, setVideosReloadKey] = useState(0);
 
   const isAdmin = user?.roles?.includes("admin");
+  const canManageVideos = user?.roles?.some((role) => role === "coach" || role === "admin") ?? false;
 
   useEffect(() => {
     if (!slug) return;
@@ -43,7 +47,7 @@ export default function DrillDetail() {
       .then(setDrill)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [slug]);
+  }, [slug, videosReloadKey]);
 
   const handleDelete = async () => {
     if (!drill) return;
@@ -247,6 +251,17 @@ export default function DrillDetail() {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="detail-section">
+        <h2>Videos</h2>
+        <VideoList
+          references={drill.video_references}
+          target="drills"
+          targetId={drill.id}
+          canManage={canManageVideos}
+          onChanged={() => setVideosReloadKey((key) => key + 1)}
+        />
       </section>
 
       <section className="detail-section">

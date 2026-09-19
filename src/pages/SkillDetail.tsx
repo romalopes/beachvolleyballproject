@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext';
 import DeleteConfirm from '../components/settings/DeleteConfirm';
 import Pagination from '../components/settings/Pagination';
 import ResourceTable from '../components/settings/ResourceTable';
+import VideoList from '../components/video/VideoList';
 import { ArrowLeft, Dumbbell } from 'lucide-react';
 import { isValidDrillRange, playerRangeLabel, trainingStageLabel } from '../utils/drills';
 
@@ -23,8 +24,11 @@ export default function SkillDetail() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
+  /** Bumped after video reference changes so the skill refetches its videos. */
+  const [videosReloadKey, setVideosReloadKey] = useState(0);
 
   const isAdmin = user?.roles?.includes('admin');
+  const canManageVideos = user?.roles?.some((role) => role === 'coach' || role === 'admin') ?? false;
 
   useEffect(() => {
     if (!slug) return;
@@ -38,7 +42,7 @@ export default function SkillDetail() {
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [slug]);
+  }, [slug, videosReloadKey]);
 
   const skillDrills = useMemo(
     () => allDrills.filter((d) => isValidDrillRange(d) && d.skills?.some((s) => s.slug === skill?.slug)),
@@ -57,10 +61,13 @@ export default function SkillDetail() {
     [skillDrills, currentPage]
   );
 
-  // Reset to page 1 when drills change
-  useEffect(() => {
+  // Reset to page 1 when drills change — adjusted during render (not in an
+  // effect) per the React "you might not need an effect" guidance.
+  const [lastDrillsCount, setLastDrillsCount] = useState(skillDrills.length);
+  if (lastDrillsCount !== skillDrills.length) {
+    setLastDrillsCount(skillDrills.length);
     setCurrentPage(1);
-  }, [skillDrills.length]);
+  }
 
   const handleDelete = async () => {
     if (!skill) return;
@@ -138,6 +145,17 @@ export default function SkillDetail() {
       <section className="detail-section">
         <h2>Description</h2>
         <p>{skill.description || 'No description available.'}</p>
+      </section>
+
+      <section className="detail-section">
+        <h2>Videos</h2>
+        <VideoList
+          references={skill.video_references}
+          target="skills"
+          targetId={skill.id}
+          canManage={canManageVideos}
+          onChanged={() => setVideosReloadKey((key) => key + 1)}
+        />
       </section>
 
       <section className="detail-section">

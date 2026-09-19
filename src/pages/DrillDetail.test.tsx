@@ -12,6 +12,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthContext";
 import { api, type Drill } from "../api";
+import type { VideoReference } from "../api";
 import { SAMPLE_DRILL_DEFINITION } from "../components/drill/definition";
 import DrillDetail from "./DrillDetail";
 
@@ -74,6 +75,65 @@ beforeEach(() => {
 });
 
 afterEach(cleanup);
+
+describe("DrillDetail — videos", () => {
+  const videoReference = (id: number, provider: string, source: string): VideoReference => ({
+    id,
+    start_seconds: 272,
+    end_seconds: 378,
+    title: `Clip ${id}`,
+    description: null,
+    position: id - 10,
+    can_embed: provider === "youtube",
+    embed_url:
+      provider === "youtube" ? "https://www.youtube-nocookie.com/embed/ABC123?start=272&end=378" : null,
+    external_url: source,
+    video: {
+      id,
+      title: null,
+      provider,
+      source_url: source,
+      thumbnail_url: provider === "youtube" ? "https://i.ytimg.com/vi/ABC123/hqdefault.jpg" : null,
+      duration_seconds: null,
+      provider_label: provider === "youtube" ? "YouTube" : "Instagram",
+    },
+  });
+
+  it("shows an embedded video and a graceful fallback on the drill page", async () => {
+    const drill = {
+      ...drillWith({}),
+      video_references: [
+        videoReference(11, "youtube", "https://www.youtube.com/watch?v=ABC123"),
+        videoReference(12, "instagram", "https://www.instagram.com/p/Cabc123/"),
+      ],
+    } as Drill;
+    mockedApi.drill.mockResolvedValue(drill);
+    renderDetail();
+    await loaded();
+
+    expect(screen.getByRole("heading", { name: "Videos" })).toBeInTheDocument();
+    // YouTube embeds by default (first by position)…
+    expect(screen.getByTitle("Clip 11")).toHaveAttribute(
+      "src",
+      "https://www.youtube-nocookie.com/embed/ABC123?start=272&end=378",
+    );
+    // …and selecting the Instagram clip shows the fallback, never an iframe.
+    await userEvent.click(screen.getAllByRole("button", { name: /Clip 12/ })[0]);
+    expect(
+      screen.getByRole("link", { name: /watch on instagram/i }),
+    ).toHaveAttribute("href", "https://www.instagram.com/p/Cabc123/");
+    // The window is shown on both the player and the list entry.
+    expect(screen.getAllByText("04:32 – 06:18").length).toBeGreaterThan(0);
+  });
+
+  it("shows the empty state for a drill without videos", async () => {
+    mockedApi.drill.mockResolvedValue(drillWith({}));
+    renderDetail();
+    await loaded();
+
+    expect(screen.getByText("No videos yet")).toBeInTheDocument();
+  });
+});
 
 describe("DrillDetail — drills without a renderable definition", () => {
   it("says there is no visualisation instead of showing a sample", async () => {
