@@ -4397,6 +4397,47 @@
   gap: 0.25rem;
 }
 
+/* Public video library (SPA /videos page). Distinct from .video-card, which
+   is the shared reference player used on drill/skill detail pages. */
+.videos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.videos-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--slate-200, #e2e8f0);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.videos-thumbnail {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: var(--slate-100, #f1f5f9);
+}
+
+.videos-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.videos-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem;
+}
+
+.videos-info p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--slate-500, #64748b);
+}
+
 .video-list-item-actions button {
   flex: none;
   border: none;

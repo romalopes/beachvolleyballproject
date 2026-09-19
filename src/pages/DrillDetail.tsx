@@ -263,19 +263,6 @@ export default function DrillDetail() {
           onChanged={() => setVideosReloadKey((key) => key + 1)}
         />
       </section>
-
-      <section className="detail-section">
-        <h2>Media Assets ({drill.media_assets?.length ?? 0})</h2>
-        {!drill.media_assets || drill.media_assets.length === 0 ? (
-          <EmptyState title="No media assets" />
-        ) : (
-          <ul className="settings-link-list">
-            {drill.media_assets.map((m) => (
-              <li key={m.id}>{m.title}</li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }

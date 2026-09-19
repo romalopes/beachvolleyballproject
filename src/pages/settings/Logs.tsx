@@ -33,7 +33,8 @@ const LOG_OBJECT_TYPE_OPTIONS: string[] = [
   "Drill",
   "Category",
   "TrainingSession",
-  "MediaAsset",
+  "Video",
+  "VideoReference",
   "Account",
   "Session",
 ];

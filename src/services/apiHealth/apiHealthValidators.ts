@@ -71,15 +71,17 @@ export const isTrainingSessionPayload = (data: unknown): boolean =>
 export const isTrainingSessionListPayload = (data: unknown): boolean =>
   isValidArray(data) && data.every(isTrainingSessionPayload);
 
-export const isMediaAssetPayload = (data: unknown): boolean =>
+export const isVideoPayload = (data: unknown): boolean =>
   isRecord(data) &&
   typeof data.id === "number" &&
-  typeof data.drill_id === "number" &&
   typeof data.title === "string" &&
-  typeof data.video_url === "string";
+  typeof data.provider === "string" &&
+  typeof data.source_url === "string" &&
+  typeof data.external_url === "string" &&
+  typeof data.reference_count === "number";
 
-export const isMediaAssetListPayload = (data: unknown): boolean =>
-  isValidArray(data) && data.every(isMediaAssetPayload);
+export const isVideoListPayload = (data: unknown): boolean =>
+  isValidArray(data) && data.every(isVideoPayload);
 
 // GET /account returns { id, first_name, ..., address: { ... } }.
 export const isAccountPayload = (data: unknown): boolean => {

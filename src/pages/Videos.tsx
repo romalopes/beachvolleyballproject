@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react';
-import { api, type MediaAsset } from '../api';
+import { ExternalLink, PlayCircle } from 'lucide-react';
+import { api, type VideoSummary } from '../api';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
-import { PlayCircle } from 'lucide-react';
+import VideoProviderBadge from '../components/video/VideoProviderBadge';
 
+/**
+ * Public video library. A Video is the media resource; the page shows where
+ * it is referenced (Drill/Skill) and a safe "Watch on [Provider]" action —
+ * no inline iframe here, to keep the page light.
+ */
 export default function Videos() {
-  const [videos, setVideos] = useState<MediaAsset[]>([]);
+  const [videos, setVideos] = useState<VideoSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.mediaAssets()
+    api.videos()
       .then(setVideos)
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -27,15 +33,26 @@ export default function Videos() {
       {videos.length === 0 ? (
         <EmptyState title="No videos available" description="Videos will appear here when added to the library." />
       ) : (
-        <div className="video-grid">
+        <div className="videos-grid">
           {videos.map((video) => (
-            <div key={video.id} className="video-card">
-              <div className="video-thumbnail">
-                <PlayCircle size={24} color="var(--amber-500)" style={{ position: 'absolute' }} />
+            <div key={video.id} className="videos-card">
+              <div className="videos-thumbnail">
+                {video.thumbnail_url ? (
+                  <img src={video.thumbnail_url} alt={video.title ?? 'Video'} />
+                ) : (
+                  <PlayCircle size={24} color="var(--amber-500)" style={{ position: 'absolute' }} />
+                )}
               </div>
-              <div className="video-info">
-                <h4>{video.title}</h4>
-                <p>{video.asset_type === 'example_demo' ? 'Example Demo' : 'Training Clip'}</p>
+              <div className="videos-info">
+                <h4>{video.title || 'Untitled video'}</h4>
+                <p>
+                  <VideoProviderBadge label={video.provider_label} />
+                  {video.reference_count > 0 &&
+                    ` · used in ${video.reference_count} place${video.reference_count === 1 ? '' : 's'}`}
+                </p>
+                <a href={video.external_url} target="_blank" rel="noreferrer noopener">
+                  Watch on {video.provider_label} <ExternalLink size={13} />
+                </a>
               </div>
             </div>
           ))}

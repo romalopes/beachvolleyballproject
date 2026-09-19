@@ -7,8 +7,8 @@ import {
   isDrillListPayload,
   isDrillPayload,
   isHealthyDetailedPayload,
-  isMediaAssetListPayload,
-  isMediaAssetPayload,
+  isVideoListPayload,
+  isVideoPayload,
   isSkillListPayload,
   isSkillPayload,
   isTrainingSessionListPayload,
@@ -91,7 +91,7 @@ describe("apiHealthValidators", () => {
     expect(isDrillListPayload([{ ...drill, definition: {} }])).toBe(false);
   });
 
-  it("validates training sessions and media assets lists", () => {
+  it("validates training sessions and videos lists", () => {
     const session = {
       id: 1,
       title: "Morning Training",
@@ -99,18 +99,21 @@ describe("apiHealthValidators", () => {
       ends_at: "2026-01-01T11:00:00Z",
       status: "scheduled",
     };
-    const asset = {
+    const video = {
       id: 1,
-      drill_id: 2,
-      title: "Demo",
-      video_url: "https://example.com/x.mp4",
+      title: "Masterclass",
+      provider: "youtube",
+      source_url: "https://www.youtube.com/watch?v=x",
+      external_url: "https://www.youtube.com/watch?v=x",
+      reference_count: 2,
     };
     expect(isTrainingSessionPayload(session)).toBe(true);
     expect(isTrainingSessionListPayload([session])).toBe(true);
     expect(isTrainingSessionListPayload([{ id: 1 }])).toBe(false);
-    expect(isMediaAssetPayload(asset)).toBe(true);
-    expect(isMediaAssetListPayload([asset])).toBe(true);
-    expect(isMediaAssetListPayload([{ id: 1 }])).toBe(false);
+    expect(isVideoPayload(video)).toBe(true);
+    expect(isVideoListPayload([video])).toBe(true);
+    expect(isVideoListPayload([{ ...video, external_url: null }])).toBe(false);
+    expect(isVideoListPayload([{ id: 1 }])).toBe(false);
     expect(isValidArray([])).toBe(true);
     expect(isValidArray({})).toBe(false);
   });

@@ -121,20 +121,7 @@ export interface Drill {
   ideal_num_players: number;
   definition?: DrillDefinition | null;
   skills?: Skill[];
-  media_assets?: MediaAsset[];
   video_references?: VideoReference[];
-}
-
-export interface MediaAsset {
-  id: number;
-  drill_id: number;
-  skill_id: number | null;
-  title: string;
-  slug: string;
-  description: string | null;
-  video_url: string;
-  asset_type: string;
-  thumbnail_url: string | null;
 }
 
 /** A reusable external video (provider + normalized identity), see README. */
@@ -146,6 +133,13 @@ export interface Video {
   thumbnail_url: string | null;
   duration_seconds: number | null;
   provider_label: string;
+}
+
+/** Row of GET /videos — a video plus its playback/usage summary. */
+export interface VideoSummary extends Video {
+  can_embed: boolean;
+  external_url: string;
+  reference_count: number;
 }
 
 /** How a Video is used by a Drill/Skill: relevance window, text, order. */
@@ -356,7 +350,7 @@ export const api = {
   skill: (slugOrId: string) => fetchAPI<Skill>(`/skills/${encodeURIComponent(slugOrId)}`),
   drills: () => fetchAPI<Drill[]>("/drills"),
   drill: (slugOrId: string) => fetchAPI<Drill>(`/drills/${encodeURIComponent(slugOrId)}`),
-  mediaAssets: () => fetchAPI<MediaAsset[]>("/media_assets"),
+  videos: () => fetchAPI<VideoSummary[]>("/videos"),
   createVideoReference: (
     target: VideoReferenceTarget,
     targetId: number,

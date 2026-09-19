@@ -82,9 +82,16 @@ function stubHealthyApi(backendVersion: string = "0.0.21") {
       return jsonResponse([{ id: 1, drill_id: 1, skill_id: 1 }]);
     if (url.endsWith("/training_sessions"))
       return jsonResponse([{ id: 1, drill_id: 1, scheduled_at: "2026-01-01" }]);
-    if (url.endsWith("/media_assets"))
+    if (url.endsWith("/videos"))
       return jsonResponse([
-        { id: 1, drill_id: 1, title: "Clip", video_url: "https://x/y.mp4" },
+        {
+          id: 1,
+          title: "Clip",
+          provider: "youtube",
+          source_url: "https://x/y",
+          external_url: "https://x/y",
+          reference_count: 0,
+        },
       ]);
     return jsonResponse({}, 404);
   });

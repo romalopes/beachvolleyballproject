@@ -7,7 +7,7 @@ import {
   isHealthyDetailedPayload,
   isSkillListPayload,
   isTrainingSessionListPayload,
-  isMediaAssetListPayload,
+  isVideoListPayload,
   isAccountPayload,
   isValidArray,
 } from "./apiHealthValidators";
@@ -228,13 +228,13 @@ export const API_CHECKS: ApiCheck[] = [
       "Expected an array of { id, title, starts_at, ends_at, status } sessions",
   }),
   listCheck({
-    id: "media-assets-list",
+    id: "videos-list",
     category: API_CATEGORIES.TRAINING,
-    name: "Media Assets List",
-    url: "/media_assets",
-    validate: isMediaAssetListPayload,
+    name: "Videos List",
+    url: "/videos",
+    validate: isVideoListPayload,
     describeFailure: () =>
-      "Expected an array of { id, drill_id, title, video_url } media assets",
+      "Expected an array of { id, title, provider, source_url, external_url } videos",
   }),
   {
     id: "write-category-create-delete",

@@ -74,3 +74,18 @@ export default defineConfig([
 
 ```
 # beachvolleyballproject
+
+# Videos on Drills and Skills
+
+Drill and Skill detail pages share the reusable `src/components/video/`
+components (`VideoList`, `VideoPlayer`, `VideoForm`, `VideoProviderBadge`).
+The backend decides everything provider-specific: the frontend only reads
+`can_embed`/`embed_url` (lazy, allowlisted iframe) and otherwise renders a
+thumbnail-or-placeholder fallback with a `Watch on [Provider]` link. Only one
+video plays at a time; the rest are thumbnail list entries.
+
+Timestamps are stored as integer seconds in the backend and entered/displayed
+as `MM:SS` / `HH:MM:SS` in the UI (`src/utils/videos.ts` handles conversion
+and validation; the backend remains the source of truth). See the API README
+for the domain model (Video vs VideoReference) and provider capabilities.
+

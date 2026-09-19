@@ -51,7 +51,6 @@ const drillWith = (definition: unknown): Drill =>
     ideal_num_players: 4,
     definition,
     skills: [],
-    media_assets: [],
   }) as Drill;
 
 const renderDetail = () =>
