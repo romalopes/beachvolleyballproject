@@ -167,7 +167,7 @@ export interface VideoReferenceInput {
 }
 
 /** Which resource a video reference is attached to (API path segment). */
-export type VideoReferenceTarget = "drills" | "skills";
+export type VideoReferenceTarget = "drills" | "skills" | "training_sessions";
 
 
 export type TrainingSessionStatus = "draft" | "scheduled" | "cancelled" | "completed";
@@ -213,6 +213,7 @@ export interface TrainingSession {
   created_by?: { id: number; name: string } | null;
   training_focuses?: TrainingFocus[];
   training_session_drills?: TrainingSessionDrillRow[];
+  video_references?: VideoReference[];
 }
 
 export interface TrainingFocusInput {

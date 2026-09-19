@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   api,
   ApiValidationError,
+  type VideoSummary,
   type VideoReference,
   type VideoReferenceTarget,
 } from "../../api";
@@ -16,10 +17,13 @@ interface VideoFormProps {
   onCancel: () => void;
 }
 
+type CreateMode = "url" | "library";
+
 /**
- * Add/edit form for a VideoReference: URL (create only), title, description
- * and the relevance window entered as MM:SS / HH:MM:SS. The detected provider
- * is shown live; the backend remains the source of truth on save.
+ * Add/edit form for a VideoReference. On create the video can be supplied two
+ * ways: pasting an external URL (creates or reuses the Video) or picking one
+ * from the existing library (`video_id` — no duplicate Video is created).
+ * Editing only touches the reference fields; the video stays fixed.
  */
 export default function VideoForm({
   target,
@@ -29,6 +33,10 @@ export default function VideoForm({
   onCancel,
 }: VideoFormProps) {
   const editing = Boolean(initial);
+  const [mode, setMode] = useState<CreateMode>("url");
+  const [library, setLibrary] = useState<VideoSummary[]>([]);
+  const [libraryFilter, setLibraryFilter] = useState("");
+  const [videoId, setVideoId] = useState<number | null>(null);
   const [sourceUrl, setSourceUrl] = useState(initial?.video.source_url ?? "");
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -46,11 +54,41 @@ export default function VideoForm({
 
   const detected = detectVideoProvider(sourceUrl);
 
+  // The library is only fetched when the coach chooses "choose existing".
+  useEffect(() => {
+    if (editing || mode !== "library") return;
+    let cancelled = false;
+    api
+      .videos()
+      .then((videos) => {
+        if (cancelled) return;
+        setLibrary(videos);
+        setVideoId((current) => current ?? videos[0]?.id ?? null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        console.error(err);
+        setErrors(["Failed to load the video library."]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editing, mode]);
+
+  const filteredLibrary = library.filter((video) =>
+    (video.title || `Video ${video.id}`)
+      .toLowerCase()
+      .includes(libraryFilter.trim().toLowerCase()),
+  );
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const validation: string[] = [];
-    if (!editing && !detected) {
+    if (!editing && mode === "url" && !detected) {
       validation.push("Enter a valid video URL (YouTube, Vimeo, Instagram, TikTok or any http(s) link).");
+    }
+    if (!editing && mode === "library" && videoId == null) {
+      validation.push("Choose a video from the library.");
     }
     const startSeconds = start.trim() ? parseTimestamp(start) : null;
     const endSeconds = end.trim() ? parseTimestamp(end) : null;
@@ -76,13 +114,15 @@ export default function VideoForm({
           ? {
               position: position.trim() ? Number(position) : undefined,
             }
-          : {
-              video: {
-                source_url: sourceUrl.trim(),
-                title: title.trim() || undefined,
-                description: description.trim() || undefined,
-              },
-            }),
+          : mode === "library"
+            ? { video_id: videoId ?? undefined }
+            : {
+                video: {
+                  source_url: sourceUrl.trim(),
+                  title: title.trim() || undefined,
+                  description: description.trim() || undefined,
+                },
+              }),
       };
       const reference = editing
         ? await api.updateVideoReference(target, targetId, initial!.id, data)
@@ -101,26 +141,76 @@ export default function VideoForm({
 
   return (
     <form className="video-form" onSubmit={handleSubmit}>
-      <label>
-        Video URL
-        {editing ? (
+      {!editing && (
+        <div className="video-form-mode" role="radiogroup" aria-label="Video source">
+          <button
+            type="button"
+            className={mode === "url" ? "active" : ""}
+            onClick={() => setMode("url")}
+          >
+            Paste URL
+          </button>
+          <button
+            type="button"
+            className={mode === "library" ? "active" : ""}
+            onClick={() => setMode("library")}
+          >
+            Choose from library
+          </button>
+        </div>
+      )}
+      {!editing && mode === "library" && (
+        <>
+          <label>
+            Search library
+            <input
+              type="text"
+              value={libraryFilter}
+              placeholder="Filter by title..."
+              onChange={(event) => setLibraryFilter(event.target.value)}
+            />
+          </label>
+          <label>
+            Library video
+            <select
+              value={videoId ?? ""}
+              onChange={(event) => setVideoId(Number(event.target.value))}
+            >
+              {filteredLibrary.map((video) => (
+                <option key={video.id} value={video.id}>
+                  {(video.title || `Video ${video.id}`) + ` (${video.provider_label})`}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
+      )}
+      {!editing && mode === "url" && (
+        <>
+          <label>
+            Video URL
+            <input
+              type="text"
+              value={sourceUrl}
+              placeholder="https://www.youtube.com/watch?v=..."
+              onChange={(event) => setSourceUrl(event.target.value)}
+            />
+          </label>
+          {detected && (
+            <p className="video-form-provider">
+              Detected provider: <strong>{detected.label}</strong>
+              {detected.embeddable
+                ? " — can be played inline"
+                : " — will show a Watch link instead of a player"}
+            </p>
+          )}
+        </>
+      )}
+      {editing && (
+        <label>
+          Video URL
           <input type="text" value={sourceUrl} readOnly disabled />
-        ) : (
-          <input
-            type="text"
-            value={sourceUrl}
-            placeholder="https://www.youtube.com/watch?v=..."
-            onChange={(event) => setSourceUrl(event.target.value)}
-          />
-        )}
-      </label>
-      {detected && (
-        <p className="video-form-provider">
-          Detected provider: <strong>{detected.label}</strong>
-          {detected.embeddable
-            ? " — can be played inline"
-            : " — will show a Watch link instead of a player"}
-        </p>
+        </label>
       )}
       <label>
         Title

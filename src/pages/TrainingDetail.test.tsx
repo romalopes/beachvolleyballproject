@@ -11,7 +11,15 @@ vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
   return {
     ...actual,
-    api: { me: vi.fn(), trainingSession: vi.fn(), deleteTrainingSession: vi.fn() },
+    api: {
+      me: vi.fn(),
+      trainingSession: vi.fn(),
+      deleteTrainingSession: vi.fn(),
+      createVideoReference: vi.fn(),
+      updateVideoReference: vi.fn(),
+      removeVideoReference: vi.fn(),
+      videos: vi.fn(),
+    },
   };
 });
 
@@ -134,5 +142,51 @@ describe("TrainingDetail", () => {
     await screen.findByText("Serve Receive Progression");
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
+
+  it("shows the videos section with the empty state", async () => {
+    renderDetail();
+    expect(
+      await screen.findByRole("heading", { name: "Videos" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("No videos yet")).toBeInTheDocument();
+    expect(document.querySelector("iframe")).toBeNull();
+  });
+
+  it("renders an attached video with its embed and watch link", async () => {
+    mockedApi.trainingSession.mockResolvedValue({
+      ...fullSession,
+      video_references: [
+        {
+          id: 31,
+          start_seconds: 272,
+          end_seconds: 378,
+          title: "Session recording",
+          description: null,
+          position: 0,
+          can_embed: true,
+          embed_url: "https://www.youtube-nocookie.com/embed/Rec123?start=272&end=378",
+          external_url: "https://www.youtube.com/watch?v=Rec123",
+          video: {
+            id: 8,
+            title: null,
+            provider: "youtube",
+            source_url: "https://www.youtube.com/watch?v=Rec123",
+            thumbnail_url: null,
+            duration_seconds: null,
+            provider_label: "YouTube",
+          },
+        },
+      ],
+    } as TrainingSession);
+    renderDetail();
+
+    expect(await screen.findByTitle("Session recording")).toHaveAttribute(
+      "src",
+      "https://www.youtube-nocookie.com/embed/Rec123?start=272&end=378",
+    );
+    expect(
+      screen.getByRole("link", { name: /watch on youtube/i }),
+    ).toHaveAttribute("href", "https://www.youtube.com/watch?v=Rec123");
   });
 });

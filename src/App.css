@@ -4454,6 +4454,27 @@
   margin-bottom: 1rem;
 }
 
+.video-form-mode {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.video-form-mode button {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--slate-200, #e2e8f0);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--slate-500, #64748b);
+}
+
+.video-form-mode button.active {
+  border-color: var(--teal-500, #14b8a6);
+  background: var(--teal-50, #f0fdfa);
+  color: var(--teal-600);
+}
+
 .video-form-timestamps {
   display: flex;
   gap: 0.75rem;

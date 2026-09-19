@@ -11,6 +11,7 @@ vi.mock("../../api", async (importOriginal) => {
     api: {
       createVideoReference: vi.fn(),
       updateVideoReference: vi.fn(),
+      videos: vi.fn(),
     },
   };
 });
@@ -145,6 +146,45 @@ describe("VideoForm", () => {
       expect.objectContaining({ title: "New title", position: 3 }),
     );
     expect(mockedApi.createVideoReference).not.toHaveBeenCalled();
+  });
+
+  it("can attach an existing library video instead of pasting a url", async () => {
+    mockedApi.videos.mockResolvedValue([
+      {
+        id: 33,
+        title: "Masterclass",
+        provider: "youtube",
+        source_url: "https://www.youtube.com/watch?v=ABC123",
+        thumbnail_url: null,
+        duration_seconds: null,
+        provider_label: "YouTube",
+        can_embed: true,
+        external_url: "https://www.youtube.com/watch?v=ABC123",
+        reference_count: 2,
+      },
+    ]);
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    renderForm({ onSaved });
+
+    await user.click(screen.getByRole("button", { name: /choose from library/i }));
+    // Library loads and the clip is selectable (title + provider).
+    await screen.findByRole("option", { name: /Masterclass \(YouTube\)/ });
+    await user.selectOptions(screen.getByLabelText(/library video/i), "33");
+    await user.type(screen.getByLabelText(/^Start$/i), "01:00");
+    await user.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    expect(mockedApi.createVideoReference).toHaveBeenCalledWith(
+      "drills",
+      7,
+      expect.objectContaining({ video_id: 33, start_seconds: 60 }),
+    );
+    expect(mockedApi.createVideoReference).toHaveBeenCalledWith(
+      "drills",
+      7,
+      expect.not.objectContaining({ video: expect.anything() }),
+    );
+    await vi.waitFor(() => expect(onSaved).toHaveBeenCalledWith(saved));
   });
 
   it("surfaces api validation errors", async () => {

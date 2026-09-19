@@ -7,6 +7,7 @@ import Tag from '../components/Tag';
 import DrillViewer from '../components/drill/DrillViewer';
 import { resolveDrillDefinition } from '../components/drill/definition';
 import DeleteConfirm from '../components/settings/DeleteConfirm';
+import VideoList from '../components/video/VideoList';
 import { ArrowLeft, CalendarDays, Clock, Dumbbell, MapPin, Target } from 'lucide-react';
 import { canManageTrainings, formatTrainingDateRange, statusLabel } from '../utils/training';
 
@@ -46,6 +47,8 @@ export default function TrainingDetail() {
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  /** Bumped after video reference changes so the session refetches its videos. */
+  const [videosReloadKey, setVideosReloadKey] = useState(0);
 
   useEffect(() => {
     if (invalidId) return;
@@ -66,7 +69,7 @@ export default function TrainingDetail() {
     return () => {
       cancelled = true;
     };
-  }, [invalidId, numericId]);
+  }, [invalidId, numericId, videosReloadKey]);
 
   const handleDelete = async () => {
     if (!session) return;
@@ -241,6 +244,17 @@ export default function TrainingDetail() {
             })}
           </div>
         )}
+      </section>
+
+      <section className="detail-section">
+        <h2>Videos</h2>
+        <VideoList
+          references={session.video_references}
+          target="training_sessions"
+          targetId={session.id}
+          canManage={canManage}
+          onChanged={() => setVideosReloadKey((key) => key + 1)}
+        />
       </section>
     </div>
   );
