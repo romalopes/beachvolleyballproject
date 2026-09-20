@@ -49,15 +49,32 @@ describe("TestAccessContext", () => {
     vi.clearAllMocks();
   });
 
-  it("starts gated when no token is stored", async () => {
-    mockedVerify.mockResolvedValue({ authenticated: true });
+  it("probes the API on boot and auto-unlocks while the gate is disabled", async () => {
+    // Server-side gate disabled: verification succeeds without any token.
+    mockedVerify.mockResolvedValue({ authenticated: true, disabled: true });
 
     renderProvider();
 
-    expect(screen.getByTestId("authenticated").textContent).toBe("false");
+    await waitFor(() =>
+      expect(screen.getByTestId("authenticated").textContent).toBe("true"),
+    );
+    expect(mockedVerify).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays gated when the API rejects the boot probe (gate enabled)", async () => {
+    mockedVerify.mockRejectedValue(
+      Object.assign(new Error("401"), {
+        code: "test_access_required",
+        status: 401,
+      }),
+    );
+
+    renderProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("authenticated").textContent).toBe("false"),
+    );
     expect(getTestAccessToken()).toBeNull();
-    // No verification call without a stored token.
-    expect(mockedVerify).not.toHaveBeenCalled();
   });
 
   it("stores the token and unlocks after a successful submit", async () => {

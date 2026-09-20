@@ -42,13 +42,15 @@ export function TestAccessProvider({ children }: { children: ReactNode }) {
     Boolean(getTestAccessToken()),
   );
 
-  // Boot-time verification: if the stored token has expired (or the gate was
-  // turned off server-side with a new password), force re-authentication.
+  // Boot-time access check:
+  //   - with a stored token: verify it (expired/invalidated -> back to gate);
+  //   - with no token: probe the API — while the server-side gate is disabled
+  //     (no TEST_ACCESS_PASSWORD configured) the app is open, so auto-unlock
+  //     instead of showing a meaningless password form. Setting the env var
+  //     on the server makes this same probe return 401 -> the form appears,
+  //     with no frontend redeploy needed.
   useEffect(() => {
     let cancelled = false;
-    const stored = getTestAccessToken();
-    if (!stored) return;
-
     setVerifying(true);
     testAccessApi
       .verify()
@@ -68,8 +70,8 @@ export function TestAccessProvider({ children }: { children: ReactNode }) {
           (err as { code?: string })?.code === "test_access_required" ||
           (err as { status?: number })?.status === 401;
         if (gateRejection) {
-          // Token expired or was invalidated — clear it and fall back to the
-          // gate (the password is required again).
+          // Token expired/invalidated, or the gate is enabled and no valid
+          // token is stored — the password is required.
           setTestAccessToken(null);
           setToken(null);
           setAuthenticated(false);
