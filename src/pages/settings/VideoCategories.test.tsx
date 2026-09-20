@@ -99,10 +99,9 @@ describe("VideoCategories settings page", () => {
     await user.type(nameInput, "Serving");
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
-    expect(mockedApi.adminUpdateVideoCategory).toHaveBeenCalledWith(1, {
+        expect(mockedApi.adminUpdateVideoCategory).toHaveBeenCalledWith(1, {
       name: "Serving",
       description: "Serving clips",
-      position: 0,
     });
   });
 

@@ -4,13 +4,16 @@ import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 import EmptyState from "../../components/EmptyState";
 import DeleteConfirm from "../../components/settings/DeleteConfirm";
+import { GripVertical } from "lucide-react";
 
 /**
  * Admin management for video categories (`/settings/video-categories`).
  *
- * Editing is inline (name, description, position) — the list is small and
- * this avoids a nested route per row. Deleting a category nullifies the
- * category on its videos rather than deleting them.
+ * Editing is inline (name, description) — the list is small and this avoids a
+ * nested route per row. Order is managed by drag-and-drop rather than a typed
+ * position: manual entry allowed duplicates, while a drop rewrites every
+ * position to its index. Deleting a category nullifies the category on its
+ * videos rather than deleting them.
  */
 export default function VideoCategories() {
   const { user } = useAuth();
@@ -22,9 +25,15 @@ export default function VideoCategories() {
   const [editing, setEditing] = useState<number | "new" | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [position, setPosition] = useState("0");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Drag-and-drop ordering. `dragId` fades the row being moved, `dropId`
+  // highlights where it would land, and `reordering` blocks further drags
+  // while the new order is being persisted.
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [dropId, setDropId] = useState<number | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   const [pendingDelete, setPendingDelete] = useState<VideoCategory | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -78,7 +87,6 @@ export default function VideoCategories() {
     setEditing("new");
     setName("");
     setDescription("");
-    setPosition(String(categories.length));
     setFormError(null);
   };
 
@@ -86,7 +94,6 @@ export default function VideoCategories() {
     setEditing(category.id);
     setName(category.name);
     setDescription(category.description ?? "");
-    setPosition(String(category.position));
     setFormError(null);
   };
 
@@ -106,7 +113,6 @@ export default function VideoCategories() {
     const data = {
       name: name.trim(),
       description: description.trim() || null,
-      position: position.trim() === "" ? 0 : Number(position),
     };
     try {
       if (editing === "new") {
@@ -142,6 +148,64 @@ export default function VideoCategories() {
     } finally {
       setDeleting(false);
     }
+  };
+
+  // Dragging is off while a form is open or a reorder is already in flight.
+  const dragDisabled = reordering || editing !== null;
+
+  const handleDragStart = (category: VideoCategory) => {
+    setDragId(category.id);
+    setDropId(null);
+  };
+
+  const handleDragOver = (
+    event: React.DragEvent<HTMLTableRowElement>,
+    category: VideoCategory,
+  ) => {
+    if (dragId === null || dragId === category.id) return;
+    // preventDefault is what makes the row a valid drop target.
+    event.preventDefault();
+    setDropId(category.id);
+  };
+
+  const handleDrop = async (
+    event: React.DragEvent<HTMLTableRowElement>,
+    target: VideoCategory,
+  ) => {
+    event.preventDefault();
+    const sourceId = dragId;
+    setDragId(null);
+    setDropId(null);
+    if (sourceId === null || sourceId === target.id) return;
+
+    const fromIndex = categories.findIndex((c) => c.id === sourceId);
+    const toIndex = categories.findIndex((c) => c.id === target.id);
+    const moved = categories[fromIndex];
+    if (fromIndex === -1 || toIndex === -1 || !moved) return;
+
+    const previous = categories;
+    const next = [...categories];
+    next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+
+    setCategories(next); // optimistic: the row lands immediately
+    setReordering(true);
+    try {
+      // The API renumbers the whole list, so send every id in the new order.
+      const saved = await api.adminReorderVideoCategories(next.map((c) => c.id));
+      setCategories(saved);
+      setError(null);
+    } catch (err) {
+      setCategories(previous);
+      setError(err instanceof Error ? err.message : "Failed to save the new order.");
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDragId(null);
+    setDropId(null);
   };
 
   return (
@@ -187,16 +251,6 @@ export default function VideoCategories() {
               placeholder="Optional: what belongs in this section?"
             />
           </div>
-          <div className="admin-field">
-            <label htmlFor="video-category-position">Position</label>
-            <input
-              id="video-category-position"
-              type="number"
-              min={0}
-              value={position}
-              onChange={(event) => setPosition(event.target.value)}
-            />
-          </div>
           <div className="admin-form-actions">
             <button type="submit" className="admin-btn admin-btn-add" disabled={saving}>
               {saving ? "Saving..." : "Create Category"}
@@ -234,9 +288,9 @@ export default function VideoCategories() {
           <table className="admin-table">
             <thead>
               <tr>
+                <th className="admin-table-drag-col" aria-label="Reorder" />
                 <th>Name</th>
                 <th>Description</th>
-                <th>Position</th>
                 <th>Videos</th>
                 <th className="admin-table-actions-col">Actions</th>
               </tr>
@@ -271,18 +325,6 @@ export default function VideoCategories() {
                             onChange={(event) => setDescription(event.target.value)}
                           />
                         </div>
-                        <div className="admin-field">
-                          <label htmlFor={`video-category-position-${category.id}`}>
-                            Position
-                          </label>
-                          <input
-                            id={`video-category-position-${category.id}`}
-                            type="number"
-                            min={0}
-                            value={position}
-                            onChange={(event) => setPosition(event.target.value)}
-                          />
-                        </div>
                         <div className="admin-form-actions">
                           <button
                             type="submit"
@@ -304,10 +346,28 @@ export default function VideoCategories() {
                     </td>
                   </tr>
                 ) : (
-                  <tr key={category.id}>
+                  <tr
+                    key={category.id}
+                    className={
+                      dragId === category.id
+                        ? "admin-table-row-dragging"
+                        : dropId === category.id
+                          ? "admin-table-row-drop-target"
+                          : undefined
+                    }
+                    draggable={!dragDisabled}
+                    onDragStart={() => handleDragStart(category)}
+                    onDragOver={(event) => handleDragOver(event, category)}
+                    onDrop={(event) => handleDrop(event, category)}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <td className="admin-table-drag-col">
+                      <span className="admin-drag-handle" title="Drag to reorder">
+                        <GripVertical size={16} aria-hidden="true" />
+                      </span>
+                    </td>
                     <td className="admin-table-name">{category.name}</td>
                     <td>{category.description || "—"}</td>
-                    <td>{category.position}</td>
                     <td>{category.video_count ?? 0}</td>
                     <td className="admin-table-actions-col">
                       <div className="admin-table-actions">

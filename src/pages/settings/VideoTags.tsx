@@ -5,13 +5,16 @@ import SettingsLayout from "../../components/settings/SettingsLayout";
 import EmptyState from "../../components/EmptyState";
 import DeleteConfirm from "../../components/settings/DeleteConfirm";
 import { formatVideoTagName } from "../../utils/videos";
+import { GripVertical } from "lucide-react";
 
 /**
  * Admin management for video tags (`/settings/video-tags`).
  *
  * Tags are normalized by the backend (trim + downcase), so created names are
- * shown with the same formatting used across the app. Deleting a tag removes
- * it from videos but never touches the videos themselves.
+ * shown with the same formatting used across the app. Order is managed by
+ * drag-and-drop (the model appends new tags and the reorder endpoint rewrites
+ * every position to its index). Deleting a tag removes it from videos but never
+ * touches the videos themselves.
  */
 export default function VideoTags() {
   const { user } = useAuth();
@@ -24,6 +27,12 @@ export default function VideoTags() {
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Drag-and-drop ordering (see the reorder endpoint): positions are
+  // app-managed, so there is no number field to edit.
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [dropId, setDropId] = useState<number | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   const [pendingDelete, setPendingDelete] = useState<VideoTag | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -139,6 +148,65 @@ export default function VideoTags() {
     ? tags.filter((tag) => tag.name.toLowerCase().includes(needle))
     : tags;
 
+  // Dragging is off while a form is open, a reorder is in flight, or the list is
+  // filtered: a partial view cannot express the full list's order.
+  const dragDisabled = reordering || editing !== null || needle !== "";
+
+  const handleDragStart = (tag: VideoTag) => {
+    setDragId(tag.id);
+    setDropId(null);
+  };
+
+  const handleDragOver = (
+    event: React.DragEvent<HTMLTableRowElement>,
+    tag: VideoTag,
+  ) => {
+    if (dragId === null || dragId === tag.id) return;
+    // preventDefault is what makes the row a valid drop target.
+    event.preventDefault();
+    setDropId(tag.id);
+  };
+
+  const handleDrop = async (
+    event: React.DragEvent<HTMLTableRowElement>,
+    target: VideoTag,
+  ) => {
+    event.preventDefault();
+    const sourceId = dragId;
+    setDragId(null);
+    setDropId(null);
+    if (sourceId === null || sourceId === target.id) return;
+
+    const fromIndex = tags.findIndex((t) => t.id === sourceId);
+    const toIndex = tags.findIndex((t) => t.id === target.id);
+    const moved = tags[fromIndex];
+    if (fromIndex === -1 || toIndex === -1 || !moved) return;
+
+    const previous = tags;
+    const next = [...tags];
+    next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+
+    setTags(next); // optimistic: the row lands immediately
+    setReordering(true);
+    try {
+      // The API renumbers the whole list, so send every id in the new order.
+      const saved = await api.adminReorderVideoTags(next.map((t) => t.id));
+      setTags(saved);
+      setError(null);
+    } catch (err) {
+      setTags(previous);
+      setError(err instanceof Error ? err.message : "Failed to save the new order.");
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDragId(null);
+    setDropId(null);
+  };
+
   return (
     <SettingsLayout
       title="Video Tags"
@@ -217,6 +285,7 @@ export default function VideoTags() {
           <table className="admin-table">
             <thead>
               <tr>
+                <th className="admin-table-drag-col" aria-label="Reorder" />
                 <th>Name</th>
                 <th>Videos</th>
                 <th className="admin-table-actions-col">Actions</th>
@@ -226,7 +295,7 @@ export default function VideoTags() {
               {visible.map((tag) =>
                 editing === tag.id ? (
                   <tr key={tag.id}>
-                    <td colSpan={3}>
+                    <td colSpan={4}>
                       <form className="admin-form" onSubmit={handleSave}>
                         {formError && (
                           <div className="auth-flash auth-flash-error">{formError}</div>
@@ -262,7 +331,26 @@ export default function VideoTags() {
                     </td>
                   </tr>
                 ) : (
-                  <tr key={tag.id}>
+                  <tr
+                    key={tag.id}
+                    className={
+                      dragId === tag.id
+                        ? "admin-table-row-dragging"
+                        : dropId === tag.id
+                          ? "admin-table-row-drop-target"
+                          : undefined
+                    }
+                    draggable={!dragDisabled}
+                    onDragStart={() => handleDragStart(tag)}
+                    onDragOver={(event) => handleDragOver(event, tag)}
+                    onDrop={(event) => handleDrop(event, tag)}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <td className="admin-table-drag-col">
+                      <span className="admin-drag-handle" title="Drag to reorder">
+                        <GripVertical size={16} aria-hidden="true" />
+                      </span>
+                    </td>
                     <td className="admin-table-name">{formatVideoTagName(tag.name)}</td>
                     <td>{tag.video_count ?? 0}</td>
                     <td className="admin-table-actions-col">

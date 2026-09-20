@@ -238,6 +238,11 @@ export interface VideoCategory {
 export interface VideoTag {
   id: number;
   name: string;
+    /** Admin-curated drag-and-drop order (app-managed, never edited directly).
+   *  Optional on the frontend type: the API always returns it for persisted
+   *  records, but mock/test fixtures and in-flight objects may omit it.
+   */
+  position?: number;
   video_count?: number;
   created_at: string;
   updated_at: string;
@@ -637,11 +642,11 @@ export const api = {
 
   // Admin — Video Categories
   adminVideoCategories: () => fetchAPI<VideoCategory[]>("/admin/video_categories"),
-  adminCreateVideoCategory: (data: { name: string; description?: string | null; position?: number }) =>
+  adminCreateVideoCategory: (data: { name: string; description?: string | null }) =>
     postJSON<VideoCategory>("/admin/video_categories", { video_category: data }),
   adminUpdateVideoCategory: (
     id: string | number,
-    data: { name?: string; description?: string | null; position?: number }
+    data: { name?: string; description?: string | null }
   ) =>
     postJSON<VideoCategory>(
       `/admin/video_categories/${encodeURIComponent(String(id))}`,
@@ -650,6 +655,9 @@ export const api = {
     ),
   adminDestroyVideoCategory: (id: string | number) =>
     postJSON<void>(`/admin/video_categories/${encodeURIComponent(String(id))}`, {}, "DELETE"),
+  /** Persists the drag-and-drop order; `ids` must list every category once. */
+  adminReorderVideoCategories: (ids: number[]) =>
+    postJSON<VideoCategory[]>("/admin/video_categories/reorder", { ids }, "PATCH"),
 
   // Admin — Video Tags
   adminVideoTags: () => fetchAPI<VideoTag[]>("/admin/video_tags"),
@@ -663,6 +671,9 @@ export const api = {
     ),
   adminDestroyVideoTag: (id: string | number) =>
     postJSON<void>(`/admin/video_tags/${encodeURIComponent(String(id))}`, {}, "DELETE"),
+  /** Persists the drag-and-drop order; `ids` must list every tag once. */
+  adminReorderVideoTags: (ids: number[]) =>
+    postJSON<VideoTag[]>("/admin/video_tags/reorder", { ids }, "PATCH"),
 
   // Admin Settings — Drills
   adminDrills: async (params?: { page?: number; per_page?: number }) => {
