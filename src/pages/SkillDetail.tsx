@@ -201,12 +201,12 @@ export default function SkillDetail() {
                     </Link>
                   ),
                 },
-                { key: "stage", label: "Stage", render: (d) => trainingStageLabel(d.training_stage) },
-                { key: "difficulty", label: "Difficulty", render: (d) => d.difficulty_level },
+                { key: "stage", label: "Stage", render: (d) => trainingStageLabel(d.training_stage) ?? "—" },
+                { key: "difficulty", label: "Difficulty", render: (d) => d.difficulty_level ?? "—" },
                 {
                   key: "players",
                   label: "Players",
-                  render: (d) => playerRangeLabel(d.min_players, d.max_players),
+                  render: (d) => playerRangeLabel(d.min_players, d.max_players) ?? "—",
                 },
               ]}
             />

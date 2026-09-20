@@ -79,13 +79,21 @@ export default function Drills() {
       .includes(search.toLowerCase());
     const matchesDifficulty =
       selectedDifficulty === "all" ||
-      drill.difficulty_level === selectedDifficulty;
+      (selectedDifficulty === "unspecified"
+        ? drill.difficulty_level === null
+        : drill.difficulty_level === selectedDifficulty);
     const matchesStage =
-      selectedStage === "all" || drill.training_stage === selectedStage;
+      selectedStage === "all" ||
+      (selectedStage === "unspecified"
+        ? drill.training_stage === null
+        : drill.training_stage === selectedStage);
     const matchesPlayers =
       playerCount === null ||
       Number.isNaN(playerCount) ||
-      (drill.min_players <= playerCount && playerCount <= drill.max_players);
+      (drill.min_players !== null &&
+        drill.max_players !== null &&
+        drill.min_players <= playerCount &&
+        playerCount <= drill.max_players);
     // Filter by skill
     const matchesSkill =
       selectedSkill === "all" ||
@@ -202,6 +210,12 @@ export default function Drills() {
             {level.label}
           </button>
         ))}
+        <button
+          className={`filter-btn${selectedDifficulty === "unspecified" ? " active" : ""}`}
+          onClick={() => setSelectedDifficulty("unspecified")}
+        >
+          Unspecified
+        </button>
       </div>
 
       <div className="filter-bar">
@@ -220,6 +234,12 @@ export default function Drills() {
             {stage.label}
           </button>
         ))}
+        <button
+          className={`filter-btn${selectedStage === "unspecified" ? " active" : ""}`}
+          onClick={() => setSelectedStage("unspecified")}
+        >
+          Unspecified
+        </button>
         <input
           type="number"
           min={1}

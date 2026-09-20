@@ -17,15 +17,25 @@ export default function DrillCard({ drill, onClick, isAdmin, onEdit }: DrillCard
         <p className="card-description">{drill.setup_instructions}</p>
       )}
       <div className="drill-stats">
-        <span className="drill-stat">
-          <Users size={14} />
-          {playerRangeLabel(drill.min_players, drill.max_players)}
-        </span>
-        <span className="drill-stat">{idealLabel(drill.ideal_num_players)}</span>
-        <span className="drill-stat">{trainingStageLabel(drill.training_stage)}</span>
-        <span className={`difficulty ${drill.difficulty_level}`}>
-          {drill.difficulty_level}
-        </span>
+        {playerRangeLabel(drill.min_players, drill.max_players) && (
+          <span className="drill-stat">
+            <Users size={14} />
+            {playerRangeLabel(drill.min_players, drill.max_players)}
+          </span>
+        )}
+        {idealLabel(drill.ideal_num_players) && (
+          <span className="drill-stat">{idealLabel(drill.ideal_num_players)}</span>
+        )}
+        {trainingStageLabel(drill.training_stage) && (
+          <span className="drill-stat">
+            {trainingStageLabel(drill.training_stage)}
+          </span>
+        )}
+        {drill.difficulty_level && (
+          <span className={`difficulty ${drill.difficulty_level}`}>
+            {drill.difficulty_level}
+          </span>
+        )}
       </div>
       <div className="card-meta">
         <span className="home-section-link">

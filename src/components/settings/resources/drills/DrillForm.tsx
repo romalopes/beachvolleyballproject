@@ -77,11 +77,12 @@ function initialValues(initial: Drill | null | undefined): DrillFormValues {
   return {
     title: initial.title,
     setup_instructions: initial.setup_instructions ?? "",
-    training_stage: initial.training_stage,
-    difficulty_level: initial.difficulty_level,
-    min_players: String(initial.min_players),
-    max_players: String(initial.max_players),
-    ideal_num_players: String(initial.ideal_num_players),
+    training_stage: initial.training_stage ?? "",
+    difficulty_level: initial.difficulty_level ?? "",
+    min_players: initial.min_players == null ? "" : String(initial.min_players),
+    max_players: initial.max_players == null ? "" : String(initial.max_players),
+    ideal_num_players:
+      initial.ideal_num_players == null ? "" : String(initial.ideal_num_players),
     // The textarea shows the same draft the panes render, keeping the JSON "on
     // time"; a definition that cannot be rendered leaves the field blank.
     jsonText: model ? definitionToJsonText(model) : "",
@@ -229,30 +230,24 @@ export default function DrillForm({
       setError("Title is required.");
       return;
     }
-    if (!values.training_stage) {
-      setError("Training stage is required.");
-      return;
-    }
-    if (!values.difficulty_level) {
-      setError("Difficulty level is required.");
-      return;
-    }
-
-    const min = Number(values.min_players);
-    const max = Number(values.max_players);
-    const ideal = Number(values.ideal_num_players);
+    // Optional fields: blank values submit as null; any provided value is
+    // validated (positive integers, min ≤ ideal ≤ max, known stage/level).
+    const min = values.min_players === "" ? null : Number(values.min_players);
+    const max = values.max_players === "" ? null : Number(values.max_players);
+    const ideal =
+      values.ideal_num_players === "" ? null : Number(values.ideal_num_players);
 
     if (
       !isValidDrillRange({
-        min_players: values.min_players === "" ? NaN : min,
-        max_players: values.max_players === "" ? NaN : max,
-        ideal_num_players: values.ideal_num_players === "" ? NaN : ideal,
-        training_stage: values.training_stage,
-        difficulty_level: values.difficulty_level,
+        min_players: min,
+        max_players: max,
+        ideal_num_players: ideal,
+        training_stage: values.training_stage || null,
+        difficulty_level: values.difficulty_level || null,
       })
     ) {
       setError(
-        "Player counts must be positive integers with min ≤ ideal ≤ max.",
+        "When provided, player counts must be positive integers with min ≤ ideal ≤ max.",
       );
       return;
     }
@@ -271,8 +266,8 @@ export default function DrillForm({
     const payload = {
       title: values.title.trim(),
       setup_instructions: values.setup_instructions.trim() || null,
-      training_stage: values.training_stage,
-      difficulty_level: values.difficulty_level,
+      training_stage: values.training_stage || null,
+      difficulty_level: values.difficulty_level || null,
       min_players: min,
       max_players: max,
       ideal_num_players: ideal,
@@ -423,7 +418,7 @@ function DrillFormFields({
 
       <div className="admin-field-row">
         <div className="admin-field">
-          <label htmlFor="drill-stage">Training Stage *</label>
+          <label htmlFor="drill-stage">Training Stage</label>
           <select
             id="drill-stage"
             value={values.training_stage}
@@ -438,7 +433,7 @@ function DrillFormFields({
           </select>
         </div>
         <div className="admin-field">
-          <label htmlFor="drill-difficulty">Difficulty *</label>
+          <label htmlFor="drill-difficulty">Difficulty</label>
           <select
             id="drill-difficulty"
             value={values.difficulty_level}
@@ -456,7 +451,7 @@ function DrillFormFields({
 
       <div className="admin-field-row">
         <div className="admin-field">
-          <label htmlFor="drill-min">Min Players *</label>
+          <label htmlFor="drill-min">Min Players</label>
           <input
             id="drill-min"
             type="number"
@@ -466,7 +461,7 @@ function DrillFormFields({
           />
         </div>
         <div className="admin-field">
-          <label htmlFor="drill-max">Max Players *</label>
+          <label htmlFor="drill-max">Max Players</label>
           <input
             id="drill-max"
             type="number"
@@ -476,7 +471,7 @@ function DrillFormFields({
           />
         </div>
         <div className="admin-field">
-          <label htmlFor="drill-ideal">Ideal Players *</label>
+          <label htmlFor="drill-ideal">Ideal Players</label>
           <input
             id="drill-ideal"
             type="number"

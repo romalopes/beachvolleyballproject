@@ -33,7 +33,7 @@ describe("isValidDrillRange", () => {
   it("rejects non-integer player counts", () => {
     expect(isValidDrillRange({ ...valid, min_players: 2.5 })).toBe(false);
     expect(isValidDrillRange({ ...valid, max_players: "6" })).toBe(false);
-    expect(isValidDrillRange({ ...valid, ideal_num_players: null })).toBe(false);
+    expect(isValidDrillRange({ ...valid, ideal_num_players: 4.5 })).toBe(false);
   });
 
   it("rejects counts below one", () => {
@@ -51,6 +51,37 @@ describe("isValidDrillRange", () => {
   it("rejects an ideal count outside the min/max range", () => {
     expect(isValidDrillRange({ ...valid, ideal_num_players: 1 })).toBe(false);
     expect(isValidDrillRange({ ...valid, ideal_num_players: 7 })).toBe(false);
+  });
+
+  it("accepts drills with all optional attributes blank", () => {
+    expect(
+      isValidDrillRange({
+        min_players: null,
+        max_players: null,
+        ideal_num_players: null,
+        training_stage: null,
+        difficulty_level: null,
+      })
+    ).toBe(true);
+    expect(isValidDrillRange({})).toBe(true);
+  });
+
+  it("accepts partial optional attributes", () => {
+    expect(
+      isValidDrillRange({ ...valid, ideal_num_players: null })
+    ).toBe(true);
+    expect(
+      isValidDrillRange({ ...valid, max_players: null, ideal_num_players: null })
+    ).toBe(true);
+  });
+
+  it("rejects invalid values even when other attributes are blank", () => {
+    expect(
+      isValidDrillRange({ ...valid, min_players: 8, ideal_num_players: null })
+    ).toBe(false);
+    expect(
+      isValidDrillRange({ ...valid, difficulty_level: "expert" })
+    ).toBe(false);
   });
 
   it("rejects unknown training stages and difficulty levels", () => {
@@ -95,5 +126,12 @@ describe("label helpers", () => {
 
   it("formats the ideal player count", () => {
     expect(idealLabel(4)).toBe("Ideal: 4");
+  });
+
+  it("returns null labels for missing optional attributes", () => {
+    expect(playerRangeLabel(null, 6)).toBeNull();
+    expect(playerRangeLabel(2, null)).toBeNull();
+    expect(idealLabel(null)).toBeNull();
+    expect(trainingStageLabel(null)).toBeNull();
   });
 });

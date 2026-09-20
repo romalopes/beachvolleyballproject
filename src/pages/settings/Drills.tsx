@@ -20,6 +20,11 @@ type SortKey = "name-asc" | "name-desc" | "stage" | "difficulty";
 
 const STAGE_ORDER: TrainingStage[] = TRAINING_STAGES.map((s) => s.value);
 const DIFFICULTY_ORDER: DifficultyLevel[] = DIFFICULTY_LEVELS.map((d) => d.value);
+// Missing values sort last, after every known value.
+const stageRank = (stage: Drill["training_stage"]) =>
+  stage === null ? STAGE_ORDER.length : STAGE_ORDER.indexOf(stage);
+const difficultyRank = (level: Drill["difficulty_level"]) =>
+  level === null ? DIFFICULTY_ORDER.length : DIFFICULTY_ORDER.indexOf(level);
 
 function drinksReferencedSkillName(drills: Drill[], skillId: number): string | undefined {
   for (const d of drills) {
@@ -59,8 +64,10 @@ export default function Drills() {
     const parsed = raw !== null ? Number(raw) : NaN;
     return raw !== null && Number.isInteger(parsed) && parsed > 0 ? parsed : "all";
   });
-  const [stage, setStage] = useState<"all" | TrainingStage>("all");
-  const [difficulty, setDifficulty] = useState<"all" | DifficultyLevel>("all");
+  const [stage, setStage] = useState<"all" | "unspecified" | TrainingStage>("all");
+  const [difficulty, setDifficulty] = useState<
+    "all" | "unspecified" | DifficultyLevel
+  >("all");
   const [minFilter, setMinFilter] = useState("");
   const [maxFilter, setMaxFilter] = useState("");
   const [sort, setSort] = useState<SortKey>("name-asc");
@@ -170,13 +177,21 @@ export default function Drills() {
       if (visibleSkillFilter !== "all" && !d.skills?.some((s) => s.id === visibleSkillFilter))
         return false;
       if (query && !d.title.toLowerCase().includes(query)) return false;
-      if (stage !== "all" && d.training_stage !== stage) return false;
-      if (difficulty !== "all" && d.difficulty_level !== difficulty) return false;
-      // Overlap semantics on the drill's own stored range.
-      if (parsedMin !== null && !Number.isNaN(parsedMin) && d.max_players < parsedMin)
+      if (stage === "unspecified") {
+        if (d.training_stage !== null) return false;
+      } else if (stage !== "all" && d.training_stage !== stage) return false;
+      if (difficulty === "unspecified") {
+        if (d.difficulty_level !== null) return false;
+      } else if (difficulty !== "all" && d.difficulty_level !== difficulty)
         return false;
-      if (parsedMax !== null && !Number.isNaN(parsedMax) && d.min_players > parsedMax)
-        return false;
+      // Overlap semantics on the drill's own stored range; drills without a
+      // stored range cannot overlap any player window.
+      if (parsedMin !== null && !Number.isNaN(parsedMin)) {
+        if (d.max_players === null || d.max_players < parsedMin) return false;
+      }
+      if (parsedMax !== null && !Number.isNaN(parsedMax)) {
+        if (d.min_players === null || d.min_players > parsedMax) return false;
+      }
       if (rangeError) return false;
       return true;
     });
@@ -190,14 +205,14 @@ export default function Drills() {
       case "stage":
         return [...filtered].sort(
           (a, b) =>
-            STAGE_ORDER.indexOf(a.training_stage) -
-              STAGE_ORDER.indexOf(b.training_stage) || byTitle(a, b)
+            stageRank(a.training_stage) - stageRank(b.training_stage) ||
+            byTitle(a, b)
         );
       case "difficulty":
         return [...filtered].sort(
           (a, b) =>
-            DIFFICULTY_ORDER.indexOf(a.difficulty_level) -
-              DIFFICULTY_ORDER.indexOf(b.difficulty_level) || byTitle(a, b)
+            difficultyRank(a.difficulty_level) -
+              difficultyRank(b.difficulty_level) || byTitle(a, b)
         );
       default:
         return [...filtered].sort(byTitle);
@@ -324,7 +339,7 @@ export default function Drills() {
           <select
             value={stage}
             onChange={(e) => {
-              setStage(e.target.value as "all" | TrainingStage);
+              setStage(e.target.value as "all" | "unspecified" | TrainingStage);
               setPage(1);
             }}
             aria-label="Filter by training stage"
@@ -335,11 +350,14 @@ export default function Drills() {
                 {s.label}
               </option>
             ))}
+            <option value="unspecified">Unspecified</option>
           </select>
           <select
             value={difficulty}
             onChange={(e) => {
-              setDifficulty(e.target.value as "all" | DifficultyLevel);
+              setDifficulty(
+                e.target.value as "all" | "unspecified" | DifficultyLevel,
+              );
               setPage(1);
             }}
             aria-label="Filter by difficulty level"
@@ -350,6 +368,7 @@ export default function Drills() {
                 {d.label}
               </option>
             ))}
+            <option value="unspecified">Unspecified</option>
           </select>
           <input
             type="number"
@@ -431,8 +450,8 @@ export default function Drills() {
               </Link>
             ),
           },
-          { key: "stage", label: "Stage", render: (d) => trainingStageLabel(d.training_stage) },
-          { key: "difficulty", label: "Difficulty", render: (d) => d.difficulty_level },
+          { key: "stage", label: "Stage", render: (d) => trainingStageLabel(d.training_stage) ?? "—" },
+          { key: "difficulty", label: "Difficulty", render: (d) => d.difficulty_level ?? "—" },
           {
             key: "skills",
             label: "Skills",

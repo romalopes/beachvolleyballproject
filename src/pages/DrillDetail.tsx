@@ -99,16 +99,28 @@ export default function DrillDetail() {
         <h1>{drill.title}</h1>
         <div className="tags" style={{ marginTop: "1rem" }}>
           <Tag variant="primary">Drill</Tag>
-          <Tag variant="teal">{drill.difficulty_level}</Tag>
-          <Tag>{trainingStageLabel(drill.training_stage)}</Tag>
-          <Tag>
-            <Users
-              size={12}
-              style={{ marginRight: "0.25rem", verticalAlign: "middle" }}
-            />
-            Min: {drill.min_players} · Max: {drill.max_players}
-          </Tag>
-          <Tag>{idealLabel(drill.ideal_num_players)}</Tag>
+          {drill.difficulty_level && (
+            <Tag variant="teal">{drill.difficulty_level}</Tag>
+          )}
+          {trainingStageLabel(drill.training_stage) && (
+            <Tag>{trainingStageLabel(drill.training_stage)}</Tag>
+          )}
+          {(drill.min_players != null || drill.max_players != null) && (
+            <Tag>
+              <Users
+                size={12}
+                style={{ marginRight: "0.25rem", verticalAlign: "middle" }}
+              />
+              {drill.min_players != null && drill.max_players != null
+                ? `Min: ${drill.min_players} · Max: ${drill.max_players}`
+                : drill.min_players != null
+                  ? `Min: ${drill.min_players}`
+                  : `Max: ${drill.max_players}`}
+            </Tag>
+          )}
+          {idealLabel(drill.ideal_num_players) && (
+            <Tag>{idealLabel(drill.ideal_num_players)}</Tag>
+          )}
         </div>
       </div>
 

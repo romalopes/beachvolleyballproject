@@ -15,8 +15,8 @@ vi.mock("../../../../api", () => {
       // `vi.fn` so a test can hand the picker specific categories/skills.
       skills: vi.fn(() => Promise.resolve([])),
       categories: vi.fn(() => Promise.resolve([])),
-      adminCreateDrill: () => Promise.resolve({}),
-      adminUpdateDrill: () => Promise.resolve({}),
+      adminCreateDrill: vi.fn(() => Promise.resolve({})),
+      adminUpdateDrill: vi.fn(() => Promise.resolve({})),
     },
     ApiValidationError,
   };
@@ -217,6 +217,64 @@ describe("DrillForm — stored definitions", () => {
     await waitFor(() => expect(jsonField().value).not.toBe(""));
 
     expect(screen.queryByText(/has no saved definition yet/i)).toBeNull();
+  });
+});
+
+describe("DrillForm — optional training attributes", () => {
+  it("submits blank training attributes as null", async () => {
+    const serve = category(10, "Serve");
+    vi.mocked(api.categories).mockResolvedValue([serve]);
+    vi.mocked(api.skills).mockResolvedValue([skill(1, "Float serve", serve)]);
+    const create = vi.mocked(api.adminCreateDrill);
+
+    renderForm();
+    await screen.findByLabelText("Category:");
+
+    // A title and one skill are all the form requires; the five training
+    // attributes are left blank (the selects keep their placeholder option).
+    fireEvent.change(screen.getByLabelText("Title *"), {
+      target: { value: "No Metadata" },
+    });
+    fireEvent.click(screen.getByLabelText(/Float serve/));
+    fireEvent.click(screen.getByRole("button", { name: "Create Drill" }));
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0][0]).toMatchObject({
+      title: "No Metadata",
+      training_stage: null,
+      difficulty_level: null,
+      min_players: null,
+      max_players: null,
+      ideal_num_players: null,
+    });
+    // No validation banner: blank is a valid answer for these fields.
+    expect(screen.queryByText(/min ≤ ideal ≤ max/)).toBeNull();
+  });
+
+  it("still rejects a partial player range that cannot be true", async () => {
+    const serve = category(10, "Serve");
+    vi.mocked(api.categories).mockResolvedValue([serve]);
+    vi.mocked(api.skills).mockResolvedValue([skill(1, "Float serve", serve)]);
+    const create = vi.mocked(api.adminCreateDrill);
+
+    renderForm();
+    await screen.findByLabelText("Category:");
+
+    fireEvent.change(screen.getByLabelText("Title *"), {
+      target: { value: "Bad Range" },
+    });
+    fireEvent.click(screen.getByLabelText(/Float serve/));
+    // Only min and max are supplied, and they contradict each other.
+    fireEvent.change(screen.getByLabelText("Min Players"), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByLabelText("Max Players"), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create Drill" }));
+
+    expect(await screen.findByText(/min ≤ ideal ≤ max/)).toBeInTheDocument();
+    expect(create).not.toHaveBeenCalled();
   });
 });
 

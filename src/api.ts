@@ -185,11 +185,11 @@ export interface Drill {
   title: string;
   slug: string;
   setup_instructions: string;
-  training_stage: 'warmup' | 'beginning' | 'middle' | 'end';
-  difficulty_level: 'beginner' | 'intermediate' | 'advanced';
-  min_players: number;
-  max_players: number;
-  ideal_num_players: number;
+  training_stage: 'warmup' | 'beginning' | 'middle' | 'end' | null;
+  difficulty_level: 'beginner' | 'intermediate' | 'advanced' | null;
+  min_players: number | null;
+  max_players: number | null;
+  ideal_num_players: number | null;
   definition?: DrillDefinition | null;
   skills?: Skill[];
   video_references?: VideoReference[];
@@ -676,11 +676,11 @@ export const api = {
   adminCreateDrill: (data: {
     title: string;
     setup_instructions?: string | null;
-    training_stage: string;
-    difficulty_level: string;
-    min_players: number;
-    max_players: number;
-    ideal_num_players: number;
+    training_stage?: string | null;
+    difficulty_level?: string | null;
+    min_players?: number | null;
+    max_players?: number | null;
+    ideal_num_players?: number | null;
     definition?: DrillDefinition | null;
     skill_ids: number[];
   }) => postJSON<Drill>("/admin/drills", { drill: data }),
@@ -689,11 +689,11 @@ export const api = {
     data: {
       title?: string;
       setup_instructions?: string | null;
-      training_stage?: string;
-      difficulty_level?: string;
-      min_players?: number;
-      max_players?: number;
-      ideal_num_players?: number;
+      training_stage?: string | null;
+      difficulty_level?: string | null;
+      min_players?: number | null;
+      max_players?: number | null;
+      ideal_num_players?: number | null;
       definition?: DrillDefinition | null;
       skill_ids?: number[];
     }

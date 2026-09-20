@@ -14,49 +14,92 @@ export const DIFFICULTY_LEVELS: { value: DifficultyLevel; label: string }[] = [
   { value: 'advanced', label: 'Advanced' },
 ];
 
+/**
+ * Validates the (now optional) training attributes. Every provided value must
+ * be valid; cross-field rules apply only when both sides of the comparison
+ * exist, so a drill can be saved with any subset of these attributes blank.
+ */
 export function isValidDrillRange(d: {
-  min_players: unknown;
-  max_players: unknown;
-  ideal_num_players: unknown;
-  training_stage: unknown;
-  difficulty_level: unknown;
+  min_players?: unknown;
+  max_players?: unknown;
+  ideal_num_players?: unknown;
+  training_stage?: unknown;
+  difficulty_level?: unknown;
 }): boolean {
+  const counts: [string, unknown][] = [
+    ['min_players', d.min_players],
+    ['max_players', d.max_players],
+    ['ideal_num_players', d.ideal_num_players],
+  ];
+  for (const [, value] of counts) {
+    if (value === null || value === undefined) continue;
+    if (
+      typeof value !== 'number' ||
+      !Number.isInteger(value) ||
+      value < 1
+    ) {
+      return false;
+    }
+  }
   if (
-    typeof d.min_players !== 'number' ||
-    typeof d.max_players !== 'number' ||
-    typeof d.ideal_num_players !== 'number' ||
-    !Number.isInteger(d.min_players) ||
-    !Number.isInteger(d.max_players) ||
-    !Number.isInteger(d.ideal_num_players)
+    typeof d.min_players === 'number' &&
+    typeof d.max_players === 'number' &&
+    d.min_players > d.max_players
   ) {
     return false;
   }
-  if (d.min_players < 1 || d.max_players < 1 || d.ideal_num_players < 1) {
+  if (
+    typeof d.ideal_num_players === 'number' &&
+    typeof d.min_players === 'number' &&
+    d.ideal_num_players < d.min_players
+  ) {
     return false;
   }
-  if (d.min_players > d.max_players) {
+  if (
+    typeof d.ideal_num_players === 'number' &&
+    typeof d.max_players === 'number' &&
+    d.ideal_num_players > d.max_players
+  ) {
     return false;
   }
-  if (d.ideal_num_players < d.min_players || d.ideal_num_players > d.max_players) {
+  if (
+    d.training_stage !== null &&
+    d.training_stage !== undefined &&
+    !TRAINING_STAGES.some((s) => s.value === d.training_stage)
+  ) {
     return false;
   }
-  if (!TRAINING_STAGES.some((s) => s.value === d.training_stage)) {
-    return false;
-  }
-  if (!DIFFICULTY_LEVELS.some((s) => s.value === d.difficulty_level)) {
+  if (
+    d.difficulty_level !== null &&
+    d.difficulty_level !== undefined &&
+    !DIFFICULTY_LEVELS.some((s) => s.value === d.difficulty_level)
+  ) {
     return false;
   }
   return true;
 }
 
-export function playerRangeLabel(min: number, max: number): string {
+/** Returns null when either side of the range is missing. */
+export function playerRangeLabel(
+  min: number | null | undefined,
+  max: number | null | undefined
+): string | null {
+  if (min === null || min === undefined || max === null || max === undefined) {
+    return null;
+  }
   return min === max ? `${min} players` : `${min}–${max} players`;
 }
 
-export function trainingStageLabel(stage: TrainingStage): string {
+/** Returns null when the stage is missing. */
+export function trainingStageLabel(
+  stage: TrainingStage | null | undefined
+): string | null {
+  if (stage === null || stage === undefined) return null;
   return TRAINING_STAGES.find((s) => s.value === stage)?.label ?? stage;
 }
 
-export function idealLabel(ideal: number): string {
+/** Returns null when the ideal count is missing. */
+export function idealLabel(ideal: number | null | undefined): string | null {
+  if (ideal === null || ideal === undefined) return null;
   return `Ideal: ${ideal}`;
 }
