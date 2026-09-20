@@ -23,7 +23,6 @@ export default function VideoCategorySelect({
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     api
       .videoCategories()
       .then((cats) => {

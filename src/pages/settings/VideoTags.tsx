@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, ApiValidationError, type VideoTag } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
@@ -29,24 +29,27 @@ export default function VideoTags() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const load = useCallback(() => {
-    setLoading(true);
+  useEffect(() => {
+    if (!user?.roles?.includes("admin")) return;
+    let cancelled = false;
     api
       .adminVideoTags()
       .then((list) => {
+        if (cancelled) return;
         setTags(list);
         setError(null);
       })
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : "Failed to load tags."),
-      )
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    if (user?.roles?.includes("admin")) load();
-    else setLoading(false);
-  }, [user, load]);
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load tags.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   if (!user?.roles?.includes("admin")) {
     return (
@@ -55,6 +58,20 @@ export default function VideoTags() {
       </div>
     );
   }
+
+  // Refresh after a mutation. All state updates happen inside promise
+  // callbacks, so this stays safe to call from event handlers.
+  const reload = () => {
+    api
+      .adminVideoTags()
+      .then((list) => {
+        setTags(list);
+        setError(null);
+      })
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : "Failed to load tags."),
+      );
+  };
 
   const startCreate = () => {
     setEditing("new");
@@ -88,7 +105,7 @@ export default function VideoTags() {
         await api.adminUpdateVideoTag(editing, { name: name.trim() });
       }
       closeForm();
-      load();
+      reload();
     } catch (err) {
       setFormError(
         err instanceof ApiValidationError
@@ -109,7 +126,7 @@ export default function VideoTags() {
     try {
       await api.adminDestroyVideoTag(pendingDelete.id);
       setPendingDelete(null);
-      load();
+      reload();
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete the tag.");
     } finally {

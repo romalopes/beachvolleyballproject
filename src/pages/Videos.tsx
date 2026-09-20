@@ -36,13 +36,12 @@ export default function Videos() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     Promise.all([api.videos(), api.videoCategories()])
       .then(([videoList, categoryList]) => {
         if (cancelled) return;
         setVideos(videoList);
         setCategories(categoryList);
+        setError(null);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
