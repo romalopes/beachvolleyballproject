@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
   Home,
   Target,
@@ -10,8 +10,10 @@ import {
   LogIn,
   UserCircle,
   Settings,
+  ShieldOff,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
+import { useTestAccess } from "../auth/TestAccessContext";
 
 const navItems = [
   { path: "/", label: "Home", icon: Home },
@@ -25,6 +27,8 @@ const navItems = [
 
 export default function Sidebar() {
   const { user, logout, impersonation, stopImpersonating } = useAuth();
+  const { exit: exitTestAccess } = useTestAccess();
+  const navigate = useNavigate();
 
   return (
     <>
@@ -90,6 +94,20 @@ export default function Sidebar() {
         Beach Volleyball Skills Database
         <br />
         Organise. Understand. Train.
+      </div>
+      <div className="sidebar-test-access">
+        <button
+          type="button"
+          className="test-access-exit"
+          onClick={() => {
+            exitTestAccess();
+            navigate("/test-access");
+          }}
+          title="Clear private test access"
+        >
+          <ShieldOff size={14} />
+          Exit Test Mode
+        </button>
       </div>
       {impersonation.active && impersonation.realAdmin && (
         <div className="sidebar-impersonation">

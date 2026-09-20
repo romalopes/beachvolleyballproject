@@ -8,6 +8,8 @@ import {
 import { useEffect, useState } from "react";
 import { AuthProvider } from "./auth/AuthContext";
 import { useAuth } from "./auth/AuthContext";
+import { TestAccessProvider } from "./auth/TestAccessContext";
+import { useTestAccess } from "./auth/TestAccessContext";
 import Sidebar from "./components/Sidebar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
@@ -43,7 +45,18 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import TestAccessPage from "./pages/TestAccess";
 import "./App.css";
+
+/**
+ * Private test-access gate: while the app is not authenticated for testing,
+ * render ONLY the gate page — no app shell, no routes, no deep links.
+ */
+function TestAccessGate({ children }: { children: React.ReactNode }) {
+  const { authenticated, verifying } = useTestAccess();
+  if (!authenticated && !verifying) return <TestAccessPage />;
+  return <>{children}</>;
+}
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -114,11 +127,14 @@ function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <AuthProvider>
+    <TestAccessProvider>
       <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path="/login" element={<Login />} />
+        <TestAccessGate>
+          <AuthProvider>
+            <Layout>
+              <Routes>
+                <Route path="/test-access" element={<TestAccessPage />} />
+                <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -281,9 +297,11 @@ export default function App() {
             />
             <Route path="/account" element={<AccountPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Layout>
+            </Routes>
+          </Layout>
+          </AuthProvider>
+        </TestAccessGate>
       </BrowserRouter>
-    </AuthProvider>
+    </TestAccessProvider>
   );
 }

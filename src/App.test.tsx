@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import App from "./App";
 import { APP_VERSION } from "./constants/versions";
+import { setTestAccessToken } from "./api";
 
 // The app bootstraps auth + data over fetch; answer every request with an
 // empty JSON array so Home/Auth render without network noise.
@@ -15,9 +16,16 @@ function okJson(data: unknown): Response {
 }
 
 beforeEach(() => {
-  vi.spyOn(window, "fetch").mockImplementation(() =>
-    Promise.resolve(okJson([])),
-  );
+  vi.spyOn(window, "fetch").mockImplementation((input) => {
+    const url = String(input);
+    // The test-access gate verifies its token on boot.
+    if (url.includes("/test_access")) {
+      return Promise.resolve(okJson({ authenticated: true }));
+    }
+    return Promise.resolve(okJson([]));
+  });
+  // Simulate a visitor who already has private test access.
+  setTestAccessToken("test-token");
 });
 
 describe("App", () => {

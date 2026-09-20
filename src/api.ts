@@ -6,6 +6,35 @@
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
+// ---------- Private test-access gate ----------
+// While the Rails API has TEST_ACCESS_PASSWORD configured, every request must
+// carry a signed test-access token in the X-Test-Access-Token header. The
+// token is exchanged for the password at /test_access (server-side check) and
+// stored in sessionStorage — never the password itself, never localStorage.
+export const TEST_ACCESS_TOKEN_KEY = "bvb_test_access_token";
+
+export function getTestAccessToken(): string | null {
+  try {
+    return sessionStorage.getItem(TEST_ACCESS_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setTestAccessToken(token: string | null): void {
+  try {
+    if (token) sessionStorage.setItem(TEST_ACCESS_TOKEN_KEY, token);
+    else sessionStorage.removeItem(TEST_ACCESS_TOKEN_KEY);
+  } catch {
+    // Storage may be unavailable (private mode); access just won't persist
+    // across refreshes.
+  }
+}
+
+export function clearTestAccessToken(): void {
+  setTestAccessToken(null);
+}
+
 import type { DrillDefinition } from "./components/drill/definition";
 
 // ---------- API error types ----------
@@ -67,14 +96,56 @@ function authHeaders(extra: Record<string, string> = {}): Record<string, string>
   const token = getToken();
   const headers: Record<string, string> = { ...extra };
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  // Private test-access gate: attach the signed token issued by
+  // /test_access (no-op when absent — e.g. gate disabled).
+  const testToken = getTestAccessToken();
+  if (testToken) headers["X-Test-Access-Token"] = testToken;
   return headers;
+}
+
+/** Shape of the API's gate rejection body (see TestAccess concern). */
+export interface TestAccessErrorBody {
+  authenticated: false;
+  error: string;
+  code?: string;
+}
+
+function throwApiError(
+  status: number,
+  data: unknown,
+  fallback: string,
+): Error {
+  if (Array.isArray((data as { errors?: string[] })?.errors)) {
+    return new ApiValidationError((data as { errors: string[] }).errors);
+  }
+  if ((data as { error?: string })?.error) {
+    const err = new Error((data as { error: string }).error) as Error & {
+      status?: number;
+      code?: string;
+    };
+    err.status = status;
+    err.code = (data as { code?: string })?.code;
+    return err;
+  }
+  const err = new Error(fallback) as Error & { status?: number };
+  err.status = status;
+  return err;
 }
 
 async function fetchAPI<T>(endpoint: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: authHeaders({ "Content-Type": "application/json" }),
   });
-  if (!response.ok) throw new Error(`API Error: ${response.status}`);
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    if (response.status === 401 && (data as TestAccessErrorBody)?.code === "test_access_required") {
+      clearTestAccessToken();
+      if (!window.location.pathname.startsWith("/test-access")) {
+        window.location.assign("/test-access?expired=1");
+      }
+    }
+    throw throwApiError(response.status, data, `API Error: ${response.status}`);
+  }
   return response.json();
 }
 
@@ -378,13 +449,36 @@ async function postJSON<T>(endpoint: string, body: unknown, method = "POST"): Pr
   });
   if (!response.ok) {
     const data = await response.json().catch(() => null);
-    if (Array.isArray(data?.errors)) throw new ApiValidationError(data.errors);
-    if (data?.error) throw new Error(data.error);
-    throw new Error(`API Error: ${response.status}`);
+    if (response.status === 401 && (data as TestAccessErrorBody)?.code === "test_access_required") {
+      clearTestAccessToken();
+      if (!window.location.pathname.startsWith("/test-access")) {
+        window.location.assign("/test-access?expired=1");
+      }
+    }
+    throw throwApiError(response.status, data, `API Error: ${response.status}`);
   }
   if (response.status === 204) return undefined as T;
   return response.json();
 }
+
+// ---------- Test access API (private test-access gate) ----------
+export interface TestAccessResponse {
+  authenticated: boolean;
+  token?: string | null;
+  expires_at?: string;
+  disabled?: boolean;
+  error?: string;
+  code?: string;
+}
+
+export const testAccessApi = {
+  /** Exchange the entered password for a signed test-access token. */
+  submit: (password: string) =>
+    postJSON<TestAccessResponse>("/test_access", { password }),
+  /** Verify the stored token (used on boot to detect expiry). */
+  verify: () =>
+    fetchAPI<TestAccessResponse>("/test_access"),
+};
 
 export const api = {
   categories: () => fetchAPI<Category[]>("/categories"),
