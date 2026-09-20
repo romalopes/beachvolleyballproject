@@ -2052,6 +2052,18 @@
   max-width: 140px;
 }
 
+/* Boolean filter sitting in the toolbar row (e.g. "only with visual
+   definition"); matches the row's select/input sizing. */
+.settings-toolbar-row .settings-toolbar-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .settings-result-count {
   font-size: 0.875rem;
   color: var(--text-secondary);

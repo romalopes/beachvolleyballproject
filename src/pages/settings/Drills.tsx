@@ -17,6 +17,7 @@ import {
 
 const PER_PAGE = 20;
 type SortKey = "name-asc" | "name-desc" | "stage" | "difficulty";
+type DefinitionFilter = "all" | "with" | "without";
 
 const STAGE_ORDER: TrainingStage[] = TRAINING_STAGES.map((s) => s.value);
 const DIFFICULTY_ORDER: DifficultyLevel[] = DIFFICULTY_LEVELS.map((d) => d.value);
@@ -70,6 +71,8 @@ export default function Drills() {
   >("all");
   const [minFilter, setMinFilter] = useState("");
   const [maxFilter, setMaxFilter] = useState("");
+  const [definitionFilter, setDefinitionFilter] =
+    useState<DefinitionFilter>("all");
   const [sort, setSort] = useState<SortKey>("name-asc");
   const [page, setPage] = useState(1);
 
@@ -158,6 +161,7 @@ export default function Drills() {
     difficulty !== "all" ||
     minFilter.trim() !== "" ||
     maxFilter.trim() !== "" ||
+    definitionFilter !== "all" ||
     sort !== "name-asc";
 
   const visibleDrills = useMemo(() => {
@@ -193,6 +197,9 @@ export default function Drills() {
         if (d.min_players === null || d.min_players > parsedMax) return false;
       }
       if (rangeError) return false;
+      // Tri-state visual-definition filter (Any / Has / None).
+      if (definitionFilter === "with" && !d.has_definition) return false;
+      if (definitionFilter === "without" && d.has_definition) return false;
       return true;
     });
 
@@ -217,7 +224,7 @@ export default function Drills() {
       default:
         return [...filtered].sort(byTitle);
     }
-  }, [drills, allSkills, search, categoryFilter, visibleSkillFilter, stage, difficulty, parsedMin, parsedMax, rangeError, sort]);
+  }, [drills, allSkills, search, categoryFilter, visibleSkillFilter, stage, difficulty, parsedMin, parsedMax, rangeError, definitionFilter, sort]);
 
   const clearFilters = () => {
     setSearch("");
@@ -227,6 +234,7 @@ export default function Drills() {
     setDifficulty("all");
     setMinFilter("");
     setMaxFilter("");
+    setDefinitionFilter("all");
     setSort("name-asc");
     setPage(1);
   };
@@ -392,6 +400,18 @@ export default function Drills() {
             }}
             aria-label="Filter by max players"
           />
+          <select
+            value={definitionFilter}
+            onChange={(e) => {
+              setDefinitionFilter(e.target.value as DefinitionFilter);
+              setPage(1);
+            }}
+            aria-label="Filter by visual definition"
+          >
+            <option value="all">Any definition</option>
+            <option value="with">Has a definition</option>
+            <option value="without">No definition</option>
+          </select>
           <select
             value={sort}
             onChange={(e) => {

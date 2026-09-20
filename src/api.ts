@@ -191,6 +191,8 @@ export interface Drill {
   max_players: number | null;
   ideal_num_players: number | null;
   definition?: DrillDefinition | null;
+  /** Present on list payloads: true when a renderable visual definition exists. */
+  has_definition?: boolean;
   skills?: Skill[];
   video_references?: VideoReference[];
 }

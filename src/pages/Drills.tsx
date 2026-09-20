@@ -11,10 +11,13 @@ import {
   DIFFICULTY_LEVELS,
   TRAINING_STAGES,
   isValidDrillRange,
+  type DifficultyLevel,
+  type TrainingStage,
 } from "../utils/drills";
 
 const ITEMS_PER_SECTION = 9;
 const ITEMS_PER_PAGE = 20;
+type SortKey = "name-asc" | "name-desc";
 
 export default function Drills() {
   const { user } = useAuth();
@@ -25,9 +28,16 @@ export default function Drills() {
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedSkill, setSelectedSkill] = useState<string>("all");
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>("all");
-  const [selectedStage, setSelectedStage] = useState<string>("all");
-  const [playerFilter, setPlayerFilter] = useState("");
+  const [selectedDifficulty, setSelectedDifficulty] = useState<
+    "all" | "unspecified" | DifficultyLevel
+  >("all");
+  const [selectedStage, setSelectedStage] = useState<
+    "all" | "unspecified" | TrainingStage
+  >("all");
+  const [minPlayers, setMinPlayers] = useState("");
+  const [maxPlayers, setMaxPlayers] = useState("");
+  const [sort, setSort] = useState<SortKey>("name-asc");
+  const [onlyWithDefinition, setOnlyWithDefinition] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -70,8 +80,16 @@ export default function Drills() {
     setSelectedSkill("all");
   };
 
-  const playerCount =
-    playerFilter.trim() === "" ? null : Number(playerFilter.trim());
+  const parsedMin =
+    minPlayers.trim() === "" ? null : Number(minPlayers.trim());
+  const parsedMax =
+    maxPlayers.trim() === "" ? null : Number(maxPlayers.trim());
+  const rangeError =
+    parsedMin !== null &&
+    parsedMax !== null &&
+    !Number.isNaN(parsedMin) &&
+    !Number.isNaN(parsedMax) &&
+    parsedMin > parsedMax;
 
   const filteredDrills = drills.filter((drill) => {
     const matchesSearch = drill.title
@@ -87,13 +105,17 @@ export default function Drills() {
       (selectedStage === "unspecified"
         ? drill.training_stage === null
         : drill.training_stage === selectedStage);
+    // Overlap semantics on the drill's own stored range, mirroring the
+    // settings drill list: a drill without a stored range cannot overlap any
+    // player window.
     const matchesPlayers =
-      playerCount === null ||
-      Number.isNaN(playerCount) ||
-      (drill.min_players !== null &&
-        drill.max_players !== null &&
-        drill.min_players <= playerCount &&
-        playerCount <= drill.max_players);
+      !rangeError &&
+      (parsedMin === null ||
+        Number.isNaN(parsedMin) ||
+        (drill.max_players !== null && drill.max_players >= parsedMin)) &&
+      (parsedMax === null ||
+        Number.isNaN(parsedMax) ||
+        (drill.min_players !== null && drill.min_players <= parsedMax));
     // Filter by skill
     const matchesSkill =
       selectedSkill === "all" ||
@@ -102,17 +124,22 @@ export default function Drills() {
     const matchesCategory =
       !selectedCategory ||
       drill.skills?.some((s) => s.category?.name === selectedCategory);
+    // Opt-in filter: only drills that actually carry a visual definition.
+    const matchesDefinition =
+      !onlyWithDefinition || drill.has_definition === true;
     return (
       matchesSearch &&
       matchesDifficulty &&
       matchesStage &&
       matchesPlayers &&
       matchesSkill &&
-      matchesCategory
+      matchesCategory &&
+      matchesDefinition
     );
   });
 
-  // Group drills by skill
+  // Group drills by skill. Section order stays alphabetical by skill title,
+  // while the A/Z sort orders the drills inside each section.
   const drillsBySkill = useMemo(() => {
     const grouped = new Map<number, { skill: Skill; drills: Drill[] }>();
 
@@ -125,13 +152,22 @@ export default function Drills() {
       });
     });
 
-    // Sort by skill title alphabetically
+    const byTitle = (a: Drill, b: Drill) =>
+      a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+    const sortDrills = (list: Drill[]) =>
+      [...list].sort((a, b) =>
+        sort === "name-desc" ? byTitle(b, a) : byTitle(a, b),
+      );
+
     return new Map(
-      [...grouped.entries()].sort((a, b) =>
-        a[1].skill.title.localeCompare(b[1].skill.title),
-      ),
+      [...grouped.entries()]
+        .sort((a, b) => a[1].skill.title.localeCompare(b[1].skill.title))
+        .map(
+          ([id, entry]) =>
+            [id, { ...entry, drills: sortDrills(entry.drills) }] as const,
+        ),
     );
-  }, [filteredDrills]);
+  }, [filteredDrills, sort]);
 
   // Get drills for modal
   const modalDrills = useMemo(() => {
@@ -162,6 +198,30 @@ export default function Drills() {
     setModalPage(1);
   };
 
+  // The category select always holds a value (first category by default), so it
+  // is intentionally excluded from "filters active".
+  const filtersActive =
+    search.trim() !== "" ||
+    selectedSkill !== "all" ||
+    selectedDifficulty !== "all" ||
+    selectedStage !== "all" ||
+    minPlayers.trim() !== "" ||
+    maxPlayers.trim() !== "" ||
+    onlyWithDefinition ||
+    sort !== "name-asc";
+
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedCategory(categories.length > 0 ? categories[0].name : "");
+    setSelectedSkill("all");
+    setSelectedDifficulty("all");
+    setSelectedStage("all");
+    setMinPlayers("");
+    setMaxPlayers("");
+    setOnlyWithDefinition(false);
+    setSort("name-asc");
+  };
+
   if (loading) return <div className="loading">Loading...</div>;
 
   return (
@@ -182,81 +242,25 @@ export default function Drills() {
         }
       />
 
-      <div className="search-bar">
-        <span className="search-bar-icon">
-          <Search size={18} />
-        </span>
-        <input
-          type="text"
-          placeholder="Search drills..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      <div className="filter-bar">
-        <button
-          className={`filter-btn${selectedDifficulty === "all" ? " active" : ""}`}
-          onClick={() => setSelectedDifficulty("all")}
-        >
-          All Levels
-        </button>
-        {DIFFICULTY_LEVELS.map((level) => (
-          <button
-            key={level.value}
-            className={`filter-btn${selectedDifficulty === level.value ? " active" : ""}`}
-            onClick={() => setSelectedDifficulty(level.value)}
-          >
-            {level.label}
-          </button>
-        ))}
-        <button
-          className={`filter-btn${selectedDifficulty === "unspecified" ? " active" : ""}`}
-          onClick={() => setSelectedDifficulty("unspecified")}
-        >
-          Unspecified
-        </button>
-      </div>
-
-      <div className="filter-bar">
-        <button
-          className={`filter-btn${selectedStage === "all" ? " active" : ""}`}
-          onClick={() => setSelectedStage("all")}
-        >
-          All Stages
-        </button>
-        {TRAINING_STAGES.map((stage) => (
-          <button
-            key={stage.value}
-            className={`filter-btn${selectedStage === stage.value ? " active" : ""}`}
-            onClick={() => setSelectedStage(stage.value)}
-          >
-            {stage.label}
-          </button>
-        ))}
-        <button
-          className={`filter-btn${selectedStage === "unspecified" ? " active" : ""}`}
-          onClick={() => setSelectedStage("unspecified")}
-        >
-          Unspecified
-        </button>
-        <input
-          type="number"
-          min={1}
-          placeholder="Players"
-          value={playerFilter}
-          onChange={(e) => setPlayerFilter(e.target.value)}
-          aria-label="Filter by player count"
-        />
-      </div>
-
-      <div className="filter-row">
-        <div className="filter-select-group">
-          <label htmlFor="category-filter">Category:</label>
+      <div className="settings-toolbar">
+        <div className="search-bar settings-toolbar-search">
+          <span className="search-bar-icon">
+            <Search size={18} />
+          </span>
+          <input
+            type="text"
+            placeholder="Search drills..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search drills"
+          />
+        </div>
+        <div className="settings-toolbar-row">
           <select
-            id="category-filter"
             value={selectedCategory}
             onChange={(e) => handleCategoryChange(e.target.value)}
+            aria-label="Filter by category"
+            disabled={categories.length === 0}
           >
             {categories.map((cat) => (
               <option key={cat.id} value={cat.name}>
@@ -264,13 +268,11 @@ export default function Drills() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="filter-select-group">
-          <label htmlFor="skill-filter">Skill:</label>
           <select
-            id="skill-filter"
             value={selectedSkill}
             onChange={(e) => setSelectedSkill(e.target.value)}
+            aria-label="Filter by skill"
+            disabled={filteredSkills.length === 0}
           >
             <option value="all">All Skills</option>
             {filteredSkills.map((skill) => (
@@ -279,8 +281,85 @@ export default function Drills() {
               </option>
             ))}
           </select>
+          <select
+            value={selectedStage}
+            onChange={(e) =>
+              setSelectedStage(
+                e.target.value as "all" | "unspecified" | TrainingStage,
+              )
+            }
+            aria-label="Filter by training stage"
+          >
+            <option value="all">All stages</option>
+            {TRAINING_STAGES.map((stage) => (
+              <option key={stage.value} value={stage.value}>
+                {stage.label}
+              </option>
+            ))}
+            <option value="unspecified">Unspecified</option>
+          </select>
+          <select
+            value={selectedDifficulty}
+            onChange={(e) =>
+              setSelectedDifficulty(
+                e.target.value as "all" | "unspecified" | DifficultyLevel,
+              )
+            }
+            aria-label="Filter by difficulty level"
+          >
+            <option value="all">All levels</option>
+            {DIFFICULTY_LEVELS.map((level) => (
+              <option key={level.value} value={level.value}>
+                {level.label}
+              </option>
+            ))}
+            <option value="unspecified">Unspecified</option>
+          </select>
+          <input
+            type="number"
+            min={1}
+            placeholder="Min players"
+            value={minPlayers}
+            onChange={(e) => setMinPlayers(e.target.value)}
+            aria-label="Filter by min players"
+          />
+          <input
+            type="number"
+            min={1}
+            placeholder="Max players"
+            value={maxPlayers}
+            onChange={(e) => setMaxPlayers(e.target.value)}
+            aria-label="Filter by max players"
+          />
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            aria-label="Sort drills"
+          >
+            <option value="name-asc">Name A–Z</option>
+            <option value="name-desc">Name Z–A</option>
+          </select>
+          <label className="settings-toolbar-checkbox">
+            <input
+              type="checkbox"
+              checked={onlyWithDefinition}
+              onChange={(e) => setOnlyWithDefinition(e.target.checked)}
+            />
+            Only drills with visual definition
+          </label>
+          {filtersActive && (
+            <button type="button" className="admin-btn" onClick={clearFilters}>
+              Clear
+            </button>
+          )}
         </div>
       </div>
+
+      {rangeError && (
+        <div className="auth-flash auth-flash-error">
+          Min players cannot exceed max players.
+        </div>
+      )}
 
       {filteredDrills.length === 0 ? (
         <EmptyState
