@@ -89,9 +89,13 @@ export function TestAccessProvider({ children }: { children: ReactNode }) {
 
   const submit = useCallback(async (password: string) => {
     const result = await testAccessApi.submit(password);
-    if (result.authenticated && result.token) {
-      setTestAccessToken(result.token);
-      setToken(result.token);
+    if (result.authenticated && (result.token || result.disabled)) {
+      // A real signed token — or, while the server-side gate is disabled
+      // (no TEST_ACCESS_PASSWORD configured), a session sentinel so the
+      // boot-time verification keeps the app unlocked.
+      const stored = result.token || 'gate-disabled';
+      setTestAccessToken(stored);
+      setToken(stored);
       setAuthenticated(true);
     } else if (!result.authenticated) {
       throw new Error(result.error || 'Invalid password');
