@@ -34,6 +34,7 @@ import DrillsSettings from "./pages/settings/Drills";
 import DrillFormPage from "./pages/settings/DrillFormPage";
 import Logs from "./pages/settings/Logs";
 import LogDetail from "./pages/settings/LogDetail";
+import ConfigurationSettings from "./pages/settings/ConfigurationSettings";
 import SystemLogs from "./pages/settings/SystemLogs";
 import ApiHealth from "./pages/settings/ApiHealth";
 import VideoCategoriesSettings from "./pages/settings/VideoCategories";
@@ -45,6 +46,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import VerifyEmail from "./pages/VerifyEmail";
 import TestAccessPage from "./pages/TestAccess";
 import "./App.css";
 
@@ -138,6 +140,7 @@ export default function App() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/" element={<Home />} />
             <Route path="/skills" element={<Skills />} />
             <Route path="/skills/:slug" element={<SkillDetail />} />
@@ -260,6 +263,14 @@ export default function App() {
               element={
                 <AdminRoute>
                   <LogDetail />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/settings/configuration"
+              element={
+                <AdminRoute>
+                  <ConfigurationSettings />
                 </AdminRoute>
               }
             />

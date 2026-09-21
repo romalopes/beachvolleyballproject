@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTestAccess } from '../auth/TestAccessContext';
 import './TestAccess.css';
 
@@ -10,6 +11,7 @@ import './TestAccess.css';
  */
 export default function TestAccessPage() {
   const { authenticated, verifying, submit, exit } = useTestAccess();
+  const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,7 +43,7 @@ export default function TestAccessPage() {
           <button
             type="button"
             className="test-access-btn"
-            onClick={() => window.history.back()}
+            onClick={() => navigate("/")}
           >
             Enter app
           </button>

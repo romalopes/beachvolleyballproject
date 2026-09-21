@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { api } from '../api';
 
 export default function Signup() {
   const { register } = useAuth();
@@ -11,16 +12,39 @@ export default function Signup() {
   const [confirmation, setConfirmation] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [resent, setResent] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    setPendingEmail(null);
+    setResent(false);
     setSubmitting(true);
     try {
-      await register(name, email, password, confirmation);
+      const user = await register(name, email, password, confirmation);
+      if (user === null) {
+        // Email verification pending — stay here with guidance.
+        setPendingEmail(email);
+        return;
+      }
       navigate('/', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign up failed.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!pendingEmail) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await api.resendVerification(pendingEmail);
+      setResent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not resend the verification email.');
     } finally {
       setSubmitting(false);
     }
@@ -39,6 +63,28 @@ export default function Signup() {
         <p className="auth-subtitle">Sign up to organise skills, drills and training sessions.</p>
 
         {error && <div className="auth-flash auth-flash-error">{error}</div>}
+
+        {pendingEmail && (
+          <div className="auth-flash auth-flash-error" role="alert">
+            <p style={{ margin: '0 0 8px' }}>
+              Account created! Please verify your email address ({pendingEmail})
+              before signing in. We sent you a verification link.
+            </p>
+            {resent && (
+              <p style={{ margin: '0 0 8px' }}>
+                A new verification email has been sent — please check your inbox.
+              </p>
+            )}
+            <button
+              type="button"
+              className="auth-submit"
+              onClick={handleResend}
+              disabled={submitting}
+            >
+              {submitting ? 'Sending...' : 'Resend verification email'}
+            </button>
+          </div>
+        )}
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-field">

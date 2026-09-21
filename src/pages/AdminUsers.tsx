@@ -15,16 +15,19 @@ export default function AdminUsers() {
   const [actingBusy, setActingBusy] = useState<Record<number, boolean>>({});
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [searchDraft, setSearchDraft] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (isAdmin) loadUsers();
-  }, [isAdmin, page]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, page, search]);
 
   const loadUsers = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.adminUsers({ page, per_page: PER_PAGE });
+      const response = await api.adminUsers({ page, per_page: PER_PAGE, search: search || undefined });
       setUsers(response.data);
       setMeta(response.meta);
     } catch (e: any) {
@@ -32,6 +35,12 @@ export default function AdminUsers() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const applySearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(1);
+    setSearch(searchDraft.trim());
   };
 
   const hasRole = (u: AdminUser, role: string) =>
@@ -65,6 +74,27 @@ export default function AdminUsers() {
         <h1>Users</h1>
         <p>Manage roles for every account in the system.</p>
       </header>
+
+      <form onSubmit={applySearch} style={{ margin: "0 0 16px", display: "flex", gap: 8, maxWidth: 480 }}>
+        <div style={{ flex: 1 }}>
+          <label htmlFor="users-search" className="admin-table-name" style={{ display: "block", fontWeight: "normal" }}>
+            Search by name or email
+          </label>
+          <input
+            id="users-search"
+            type="search"
+            value={searchDraft}
+            onChange={(e) => setSearchDraft(e.target.value)}
+            placeholder="e.g. Anderson or romalopes@yahoo.com.br"
+            style={{ width: "100%" }}
+          />
+        </div>
+        <div style={{ alignSelf: "flex-end" }}>
+          <button type="submit" className="admin-btn admin-btn-add" disabled={loading}>
+            Search
+          </button>
+        </div>
+      </form>
 
       {error && <div className="auth-flash auth-flash-error">{error}</div>}
 

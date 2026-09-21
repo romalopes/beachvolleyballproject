@@ -372,7 +372,12 @@ export interface User {
 }
 
 export interface UserWithToken extends User {
-  token: string;
+  token?: string;
+  /** Present when the account still needs email verification (no session). */
+  status?: "pending_verification";
+  verification_token?: string;
+  email?: string;
+  message?: string;
 }
 
 export interface AdminUser {
@@ -415,6 +420,28 @@ export interface LogsMeta {
 export interface LogsResponse {
   data: Log[];
   meta: LogsMeta;
+}
+
+/**
+ * Global runtime configuration (admin-only), persisted in the backend's
+ * app_settings table. Mirrors the wine words project's Configuration page:
+ *   logs_saved_to_database — master switch for audit-log persistence
+ *                            (maps to the "logs_enabled" key)
+ *   test                   — when true, every outgoing email is redirected to
+ *                            test_email with a [TEST] subject prefix
+ *   test_email             — recipient address for test-mode redirection
+ *                            (default: romalopes@yahoo.com.br)
+ */
+export interface AppConfiguration {
+  logs_saved_to_database: boolean;
+  test: boolean;
+  test_email: string;
+}
+
+export interface AppSettingRow {
+  key: string;
+  value: string;
+  built_in: boolean;
 }
 
 export interface PaginationMeta {
@@ -575,10 +602,11 @@ export const api = {
 
 
   // Admin
-  adminUsers: async (params?: { page?: number; per_page?: number }) => {
+  adminUsers: async (params?: { page?: number; per_page?: number; search?: string }) => {
     const qs = new URLSearchParams();
     if (params?.page) qs.set("page", String(params.page));
     if (params?.per_page) qs.set("per_page", String(params.per_page));
+    if (params?.search) qs.set("search", params.search);
     const query = qs.toString();
     const response = await fetchAPI<AdminUser[] | PaginatedResponse<AdminUser>>(`/admin/users${query ? `?${query}` : ""}`);
     return normalizePaginatedResponse(response);
@@ -743,6 +771,11 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
   login: (email_address: string, password: string) =>
     postJSON<UserWithToken>("/sessions", { email_address, password, api: true })
       .then((data) => {
+        // A "pending_verification" response (HTTP 202) carries a one-time
+        // email-verification token, NOT a session token. Storing it would
+        // poison the bearer token and 401 every later request — only store
+        // genuine session tokens.
+        if (data.status === "pending_verification") return data;
         if (data.token) setToken(data.token);
         return data;
       }),
@@ -756,9 +789,20 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
       user: { name, email_address, password, password_confirmation },
       api: true,
     }).then((data) => {
+      // Same guard as login: never persist a verification token as a session.
+      if (data.status === "pending_verification") return data;
       if (data.token) setToken(data.token);
       return data;
     }),
+  resendVerification: (email_address: string) =>
+    postJSON<{ status: string; message?: string }>(
+      "/email-verifications/resend",
+      { email_address },
+    ),
+  verifyEmail: (token: string) =>
+    fetchAPI<{ status: string; email_address: string; name: string }>(
+      `/email-verifications/${encodeURIComponent(token)}`,
+    ),
   requestPasswordReset: (email_address: string) =>
     postJSON<void>("/passwords", { email_address }),
   resetPassword: (token: string, password: string, password_confirmation: string) =>
@@ -799,6 +843,23 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
   // Rails log file tail (read-only)
   adminSystemLogs: (lines: number = 500) =>
     fetchAPI<{ lines: string[] }>(`/admin/system_logs?lines=${lines}`),
+
+  // Global configuration (admin-only): runtime settings persisted in the
+  // backend's app_settings table — log persistence toggle plus test-mode
+  // email redirection. Mirrors the wine words project's Configuration page.
+  getConfiguration: () => fetchAPI<AppConfiguration>("/admin/configuration"),
+  updateConfiguration: (data: Partial<AppConfiguration>) =>
+    postJSON<AppConfiguration>("/admin/configuration", data, "PATCH"),
+
+  // Generic app_settings rows (admin-only key/value pairs) for the
+  // Configuration page's custom-settings table.
+  appSettings: () => fetchAPI<{ settings: AppSettingRow[] }>("/admin/app_settings"),
+  createAppSetting: (data: { key: string; value: string }) =>
+    postJSON<AppSettingRow>("/admin/app_settings", data),
+  updateAppSetting: (key: string, value: string) =>
+    postJSON<AppSettingRow>(`/admin/app_settings/${encodeURIComponent(key)}`, { value }, "PATCH"),
+  deleteAppSetting: (key: string) =>
+    postJSON<void>(`/admin/app_settings/${encodeURIComponent(key)}`, {}, "DELETE"),
 
   // Account
   account: (): Promise<Account> => fetchAPI<Account>("/account"),

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Target, Tags, Dumbbell, FileText, Shield, Activity, PlayCircle } from "lucide-react";
+import { Target, Tags, Dumbbell, FileText, Shield, Activity, PlayCircle, Settings } from "lucide-react";
 import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 
@@ -39,6 +39,12 @@ const RESOURCES = [
     label: "Logs",
     desc: "View audit trail of application activity.",
     icon: FileText,
+  },
+  {
+    to: "/settings/configuration",
+    label: "Configuration",
+    desc: "Global settings: log persistence and email test mode.",
+    icon: Settings,
   },
   {
     to: "/settings/api-health",

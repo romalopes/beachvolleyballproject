@@ -9,8 +9,10 @@ interface ImpersonationState {
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, confirmation: string) => Promise<void>;
+  /** Resolves to the signed-in user, or null when verification is pending. */
+  login: (email: string, password: string) => Promise<User | null>;
+  /** Resolves to the created user, or null when verification is pending. */
+  register: (name: string, email: string, password: string, confirmation: string) => Promise<User | null>;
   resetPassword: (token: string, password: string, confirmation: string) => Promise<void>;
   logout: () => Promise<void>;
   impersonation: ImpersonationState;
@@ -39,11 +41,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    setUser(await api.login(email, password));
+    const result = await api.login(email, password);
+    // Unverified accounts get HTTP 202 "pending_verification" — no session was
+    // created, so the user must NOT enter the app until the email is verified.
+    if (result.status === "pending_verification") {
+      setUser(null);
+      return null;
+    }
+    setUser(result);
+    return result;
   };
 
   const register = async (name: string, email: string, password: string, confirmation: string) => {
-    setUser(await api.register(name, email, password, confirmation));
+    const result = await api.register(name, email, password, confirmation);
+    // Unverified signups get HTTP 202 "pending_verification" — no session was
+    // created, so the user must verify their email before entering the app.
+    if (result.status === "pending_verification") {
+      setUser(null);
+      return null;
+    }
+    setUser(result);
+    return result;
   };
 
   const resetPassword = async (token: string, password: string, confirmation: string) => {
