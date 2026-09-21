@@ -170,6 +170,25 @@ export interface ObjectMovement {
   description?: string;
 }
 
+/** @see $defs/annotation — per-step text annotation (visual overlay only). */
+export interface TextAnnotation {
+  id: string;
+  type: "text";
+  /** Logical position on a side — same grid coordinates as players. */
+  location: Location;
+  /** Box width fraction of the side's rendered rect. */
+  width: number;
+  /** Box height fraction of the side's rendered rect. */
+  height: number;
+  text: string;
+  font_size?: number;
+  bold?: boolean;
+  italic?: boolean;
+  align?: "left" | "center" | "right";
+  background?: boolean;
+  border?: boolean;
+}
+
 /** @see $defs/step */
 export interface Step {
   id: string;
@@ -181,6 +200,7 @@ export interface Step {
   participant_movements: ParticipantMovement[];
   ball_movements: BallMovement[];
   object_movements: ObjectMovement[];
+  annotations?: TextAnnotation[];
 }
 
 // ---- root -----------------------------------------------------

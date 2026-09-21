@@ -14,7 +14,7 @@ export interface StepBuilderProps {
   definition: DrillDefinition;
   stepIndex: number;
   hasNext: boolean;
-  selected: SelectedEntity | null;
+  selected: Selection | null;
   /** Chip / marker selection (owned by the surrounding builder layout). */
   onSelect: (kind: EntityKind, id: string) => void;
   onChange: (next: DrillDefinition) => void;
@@ -23,6 +23,20 @@ export interface StepBuilderProps {
 export interface SelectedEntity {
   kind: EntityKind;
   id: string;
+}
+
+/** An annotation selection shares the entity selection slot in the builder. */
+export interface SelectedAnnotation {
+  kind: "annotation";
+  id: string;
+}
+
+export type Selection = SelectedEntity | SelectedAnnotation;
+
+export function isAnnotationSelection(
+  selection: Selection | null,
+): selection is SelectedAnnotation {
+  return selection?.kind === "annotation";
 }
 
 export interface MovementEdit {

@@ -23,6 +23,7 @@ import Participant from "./Participant";
 import Ball from "./Ball";
 import DrillObject from "./DrillObject";
 import MovementArrow from "./MovementArrow";
+import TextAnnotation from "./TextAnnotation";
 import DrillStepControls from "./DrillStepControls";
 import DrillLegend from "./DrillLegend";
 import {
@@ -312,6 +313,17 @@ export default function DrillViewer({
             step.ball_movements,
             "ball_id",
           )}
+          {/* Per-step text annotations: top overlay layer, read-only.
+              Each is anchored to a logical `Location` (the same coordinate
+              system players use), so the orientation toggle never moves the
+              text to a different spot of the court. */}
+          {(step.annotations ?? []).map((annotation) => (
+            <TextAnnotation
+              key={annotation.id}
+              annotation={annotation}
+              geometry={geometry}
+            />
+          ))}
         </svg>
       </div>
 

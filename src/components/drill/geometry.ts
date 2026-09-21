@@ -394,6 +394,12 @@ function logicalAt(
 const clampValue = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+/**
+ * Kill binary-float noise (e.g. 1.9999999999999998 → 2) so a computed
+ * coordinate is always a clean, storable number.
+ */
+const clean = (value: number): number => Number(value.toFixed(4));
+
 /** Round to `step` multiples, then re-clamp (a snap may overshoot the bounds). */
 function snapValue(
   value: number,
@@ -402,8 +408,7 @@ function snapValue(
   max: number,
 ): number {
   const snapped = Math.round(value / step) * step;
-  // Kill binary-float noise (e.g. 2.9999999999999996 → 3).
-  return clampValue(Number(snapped.toFixed(4)), min, max);
+  return clampValue(clean(snapped), min, max);
 }
 
 export interface PointToLocationOptions {
@@ -441,10 +446,12 @@ export function pointToLocation(
   const limit = bounds[side];
 
   if (snap === null) {
+    // Free-form (continuous) position: still cleaned of float noise so the
+    // value can be stored and compared without epsilon gymnastics.
     return {
       side,
-      x: clampValue(raw.x, limit.minX, limit.maxX),
-      y: clampValue(raw.y, limit.minY, limit.maxY),
+      x: clampValue(clean(raw.x), limit.minX, limit.maxX),
+      y: clampValue(clean(raw.y), limit.minY, limit.maxY),
     };
   }
 

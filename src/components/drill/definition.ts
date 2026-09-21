@@ -149,6 +149,59 @@ export interface Movement {
   description?: string;
 }
 
+export const TEXT_ALIGNMENTS = ["left", "center", "right"] as const;
+export type TextAlignment = (typeof TEXT_ALIGNMENTS)[number];
+
+/**
+ * Text annotation on a step — a coach-authored visual overlay only.
+ *
+ * The position is a LOGICAL `Location` (side + grid x/y) — the exact same
+ * coordinate system players use — so `locationToSvg` projects it identically
+ * for players and text: flipping lateral ⇄ top_down rotates the text with the
+ * court instead of moving it to a different physical spot.
+ *
+ * `width`/`height` are the box size as fractions of the anchored side's
+ * rendered rect (screen-space), so the text always renders upright.
+ */
+export interface TextAnnotation {
+  /** Stable id unique within the step. */
+  id: string;
+  /** Always "text"; leaves room for future annotation types. */
+  type: "text";
+  /** Logical position on a side — same grid coordinates as players. */
+  location: Location;
+  /** Box width fraction of the side's rendered rect (0..1). */
+  width: number;
+  /** Box height fraction of the side's rendered rect (0..1). */
+  height: number;
+  /** Arbitrary text; may contain multiple lines separated by "\n". */
+  text: string;
+  /** Font size in SVG units at the reference geometry — scales with the court. */
+  font_size?: number;
+  bold?: boolean;
+  italic?: boolean;
+  align?: TextAlignment;
+  /** Optional translucent backdrop behind the text. */
+  background?: boolean;
+  /** Optional border around the text box. */
+  border?: boolean;
+}
+
+/** Default text annotation: net-side, first sideline of side 1. */
+export const DEFAULT_TEXT_ANNOTATION: Omit<TextAnnotation, "id"> = {
+  type: "text",
+  location: { side: "side_1", x: 5, y: 1 },
+  width: 0.28,
+  height: 0.16,
+  text: "Attack here",
+  font_size: 14,
+  bold: false,
+  italic: false,
+  align: "left",
+  background: false,
+  border: false,
+};
+
 export interface Step {
   id: string;
   description?: string;
@@ -168,6 +221,8 @@ export interface Step {
   participant_movements: Movement[];
   ball_movements: Movement[];
   object_movements: Movement[];
+  /** Optional per-step text annotations (visual overlays only). */
+  annotations?: TextAnnotation[];
 }
 
 export interface DrillDefinition {

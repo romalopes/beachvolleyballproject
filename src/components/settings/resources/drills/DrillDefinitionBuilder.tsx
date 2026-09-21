@@ -19,6 +19,7 @@ import { DEFAULT_ORIENTATION } from "../../../drill/definition";
 import { STEP_DURATION_MS } from "../../../drill/playback";
 import { useStepPlayback } from "../../../drill/useStepPlayback";
 import DrillStepControls from "../../../drill/DrillStepControls";
+import AnnotationEditor from "./AnnotationEditor";
 import CourtSetup from "./CourtSetup";
 import InteractiveCourt from "./InteractiveCourt";
 import type { Layer } from "./InteractiveCourt";
@@ -26,11 +27,17 @@ import StepBuilder from "./StepBuilder";
 import StepList from "./StepList";
 import {
   EMPTY_DEFINITION,
+  addStepAnnotation,
+  moveStepAnnotation,
+  removeStepAnnotation,
   setEntityLocation,
   setMovementTarget,
   type EntityKind,
 } from "./drill-model";
-import type { SelectedEntity } from "./stepBuilderModel";
+import {
+  isAnnotationSelection,
+  type Selection,
+} from "./stepBuilderModel";
 
 export interface DrillDefinitionBuilderProps {
   definition: DrillDefinition | null;
@@ -43,7 +50,7 @@ export default function DrillDefinitionBuilder({
 }: DrillDefinitionBuilderProps) {
   const [orientation, setOrientation] = useState<Orientation | null>(null);
   const [activeStepIndex, setActiveStepIndex] = useState(0);
-  const [selected, setSelected] = useState<SelectedEntity | null>(null);
+  const [selected, setSelected] = useState<Selection | null>(null);
   // Side display size: percentage of the pane width; height follows the fixed
   // aspect ratio, so one slider scales the whole court. Purely visual.
   const [sideScale, setSideScale] = useState(100);
@@ -102,6 +109,20 @@ export default function DrillDefinitionBuilder({
     onChange(setMovementTarget(model, stepIndex, kind, movementIndex, location));
   };
 
+  /** "+ Add Text": append an annotation to the current step and select it. */
+  const handleAddAnnotation = () => {
+    const next = addStepAnnotation(model, stepIndex);
+    const step = next.steps[stepIndex];
+    const added = step.annotations?.[step.annotations.length - 1];
+    onChange(next);
+    if (added) setSelected({ kind: "annotation", id: added.id });
+  };
+
+  /** A text annotation was dragged to a new logical location. */
+  const handleAnnotationMove = (id: string, location: Location) => {
+    onChange(moveStepAnnotation(model, stepIndex, id, location));
+  };
+
   return (
     <div className="drill-definition-builder">
       <div className="drill-definition-builder-court-pane">
@@ -155,14 +176,25 @@ export default function DrillDefinitionBuilder({
           orientation={previewOrientation}
           stepIndex={stepIndex}
           selected={selected}
-          onSelect={(kind, id) => setSelected({ kind, id })}
+          onSelect={(kind, id) => setSelected({ kind, id } as Selection)}
           onMove={handleMove}
           onTargetMove={handleTargetMove}
+          onAnnotationMove={handleAnnotationMove}
           onCourtClick={() => setSelected(null)}
           playing={playback.playing}
           progress={playback.progress}
           sizeScale={sideScale}
         />
+        <div className="drill-annotation-toolbar">
+          <button
+            type="button"
+            className="admin-btn admin-btn-add"
+            onClick={handleAddAnnotation}
+            disabled={playback.playing}
+          >
+            + Add Text
+          </button>
+        </div>
         <DrillStepControls
           stepIndex={stepIndex}
           stepCount={model.steps.length}
@@ -184,6 +216,20 @@ export default function DrillDefinitionBuilder({
           onSelectStep={selectStep}
           onChange={onChange}
         />
+        {isAnnotationSelection(selected) && (
+          <AnnotationEditor
+            definition={model}
+            stepIndex={stepIndex}
+            annotationId={selected.id}
+            onChange={onChange}
+            onDelete={() => {
+              onChange(
+                removeStepAnnotation(model, stepIndex, selected.id),
+              );
+              setSelected(null);
+            }}
+          />
+        )}
         <StepBuilder
           definition={model}
           stepIndex={stepIndex}

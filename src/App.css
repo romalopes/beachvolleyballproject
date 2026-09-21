@@ -4066,7 +4066,86 @@
   font-size: 0.875rem;
 }
 
-/* ---- Definition panel: visual builder ⇄ JSON editor ---- */
+/* ---- Text annotations (visual builder + viewer overlay) ---- */
+
+/* The foreignObject itself: transparent, pointer events handled inline. */
+.drill-annotation {
+  overflow: visible;
+}
+
+.drill-annotation-box {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink, #1c1c1c);
+  border-radius: 4px;
+}
+
+.drill-annotation-bg .drill-annotation-box,
+.drill-annotation-box.drill-annotation-bg {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.drill-annotation-box.drill-annotation-border {
+  border: 1.5px dashed var(--border, #9a9a9a);
+}
+
+/* Selected annotation: an emphasis ring on the box. */
+.drill-annotation-selected .drill-annotation-box,
+.drill-annotation-box.drill-annotation-selected {
+  outline: 2px solid #2b6cb0;
+  outline-offset: 1px;
+}
+
+.drill-annotation-toolbar {
+  display: flex;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+/* ---- Annotation editor (visual builder config pane) ---- */
+
+.drill-annotation-editor {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.drill-annotation-editor legend {
+  font-weight: 600;
+  padding: 0 0.35rem;
+}
+
+.drill-annotation-editor textarea {
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.drill-annotation-editor-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-top: 0.6rem;
+}
+
+.drill-annotation-editor-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.drill-annotation-editor-row label:has(input[type="checkbox"]) {
+  flex-direction: row;
+  align-items: center;
+}
+
+.drill-annotation-editor button {
+  margin-top: 0.75rem;
+}
+
 
 .drill-definition-panel {
   display: flex;

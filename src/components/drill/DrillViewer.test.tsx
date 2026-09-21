@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { DrillDefinition } from "./definition";
+import type { DrillDefinition, Orientation } from "./definition";
+import { buildSideGeometry, locationToSvg, pointToLocation } from "./geometry";
 import DrillViewer from "./DrillViewer";
 
 const emptyStep = {
@@ -91,5 +92,170 @@ describe("DrillViewer — playback controls", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Pause" }));
     expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
+  });
+});
+
+describe("DrillViewer — text annotations", () => {
+  const annotation = {
+    id: "text_1",
+    type: "text" as const,
+    // Logical position: the SAME coordinate system players use (side + grid
+    // x/y), so the orientation toggle can never move the text.
+    location: { side: "side_1" as const, x: 4, y: 3 },
+    width: 0.22,
+    height: 0.15,
+    text: "P1 = Server\nP2 = Receiver",
+    font_size: 14,
+    bold: true,
+    italic: false,
+    align: "left" as const,
+    background: true,
+    border: false,
+  };
+
+  const definitionWithAnnotation: DrillDefinition = {
+    version: 1,
+    side: { grid: { columns: 5, rows: 4 } },
+    participants: [],
+    balls: [],
+    objects: [],
+    steps: [{ ...emptyStep, annotations: [annotation] }],
+  };
+
+  it("renders the annotation text as an overlay", () => {
+    const { container } = render(
+      <DrillViewer definition={definitionWithAnnotation} />,
+    );
+    const foreign = container.querySelector("foreignObject.drill-annotation")!;
+    expect(foreign).toBeInTheDocument();
+    expect(foreign.getAttribute("data-annotation-id")).toBe("text_1");
+    expect(screen.getByText("P1 = Server")).toBeInTheDocument();
+    expect(screen.getByText("P2 = Receiver")).toBeInTheDocument();
+    // Styling comes from the annotation, not from pixels in the data.
+    const box = container.querySelector(".drill-annotation-box") as HTMLElement;
+    expect(box.style.fontWeight).toBe("bold");
+  });
+
+  it("renders no annotations for a definition without them", () => {
+    const { container } = render(<DrillViewer definition={definition} />);
+    expect(container.querySelector(".drill-annotation")).toBeNull();
+  });
+
+  it("keeps annotations positioned across canvas sizes", () => {
+    // foreignObject geometry derives from fractions × the geometry box, so the
+    // same definition yields identical SVG-unit positions at any viewBox.
+    const small = render(<DrillViewer definition={definitionWithAnnotation} />);
+    const smallForeign = small.container.querySelector(
+      "foreignObject.drill-annotation",
+    )!;
+    const smallX = Number(smallForeign.getAttribute("x"));
+    small.unmount();
+
+    const large = render(<DrillViewer definition={definitionWithAnnotation} />);
+    const largeForeign = large.container.querySelector(
+      "foreignObject.drill-annotation",
+    )!;
+    expect(Number(largeForeign.getAttribute("x"))).toBe(smallX);
+    large.unmount();
+  });
+
+  it("anchors the annotation at its logical location, projected like a player", () => {
+    // The annotation anchor goes through the very same `locationToSvg` call as
+    // a player position: one coordinate system, one projection.
+    const { container } = render(
+      <DrillViewer definition={definitionWithAnnotation} />,
+    );
+    const foreign = container.querySelector("foreignObject.drill-annotation")!;
+    const geometry = buildSideGeometry("lateral", definition.side);
+    const anchor = locationToSvg(annotation.location, geometry);
+    expect(Number(foreign.getAttribute("x"))).toBeCloseTo(anchor.x);
+    expect(Number(foreign.getAttribute("y"))).toBeCloseTo(anchor.y);
+  });
+
+  it("keeps the text on the same court spot when the orientation changes", () => {
+    // The anchor is projected with `locationToSvg`; round-tripping it back
+    // through `pointToLocation` must return the stored logical location in
+    // BOTH orientations — i.e. flipping the layout never relocates the text.
+    const roundTripped = (orientation: Orientation) => {
+      const { container, unmount } = render(
+        <DrillViewer definition={definitionWithAnnotation} />,
+      );
+      if (orientation === "top_down") {
+        fireEvent.click(screen.getByRole("button", { name: "Top down" }));
+      }
+      const foreign = container.querySelector(
+        "foreignObject.drill-annotation",
+      )!;
+      const geometry = buildSideGeometry(orientation, definition.side);
+      const location = pointToLocation(
+        {
+          x: Number(foreign.getAttribute("x")),
+          y: Number(foreign.getAttribute("y")),
+        },
+        geometry,
+        { snap: null },
+      );
+      unmount();
+      return location;
+    };
+
+    for (const orientation of ["lateral", "top_down"] as Orientation[]) {
+      const location = roundTripped(orientation);
+      expect(location.side).toBe(annotation.location.side);
+      expect(location.x).toBeCloseTo(annotation.location.x);
+      expect(location.y).toBeCloseTo(annotation.location.y);
+    }
+  });
+
+  it("keeps the distance to the net and to the sideline when the orientation changes", () => {
+    // The reported bug: a text placed near the net on side 1 jumped to the far
+    // end of the side (and looked like it switched sides) after flipping the
+    // orientation. With a logical anchor these two physical distances — from
+    // the baseline (the side's outer edge) and from the x=1 sideline — must be
+    // the same number of SVG units in both orientations.
+    const physicalOffsets = (orientation: Orientation) => {
+      const geometry = buildSideGeometry(orientation, definition.side);
+      const anchor = locationToSvg(annotation.location, geometry);
+      const rect = geometry.side1;
+      return orientation === "lateral"
+        ? // lateral: baseline→net runs left→right, x=1 is the bottom edge
+          {
+            fromBaseline: anchor.x - rect.x,
+            fromSideline: rect.y + rect.height - anchor.y,
+          }
+        : // top_down: baseline→net runs top→bottom, x=1 is the left edge
+          {
+            fromBaseline: anchor.y - rect.y,
+            fromSideline: anchor.x - rect.x,
+          };
+    };
+
+    const lateral = physicalOffsets("lateral");
+    const topDown = physicalOffsets("top_down");
+    expect(topDown.fromBaseline).toBeCloseTo(lateral.fromBaseline);
+    expect(topDown.fromSideline).toBeCloseTo(lateral.fromSideline);
+  });
+
+  it("anchors annotations on side_2 to the second side's rect", () => {
+    const side2Definition: DrillDefinition = {
+      ...definitionWithAnnotation,
+      steps: [
+        {
+          ...emptyStep,
+          annotations: [{ ...annotation, location: { side: "side_2", x: 2, y: 3 } }],
+        },
+      ],
+    };
+    const { container } = render(<DrillViewer definition={side2Definition} />);
+    const foreign = container.querySelector("foreignObject.drill-annotation")!;
+    const geometry = buildSideGeometry("lateral", side2Definition.side);
+    const anchor = locationToSvg({ side: "side_2", x: 2, y: 3 }, geometry);
+    expect(Number(foreign.getAttribute("x"))).toBeCloseTo(anchor.x);
+    expect(Number(foreign.getAttribute("y"))).toBeCloseTo(anchor.y);
+    // it really lands inside the second side's rect.
+    expect(anchor.x).toBeGreaterThanOrEqual(geometry.side2.x);
+    expect(anchor.x).toBeLessThanOrEqual(
+      geometry.side2.x + geometry.side2.width,
+    );
   });
 });

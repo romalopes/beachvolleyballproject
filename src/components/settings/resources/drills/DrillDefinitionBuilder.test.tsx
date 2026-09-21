@@ -23,8 +23,10 @@ vi.mock("./InteractiveCourt", () => ({
     playing = false,
     progress = 0,
     sizeScale = 100,
+    onSelect,
     onMove,
     onTargetMove,
+    onAnnotationMove,
   }: {
     definition: DrillDefinition;
     orientation: Orientation;
@@ -32,6 +34,7 @@ vi.mock("./InteractiveCourt", () => ({
     playing?: boolean;
     progress?: number;
     sizeScale?: number;
+    onSelect: (kind: string, id: string) => void;
     onMove: (
       kind: "participants" | "balls" | "objects",
       id: string,
@@ -43,6 +46,7 @@ vi.mock("./InteractiveCourt", () => ({
       movementIndex: number,
       location: { side: "side_1" | "side_2"; x: number; y: number },
     ) => void;
+    onAnnotationMove?: (id: string, location: { side: "side_1" | "side_2"; x: number; y: number }) => void;
   }) => {
     const step = definition.steps[stepIndex];
     return (
@@ -53,6 +57,19 @@ vi.mock("./InteractiveCourt", () => ({
         data-progress={progress}
         data-size-scale={sizeScale}
       >
+        {(definition.steps[stepIndex]?.annotations ?? []).map((annotation) => (
+          <button
+            key={`annotation-${annotation.id}`}
+            type="button"
+            data-testid={`annotation-${annotation.id}`}
+            onClick={() => onSelect("annotation", annotation.id)}
+            onDoubleClick={() =>
+              onAnnotationMove?.(annotation.id, { side: "side_1", x: 4, y: 4 })
+            }
+          >
+            annotation {annotation.id}
+          </button>
+        ))}
         {(definition.steps[stepIndex]?.ball_movements ?? []).map(
           (movement, index) => (
             <button
@@ -241,6 +258,104 @@ describe("DrillDefinitionBuilder", () => {
  * court is mocked here: these tests pin the wiring from the controls to the
  * court and to the shared playback state.
  */
+describe("DrillDefinitionBuilder — text annotations", () => {
+  const withAnnotation = (text = "Attack here"): DrillDefinition => {
+    const start = twoSteps();
+    (start.steps[0] as DrillDefinition["steps"][0]).annotations = [
+      {
+        id: "text_1",
+        type: "text",
+        location: { side: "side_1", x: 2, y: 2 },
+        width: 0.3,
+        height: 0.2,
+        text,
+      },
+    ];
+    return start;
+  };
+
+  it("+ Add Text appends an annotation to the current step and opens its editor", () => {
+    const utils = renderBuilder();
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Add Text" }));
+
+    expect(utils.onChange).toHaveBeenCalledTimes(1);
+    const next = utils.onChange.mock.calls[0][0] as DrillDefinition;
+    expect(next.steps[0].annotations).toHaveLength(1);
+    expect(next.steps[0].annotations![0].id).toBe("text_1");
+    expect(next.steps[0].annotations![0].type).toBe("text");
+
+    // The controlled builder re-renders with the new definition, then the
+    // annotation appears on the court and is selectable.
+    utils.rerender(
+      <DrillDefinitionBuilder definition={next} onChange={utils.onChange} />,
+    );
+    fireEvent.click(screen.getByTestId("annotation-text_1"));
+    expect(screen.getByLabelText("Annotation text")).toBeInTheDocument();
+  });
+
+  it("edits the annotation text and formatting through the panel", () => {
+    const { onChange } = renderBuilder(withAnnotation());
+
+    fireEvent.click(screen.getByTestId("annotation-text_1"));
+    const textarea = screen.getByLabelText(
+      "Annotation text",
+    ) as HTMLTextAreaElement;
+    expect(textarea.value).toBe("Attack here");
+
+    fireEvent.change(textarea, {
+      target: { value: "P1 = Server\nP2 = Receiver" },
+    });
+    fireEvent.click(screen.getByLabelText("Annotation bold"));
+
+    // The controlled component is not re-rendered between edits, so each
+    // onChange call carries its own patch merged into the previous state.
+    const textCall = onChange.mock.calls.find(
+      ([def]) =>
+        (def as DrillDefinition).steps[0].annotations![0].text ===
+        "P1 = Server\nP2 = Receiver",
+    );
+    expect(textCall).toBeTruthy();
+    const last = onChange.mock.calls.at(-1)![0] as DrillDefinition;
+    expect(last.steps[0].annotations![0].bold).toBe(true);
+  });
+
+  it("moves an annotation through the court drag callback", () => {
+    const { onChange } = renderBuilder(withAnnotation("Block line"));
+
+    fireEvent.doubleClick(screen.getByTestId("annotation-text_1"));
+
+    expect(onChange).toHaveBeenCalled();
+    const last = onChange.mock.calls.at(-1)![0] as DrillDefinition;
+    const a = last.steps[0].annotations![0];
+    // The drag commits a logical Location — the same coordinate system as a
+    // player placement — so the text keeps its court spot across orientations.
+    expect(a.location).toEqual({ side: "side_1", x: 4, y: 4 });
+  });
+
+  it("deletes a selected annotation", () => {
+    const { onChange } = renderBuilder(withAnnotation());
+
+    fireEvent.click(screen.getByTestId("annotation-text_1"));
+    fireEvent.click(screen.getByRole("button", { name: "Delete text" }));
+
+    const last = onChange.mock.calls.at(-1)![0] as DrillDefinition;
+    expect(last.steps[0].annotations).toHaveLength(0);
+  });
+
+  it("annotation stays on its own step", () => {
+    renderBuilder(withAnnotation());
+
+    expect(screen.getByTestId("annotation-text_1")).toBeInTheDocument();
+    // The step-list select button for S2 (not its "Move/Duplicate" actions).
+    // Its accessible name concatenates id + meta ("S21 placed" for 1 entity).
+    fireEvent.click(
+      screen.getByRole("button", { name: /^S2 \d+ placed$|^S2\d* ?\d* placed$/ }),
+    );
+    expect(screen.queryByTestId("annotation-text_1")).toBeNull();
+  });
+});
+
 describe("DrillDefinitionBuilder — visualisation controls", () => {
   it("renders the size slider and the step controls beside the court", () => {
     const { container } = renderBuilder();

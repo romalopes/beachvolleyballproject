@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { DrillDefinition } from "../../../drill/definition";
+import type { DrillDefinition, Orientation } from "../../../drill/definition";
 import { buildSideGeometry, locationToSvg } from "../../../drill/geometry";
 import InteractiveCourt, {
   type InteractiveCourtProps,
@@ -334,3 +334,140 @@ describe("InteractiveCourt — last-step exit targets", () => {
     );
   });
 });
+/**
+ * Text annotations are dragged in the LOGICAL player coordinate system. The
+ * pointer position is reversed through the very same projection that places
+ * players (`pointToLocation`), so the same logical spot is committed whether
+ * the author drags in lateral or top_down — which is exactly what keeps the
+ * text on the same spot of the court when the orientation changes.
+ */
+describe("InteractiveCourt — text annotation drag", () => {
+  const annotation = {
+    id: "text_1",
+    type: "text" as const,
+    location: { side: "side_1" as const, x: 2, y: 2 },
+    width: 0.3,
+    height: 0.2,
+    text: "Attack here",
+  };
+
+  const withAnnotation: DrillDefinition = {
+    ...definition,
+    steps: [
+      { ...definition.steps[0], annotations: [annotation] },
+      definition.steps[1],
+    ],
+  };
+
+  it("selects the annotation and commits a logical location while dragging", () => {
+    const onAnnotationMove = vi.fn();
+    const onSelect = vi.fn();
+    const { container, svg } = renderCourt({
+      definition: withAnnotation,
+      onAnnotationMove,
+      onSelect,
+    });
+    const marker = container.querySelector("foreignObject.drill-annotation")!;
+    expect(marker).not.toBeNull();
+
+    fireEvent.pointerDown(marker, { clientX: 20, clientY: 20 });
+    expect(onSelect).toHaveBeenCalledWith("annotation", "text_1");
+
+    fireEvent.pointerMove(svg, { clientX: 60, clientY: 50 });
+
+    expect(onAnnotationMove).toHaveBeenCalledTimes(1);
+    const [id, location] = onAnnotationMove.mock.calls[0];
+    expect(id).toBe("text_1");
+    expect(location.side).toBe("side_1");
+    expect(location.x).toBeGreaterThan(0);
+    expect(location.y).toBeGreaterThan(0);
+  });
+
+  it("commits the same logical location in both orientations", () => {
+    // Dragging the anchor onto its own position is a no-op: whatever the
+    // orientation, the committed location must come back identical.
+    const dragToAnchor = (orientation: Orientation) => {
+      const onAnnotationMove = vi.fn();
+      const { container, svg, geometry } = renderCourt({
+        definition: withAnnotation,
+        orientation,
+        onAnnotationMove,
+      });
+      const anchor = locationToSvg(annotation.location, geometry);
+      fireEvent.pointerDown(
+        container.querySelector("foreignObject.drill-annotation")!,
+        { clientX: anchor.x, clientY: anchor.y },
+      );
+      fireEvent.pointerMove(svg, { clientX: anchor.x, clientY: anchor.y });
+      return onAnnotationMove.mock.calls.at(-1)?.[1];
+    };
+
+    expect(dragToAnchor("lateral")).toEqual(annotation.location);
+    expect(dragToAnchor("top_down")).toEqual(annotation.location);
+  });
+
+  it("keeps the grab offset so the box never jumps", () => {
+    // The pointer grabbed the box 10/6 SVG units away from its anchor: moving
+    // to that same point must leave the anchor exactly where it was (no jump),
+    // and a further 30-unit pointer move must travel the anchor the very same
+    // 30 units — in whichever screen direction this orientation maps the
+    // logical axes to (lateral and top_down map them differently), and 0 along
+    // the other axis.
+    const forOrientation = (orientation: Orientation) => {
+      const onAnnotationMove = vi.fn();
+      const { container, svg, geometry, unmount } = renderCourt({
+        definition: withAnnotation,
+        orientation,
+        onAnnotationMove,
+      });
+      const anchor = locationToSvg(annotation.location, geometry);
+      const grab = { x: anchor.x + 10, y: anchor.y + 6 };
+
+      fireEvent.pointerDown(
+        container.querySelector("foreignObject.drill-annotation")!,
+        { clientX: grab.x, clientY: grab.y },
+      );
+      // Grabbing and holding still is a no-op: the grab offset is honoured.
+      fireEvent.pointerMove(svg, { clientX: grab.x, clientY: grab.y });
+      const stillThere = locationToSvg(
+        onAnnotationMove.mock.calls.at(-1)![1],
+        geometry,
+      );
+      expect(stillThere.x).toBeCloseTo(anchor.x);
+      expect(stillThere.y).toBeCloseTo(anchor.y);
+
+      // A 30-unit pointer move right carries the anchor 30 units with it.
+      fireEvent.pointerMove(svg, { clientX: grab.x + 30, clientY: grab.y });
+      const movedAnchor = locationToSvg(
+        onAnnotationMove.mock.calls.at(-1)![1],
+        geometry,
+      );
+      const dx = Math.abs(movedAnchor.x - anchor.x);
+      const dy = Math.abs(movedAnchor.y - anchor.y);
+      expect(dx + dy).toBeCloseTo(30);
+      expect(Math.min(dx, dy)).toBeCloseTo(0);
+      unmount();
+    };
+
+    forOrientation("lateral");
+    forOrientation("top_down");
+  });
+
+  it("suspends annotation drags while the moves are being checked", () => {
+    const onAnnotationMove = vi.fn();
+    const { container, svg } = renderCourt({
+      definition: withAnnotation,
+      playing: true,
+      onAnnotationMove,
+    });
+
+    fireEvent.pointerDown(
+      container.querySelector("foreignObject.drill-annotation")!,
+      { clientX: 20, clientY: 20 },
+    );
+    fireEvent.pointerMove(svg, { clientX: 60, clientY: 50 });
+
+    expect(onAnnotationMove).not.toHaveBeenCalled();
+  });
+});
+

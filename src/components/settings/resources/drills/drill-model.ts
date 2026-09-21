@@ -1222,3 +1222,136 @@ export function setDefinitionDescription(
   else next.description = description;
   return next;
 }
+
+// ---- per-step text annotations ----------------------------------------
+
+import { DEFAULT_TEXT_ANNOTATION, type TextAnnotation } from "../../../drill/definition";
+
+const clamp01 = (value: number): number =>
+  Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+
+/** Annotations of one step, defaulting to `[]`. */
+function annotationsOf(step: Step): TextAnnotation[] {
+  return step.annotations ?? [];
+}
+
+/** Map one step, returning the definition unchanged when the index is out of range. */
+function mapStep(
+  definition: DrillDefinition,
+  stepIndex: number,
+  fn: (step: Step) => Step,
+): DrillDefinition {
+  if (!definition.steps[stepIndex]) return definition;
+  return {
+    ...definition,
+    steps: definition.steps.map((candidate, index) =>
+      index === stepIndex ? fn(candidate) : candidate,
+    ),
+  };
+}
+
+/** Add a default Text annotation to a step, with a unique per-step id. */
+export function addStepAnnotation(
+  definition: DrillDefinition,
+  stepIndex: number,
+): DrillDefinition {
+  return mapStep(definition, stepIndex, (step) => {
+    const annotations = [...annotationsOf(step)];
+    let n = annotations.length + 1;
+    const taken = new Set(annotations.map((a) => a.id));
+    while (taken.has(`text_${n}`)) n += 1;
+    const bounds = editorBounds(definition.side);
+    const grid = definition.side.grid;
+    // Sensible starting point: net-side of side 1, first sideline — always
+    // inside the playable bounds, whatever the grid/extensions are.
+    const location: Location = {
+      side: "side_1",
+      x: Math.min(Math.max(grid.columns, bounds.side_1.minX), bounds.side_1.maxX),
+      y: Math.min(Math.max(1, bounds.side_1.minY), bounds.side_1.maxY),
+    };
+    const annotation: TextAnnotation = {
+      ...DEFAULT_TEXT_ANNOTATION,
+      location,
+      id: `text_${n}`,
+    };
+    annotations.push(annotation);
+    return { ...step, annotations };
+  });
+}
+
+/** Patch one annotation of a step; unknown id is a no-op. */
+export function updateStepAnnotation(
+  definition: DrillDefinition,
+  stepIndex: number,
+  id: string,
+  patch: Partial<Omit<TextAnnotation, "id" | "type">>,
+): DrillDefinition {
+  return mapStep(definition, stepIndex, (step) => ({
+    ...step,
+    annotations: annotationsOf(step).map((a) =>
+      a.id === id ? { ...a, ...patch } : a,
+    ),
+  }));
+}
+
+/**
+ * Move an annotation by its logical location (side + grid x/y) — the same
+ * coordinate system players use, so the text keeps its place on the court
+ * when the orientation changes. The location is clamped to the playable
+ * bounds, exactly like a player placement.
+ */
+export function moveStepAnnotation(
+  definition: DrillDefinition,
+  stepIndex: number,
+  id: string,
+  location: Location,
+): DrillDefinition {
+  const step = definition.steps[stepIndex];
+  const annotation = step?.annotations?.find((a) => a.id === id);
+  if (!step || !annotation) return definition;
+
+  const bounds = editorBounds(definition.side)[location.side];
+  if (!bounds) return definition;
+  const clamped: Location = {
+    side: location.side,
+    x: Math.min(Math.max(location.x, bounds.minX), bounds.maxX),
+    y: Math.min(Math.max(location.y, bounds.minY), bounds.maxY),
+  };
+
+  return mapStep(definition, stepIndex, (candidate) => ({
+    ...candidate,
+    annotations: annotationsOf(candidate).map((a) =>
+      a.id === id ? { ...a, location: clamped } : a,
+    ),
+  }));
+}
+
+/** Resize an annotation's box (fractions of the side's rendered rect). */
+export function resizeStepAnnotation(
+  definition: DrillDefinition,
+  stepIndex: number,
+  id: string,
+  width: number,
+  height: number,
+): DrillDefinition {
+  return mapStep(definition, stepIndex, (step) => ({
+    ...step,
+    annotations: annotationsOf(step).map((a) =>
+      a.id === id
+        ? { ...a, width: clamp01(width), height: clamp01(height) }
+        : a,
+    ),
+  }));
+}
+
+/** Remove one annotation from a step; unknown id is a no-op. */
+export function removeStepAnnotation(
+  definition: DrillDefinition,
+  stepIndex: number,
+  id: string,
+): DrillDefinition {
+  return mapStep(definition, stepIndex, (step) => ({
+    ...step,
+    annotations: annotationsOf(step).filter((a) => a.id !== id),
+  }));
+}

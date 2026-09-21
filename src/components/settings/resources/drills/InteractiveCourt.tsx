@@ -35,6 +35,7 @@ import type {
   Orientation,
   Participant,
   Step,
+  TextAnnotation,
 } from "../../../drill/definition";
 import {
   buildSideGeometry,
@@ -47,8 +48,10 @@ import ParticipantMark from "../../../drill/Participant";
 import BallMark from "../../../drill/Ball";
 import DrillObjectMark from "../../../drill/DrillObject";
 import MovementArrow from "../../../drill/MovementArrow";
+import TextAnnotationMark from "../../../drill/TextAnnotation";
 import { entityFramePoint, type MoveKey } from "../../../drill/playback";
 import { activeLocations, type EntityKind } from "./drill-model";
+import type { Selection } from "./stepBuilderModel";
 
 /** Which step a drag is editing: the one on screen, or the following one. */
 export type Layer = "current" | "next";
@@ -57,14 +60,21 @@ export interface InteractiveCourtProps {
   definition: DrillDefinition;
   orientation: Orientation;
   stepIndex: number;
-  selected: { kind: EntityKind; id: string } | null;
-  onSelect: (kind: EntityKind, id: string) => void;
+  selected: Selection | null;
+  onSelect: (kind: EntityKind | "annotation", id: string) => void;
   onMove: (
     kind: EntityKind,
     id: string,
     location: Location,
     layer: Layer,
   ) => void;
+  /**
+   * A text annotation of the current step was dragged: `location` is the new
+   * logical position (side + grid x/y) — the same coordinate system as a
+   * player placement, so the text keeps its place on the court when the
+   * orientation changes.
+   */
+  onAnnotationMove?: (id: string, location: Location) => void;
   /** A press on empty court; carries the snapped logical location. */
   onCourtClick: (location: Location) => void;
   /**
@@ -119,6 +129,15 @@ interface DragState {
   movementIndex?: number;
 }
 
+/** In-flight annotation drag, in the logical player coordinate system. */
+interface AnnotationDragState {
+  id: string;
+  location: Location;
+  /** Pointer offset from the projected anchor, in SVG units (drag never jumps). */
+  offsetX: number;
+  offsetY: number;
+}
+
 export default function InteractiveCourt({
   definition,
   orientation,
@@ -127,6 +146,7 @@ export default function InteractiveCourt({
   onSelect,
   onMove,
   onTargetMove,
+  onAnnotationMove,
   onCourtClick,
   playing = false,
   progress = 0,
@@ -134,6 +154,8 @@ export default function InteractiveCourt({
 }: InteractiveCourtProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [drag, setDrag] = useState<DragState | null>(null);
+  const [annotationDrag, setAnnotationDrag] =
+    useState<AnnotationDragState | null>(null);
 
   const geometry = useMemo(
     () => buildSideGeometry(orientation, definition.side),
@@ -174,6 +196,27 @@ export default function InteractiveCourt({
   };
 
   /**
+   * Client coordinates → raw SVG coordinates. `width: 100%` plus `height: auto`
+   * on the SVG keeps the viewBox aspect ratio exact, so a single uniform scale
+   * maps screen space back into viewBox space. Used by the annotation drag,
+   * which works in the logical player coordinate system.
+   */
+  const svgPointFromEvent = (event: {
+    clientX: number;
+    clientY: number;
+  }): { x: number; y: number } | null => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    const scale = geometry.width / rect.width;
+    return {
+      x: (event.clientX - rect.left) * scale,
+      y: (event.clientY - rect.top) * scale,
+    };
+  };
+
+  /**
    * Client coordinates → snapped logical location. `width: 100%` plus
    * `height: auto` on the SVG keeps the viewBox aspect ratio exact, so a single
    * uniform scale maps screen space back into viewBox space.
@@ -182,19 +225,9 @@ export default function InteractiveCourt({
     clientX: number;
     clientY: number;
   }): Location | null => {
-    const svg = svgRef.current;
-    if (!svg) return null;
-    const rect = svg.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return null;
-    const scale = geometry.width / rect.width;
-    return pointToLocation(
-      {
-        x: (event.clientX - rect.left) * scale,
-        y: (event.clientY - rect.top) * scale,
-      },
-      geometry,
-      { bounds },
-    );
+    const point = svgPointFromEvent(event);
+    if (!point) return null;
+    return pointToLocation(point, geometry, { bounds });
   };
 
   const handleSurfacePointerDown = (event: React.PointerEvent) => {
@@ -233,10 +266,56 @@ export default function InteractiveCourt({
     setDrag({ kind, id, layer: "next", location, movementIndex });
   };
 
+  /**
+   * Start dragging a text annotation of the current step. The grab offset
+   * between the pointer and the annotation's projected anchor is recorded so
+   * the box never jumps when the drag starts. Anchors are logical `Location`s
+   * (side + grid x/y) — the same coordinates players use — so the text keeps
+   * its physical spot on the court across orientations.
+   */
+  const startAnnotationDrag = (
+    event: React.PointerEvent,
+    annotation: TextAnnotation,
+  ) => {
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    onSelect("annotation", annotation.id);
+    const point = svgPointFromEvent(event);
+    if (!point) return;
+    const anchor = locationToSvg(annotation.location, geometry);
+    setAnnotationDrag({
+      id: annotation.id,
+      location: annotation.location,
+      offsetX: point.x - anchor.x,
+      offsetY: point.y - anchor.y,
+    });
+  };
+
   const handlePointerMove = (event: React.PointerEvent) => {
     // Suspended while checking the moves: playback must never author them, so
     // a drag in flight cannot commit a new location to the model.
     if (playing) return;
+    if (annotationDrag) {
+      const annotation = currentStep?.annotations?.find(
+        (a) => a.id === annotationDrag.id,
+      );
+      if (!annotation) return;
+      // The pointer minus the grab offset is where the annotation's anchor
+      // should sit; `pointToLocation` reverses the renderer's own projection
+      // (both orientations, both mirrored sides), so text placement follows
+      // exactly the same rule as a player placement. Unsapped: text is
+      // free-form, unlike the grid-snapped entities.
+      const point = svgPointFromEvent(event);
+      if (!point) return;
+      const location = pointToLocation(
+        { x: point.x - annotationDrag.offsetX, y: point.y - annotationDrag.offsetY },
+        geometry,
+        { bounds, snap: null },
+      );
+      setAnnotationDrag({ ...annotationDrag, location });
+      onAnnotationMove?.(annotationDrag.id, location);
+      return;
+    }
     if (!drag) return;
     const location = locationFromEvent(event);
     if (!location) return;
@@ -250,6 +329,7 @@ export default function InteractiveCourt({
 
   const handlePointerUp = () => {
     if (drag) setDrag(null);
+    if (annotationDrag) setAnnotationDrag(null);
   };
 
   const renderEntity = (
@@ -462,6 +542,28 @@ export default function InteractiveCourt({
         )}
         {renderTargetCaps()}
         {renderLayer(currentStep, "current")}
+
+        {/* Per-step text annotations: top overlay layer, draggable.
+            Each is anchored to a logical `Location` (the same coordinate
+            system players use), so the orientation toggle never moves the
+            text to a different spot of the court. */}
+        {(currentStep?.annotations ?? []).map((annotation) => (
+          <TextAnnotationMark
+            key={annotation.id}
+            annotation={
+              annotationDrag?.id === annotation.id
+                ? { ...annotation, location: annotationDrag.location }
+                : annotation
+            }
+            geometry={geometry}
+            selected={
+              selected?.kind === "annotation" && selected.id === annotation.id
+            }
+            onPointerDown={
+              playing ? undefined : (event) => startAnnotationDrag(event, annotation)
+            }
+          />
+        ))}
 
         {drag && (
           <g

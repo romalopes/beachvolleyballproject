@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { SAMPLE_DRILL_DEFINITION } from "../../../drill/definition";
 import type { DrillDefinition } from "../../../drill/definition";
+import {
+  buildSideGeometry,
+  locationToSvg,
+  pointToLocation,
+} from "../../../drill/geometry";
 import { validateDrillDefinition } from "../../../../services/drillSchema";
 import {
   EMPTY_DEFINITION,
@@ -32,6 +37,11 @@ import {
   setGrid,
   setMovementTarget,
   setViewOrientation,
+  addStepAnnotation,
+  updateStepAnnotation,
+  moveStepAnnotation,
+  resizeStepAnnotation,
+  removeStepAnnotation,
 } from "./drill-model";
 
 /**
@@ -954,6 +964,179 @@ describe("court setup helpers", () => {
       movedPlacements: 0,
       movedTargets: 0,
     });
+  });
+});
+
+// ---- per-step text annotations ---------------------------------------
+
+describe("step text annotations", () => {
+  const baseDefinition = (): DrillDefinition =>
+    JSON.parse(JSON.stringify(EMPTY_DEFINITION));
+
+  it("addStepAnnotation appends a default Text with a unique id", () => {
+    let definition = baseDefinition();
+    definition = addStepAnnotation(definition, 0);
+    definition = addStepAnnotation(definition, 0);
+
+    const annotations = definition.steps[0].annotations!;
+    expect(annotations).toHaveLength(2);
+    expect(annotations[0].id).toBe("text_1");
+    expect(annotations[1].id).toBe("text_2");
+    expect(annotations[0].type).toBe("text");
+    expect(annotations[0].text.length).toBeGreaterThan(0);
+  });
+
+  it("updateStepAnnotation edits text and formatting", () => {
+    let definition = addStepAnnotation(baseDefinition(), 0);
+    definition = updateStepAnnotation(definition, 0, "text_1", {
+      text: "P1 = Server\nP2 = Receiver",
+      bold: true,
+      italic: true,
+      align: "center",
+      font_size: 20,
+      background: true,
+      border: true,
+    });
+    const a = definition.steps[0].annotations![0];
+    expect(a.text).toBe("P1 = Server\nP2 = Receiver");
+    expect(a.bold).toBe(true);
+    expect(a.italic).toBe(true);
+    expect(a.align).toBe("center");
+    expect(a.font_size).toBe(20);
+    expect(a.background).toBe(true);
+    expect(a.border).toBe(true);
+  });
+
+  it("moveStepAnnotation stores the logical location, clamped like a player", () => {
+    let definition = addStepAnnotation(baseDefinition(), 0);
+    // Off-court values clamp to the playable bounds (default side_1: x 1..5, y 1..4).
+    definition = moveStepAnnotation(definition, 0, "text_1", {
+      side: "side_1",
+      x: 99,
+      y: -3,
+    });
+    const a = definition.steps[0].annotations![0];
+    expect(a.location).toEqual({ side: "side_1", x: 5, y: 1 });
+  });
+
+  it("moveStepAnnotation can move the text to the other side", () => {
+    let definition = addStepAnnotation(baseDefinition(), 0);
+    definition = moveStepAnnotation(definition, 0, "text_1", {
+      side: "side_2",
+      x: 3,
+      y: 2,
+    });
+    expect(definition.steps[0].annotations![0].location).toEqual({
+      side: "side_2",
+      x: 3,
+      y: 2,
+    });
+  });
+
+  it("the anchor keeps the same court position across orientations", () => {
+    // The anchor is a logical `Location` — exactly like a player placement — so
+    // projecting it and reading the point back must return the stored location
+    // in BOTH orientations. This is what stops the text from sliding to a
+    // different physical spot when the author flips the orientation.
+    let definition = addStepAnnotation(baseDefinition(), 0);
+    definition = moveStepAnnotation(definition, 0, "text_1", {
+      side: "side_1",
+      x: 2,
+      y: 3,
+    });
+    const stored = definition.steps[0].annotations![0].location;
+
+    for (const orientation of ["lateral", "top_down"] as const) {
+      const geometry = buildSideGeometry(orientation, definition.side);
+      const svg = locationToSvg(stored, geometry);
+      const roundTrip = pointToLocation(svg, geometry, { snap: null });
+      expect(roundTrip.side).toBe(stored.side);
+      expect(roundTrip.x).toBeCloseTo(stored.x);
+      expect(roundTrip.y).toBeCloseTo(stored.y);
+    }
+  });
+
+  it("resizeStepAnnotation clamps the box fractions to 0..1", () => {
+    let definition = addStepAnnotation(baseDefinition(), 0);
+    definition = resizeStepAnnotation(definition, 0, "text_1", 0.6, 1.9);
+    const a = definition.steps[0].annotations![0];
+    expect(a.width).toBeCloseTo(0.6);
+    expect(a.height).toBe(1);
+  });
+
+  it("removeStepAnnotation deletes; round-trip through JSON preserves", () => {
+    let definition = addStepAnnotation(baseDefinition(), 0);
+    const json = definitionToJsonText(definition);
+    definition = jsonTextToDefinition(json)!;
+    expect(definition.steps[0].annotations).toHaveLength(1);
+
+    definition = removeStepAnnotation(definition, 0, "text_1");
+    expect(definition.steps[0].annotations).toHaveLength(0);
+  });
+
+  it("annotations are per-step: other steps are untouched", () => {
+    let definition = baseDefinition();
+    // A second step to prove annotations don't leak across steps.
+    definition = {
+      ...definition,
+      steps: [...definition.steps, emptyStep("S2")],
+    };
+    definition = addStepAnnotation(definition, 0);
+    definition = addStepAnnotation(definition, 1);
+    expect(definition.steps[0].annotations).toHaveLength(1);
+    expect(definition.steps[1].annotations).toHaveLength(1);
+
+    definition = removeStepAnnotation(definition, 0, "text_1");
+    expect(definition.steps[0].annotations).toHaveLength(0);
+    expect(definition.steps[1].annotations).toHaveLength(1);
+  });
+
+  it("a definition without annotations passes the shared schema validator", () => {
+    const result = validateDrillDefinition(EMPTY_DEFINITION);
+    expect(result.valid).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+
+  it("a definition with a valid annotation passes the shared schema validator", () => {
+    const result = validateDrillDefinition(
+      addStepAnnotation(baseDefinition(), 0),
+    );
+    expect(result.valid).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
+
+  it("a definition with a multi-line annotation round-trips through JSON + schema", () => {
+    let definition = addStepAnnotation(baseDefinition(), 0);
+    definition = updateStepAnnotation(definition, 0, "text_1", {
+      text: "P1 = Server\nP2 = Receiver",
+    });
+    const json = definitionToJsonText(definition);
+    const reloaded = jsonTextToDefinition(json)!;
+    expect(reloaded.steps[0].annotations![0].text).toBe(
+      "P1 = Server\nP2 = Receiver",
+    );
+    expect(reloaded.steps[0].annotations![0].location).toEqual(
+      definition.steps[0].annotations![0].location,
+    );
+    expect(validateDrillDefinition(reloaded).valid).toBe(true);
+  });
+
+  it("an invalid annotation (width out of range) is rejected by the schema", () => {
+    const definition = addStepAnnotation(baseDefinition(), 0);
+    definition.steps[0].annotations![0].width = 1.5;
+    const result = validateDrillDefinition(definition);
+    expect(result.valid).toBe(false);
+    expect(result.issues.length).toBeGreaterThan(0);
+  });
+
+  it("an annotation with an unknown property is rejected by the schema", () => {
+    const definition = addStepAnnotation(baseDefinition(), 0);
+    // `additionalProperties: false` — a stray key must not slip through, which
+    // is what keeps the stored shape trustworthy across versions.
+    (definition.steps[0].annotations![0] as unknown as Record<string, unknown>)[
+      "side"
+    ] = "side_1";
+    expect(validateDrillDefinition(definition).valid).toBe(false);
   });
 });
 
