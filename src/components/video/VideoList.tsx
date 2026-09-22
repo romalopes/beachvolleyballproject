@@ -1,10 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import {
-  api,
-  type VideoReference,
-  type VideoReferenceTarget,
-} from "../../api";
+import { api, type VideoReference, type VideoReferenceTarget } from "../../api";
 import { formatReferenceWindow } from "../../utils/videos";
 import EmptyState from "../EmptyState";
 import VideoForm from "./VideoForm";
@@ -77,7 +73,9 @@ export default function VideoList({
       await api.removeVideoReference(target, targetId, reference.id);
       onChanged?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to remove the video.");
+      setError(
+        err instanceof Error ? err.message : "Failed to remove the video.",
+      );
     }
   };
 
@@ -130,7 +128,9 @@ export default function VideoList({
             <li key={reference.id}>
               <button
                 type="button"
-                className={index === activeIndex && !adding && !editing ? "active" : ""}
+                className={
+                  index === activeIndex && !adding && !editing ? "active" : ""
+                }
                 onClick={() => setActiveIndex(index)}
               >
                 {reference.video.thumbnail_url ? (
@@ -139,10 +139,16 @@ export default function VideoList({
                   <span className="video-thumb-placeholder">▶</span>
                 )}
                 <span className="video-list-item-title">
-                  {index + 1}. {reference.title || reference.video.title || `Video ${index + 1}`}
+                  {index + 1}.{" "}
+                  {reference.title ||
+                    reference.video.title ||
+                    `Video ${index + 1}`}
                 </span>
                 <span className="video-window">
-                  {formatReferenceWindow(reference.start_seconds, reference.end_seconds) ?? ""}
+                  {formatReferenceWindow(
+                    reference.start_seconds,
+                    reference.end_seconds,
+                  ) ?? ""}
                 </span>
               </button>
               {canManage && (

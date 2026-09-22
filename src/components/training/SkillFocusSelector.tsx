@@ -41,7 +41,9 @@ export default function SkillFocusSelector({
   const categorySkills = useMemo(
     () =>
       skills.filter((s) =>
-        effectiveCategoryId ? s.category_id === Number(effectiveCategoryId) : true,
+        effectiveCategoryId
+          ? s.category_id === Number(effectiveCategoryId)
+          : true,
       ),
     [skills, effectiveCategoryId],
   );

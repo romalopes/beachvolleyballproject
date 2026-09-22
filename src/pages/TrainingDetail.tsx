@@ -1,19 +1,30 @@
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { api, type Drill, type TrainingSession } from '../api';
-import { useAuth } from '../auth/AuthContext';
-import EmptyState from '../components/EmptyState';
-import Tag from '../components/Tag';
-import DrillViewer from '../components/drill/DrillViewer';
-import { resolveDrillDefinition } from '../components/drill/definition';
-import DeleteConfirm from '../components/settings/DeleteConfirm';
-import VideoList from '../components/video/VideoList';
-import { ArrowLeft, CalendarDays, Clock, Dumbbell, MapPin, Target } from 'lucide-react';
-import { canManageTrainings, formatTrainingDateRange, statusLabel } from '../utils/training';
+import { useEffect, useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { api, type Drill, type TrainingSession } from "../api";
+import { useAuth } from "../auth/AuthContext";
+import EmptyState from "../components/EmptyState";
+import Tag from "../components/Tag";
+import DrillViewer from "../components/drill/DrillViewer";
+import { resolveDrillDefinition } from "../components/drill/definition";
+import DeleteConfirm from "../components/settings/DeleteConfirm";
+import VideoList from "../components/video/VideoList";
+import {
+  ArrowLeft,
+  CalendarDays,
+  Clock,
+  Dumbbell,
+  MapPin,
+  Target,
+} from "lucide-react";
+import {
+  canManageTrainings,
+  formatTrainingDateRange,
+  statusLabel,
+} from "../utils/training";
 
 function formatDuration(minutes: number | null): string {
-  if (minutes == null) return 'Duration not set';
-  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  if (minutes == null) return "Duration not set";
+  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
 }
 
 function DrillSteps({ drill }: { drill: Drill }) {
@@ -25,7 +36,7 @@ function DrillSteps({ drill }: { drill: Drill }) {
       {steps.map((step, index) => (
         <li key={step.id || index}>
           <strong>Step {index + 1}</strong>
-          {step.description ? `: ${step.description}` : ''}
+          {step.description ? `: ${step.description}` : ""}
         </li>
       ))}
     </ol>
@@ -42,7 +53,7 @@ export default function TrainingDetail() {
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [loading, setLoading] = useState(!invalidId);
   const [error, setError] = useState<string | null>(
-    invalidId ? 'Training session not found.' : null,
+    invalidId ? "Training session not found." : null,
   );
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -63,7 +74,9 @@ export default function TrainingDetail() {
       .catch((err: unknown) => {
         if (cancelled) return;
         console.error(err);
-        setError(err instanceof Error ? err.message : 'Failed to load training.');
+        setError(
+          err instanceof Error ? err.message : "Failed to load training.",
+        );
         setLoading(false);
       });
     return () => {
@@ -77,9 +90,11 @@ export default function TrainingDetail() {
     setDeleteError(null);
     try {
       await api.deleteTrainingSession(session.id);
-      navigate('/training');
+      navigate("/training");
     } catch (e) {
-      setDeleteError(e instanceof Error ? e.message : 'Failed to delete training.');
+      setDeleteError(
+        e instanceof Error ? e.message : "Failed to delete training.",
+      );
     } finally {
       setDeleting(false);
     }
@@ -87,27 +102,37 @@ export default function TrainingDetail() {
 
   if (loading) return <div className="loading">Loading...</div>;
   if (error || !session)
-    return <EmptyState title="Training session not found" description={error ?? undefined} />;
+    return (
+      <EmptyState
+        title="Training session not found"
+        description={error ?? undefined}
+      />
+    );
 
-  const focuses = [...(session.training_focuses ?? [])].sort((a, b) => a.position - b.position);
+  const focuses = [...(session.training_focuses ?? [])].sort(
+    (a, b) => a.position - b.position,
+  );
   const drills = [...(session.training_session_drills ?? [])].sort(
-    (a, b) => a.position - b.position
+    (a, b) => a.position - b.position,
   );
 
   return (
     <div className="page">
       <div className="detail-header">
-        <button className="back-link" onClick={() => navigate('/training')}>
+        <button className="back-link" onClick={() => navigate("/training")}>
           <ArrowLeft size={16} />
           Back to Training
         </button>
         <span className="section-label">Training Session</span>
         <h1>{session.title}</h1>
-        <div className="tags" style={{ marginTop: '1rem' }}>
+        <div className="tags" style={{ marginTop: "1rem" }}>
           <Tag variant="primary">{statusLabel(session.status)}</Tag>
           {session.duration_minutes != null && (
             <Tag>
-              <Clock size={12} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+              <Clock
+                size={12}
+                style={{ marginRight: "0.25rem", verticalAlign: "middle" }}
+              />
               {session.duration_minutes} min
             </Tag>
           )}
@@ -152,12 +177,18 @@ export default function TrainingDetail() {
       <section className="detail-section">
         <h2>Session Details</h2>
         <p>
-          <CalendarDays size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          <CalendarDays
+            size={16}
+            style={{ marginRight: "0.5rem", verticalAlign: "middle" }}
+          />
           {formatTrainingDateRange(session.starts_at, session.ends_at)}
           {session.location && (
             <>
               <br />
-              <MapPin size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
+              <MapPin
+                size={16}
+                style={{ marginRight: "0.5rem", verticalAlign: "middle" }}
+              />
               {session.location}
             </>
           )}
@@ -174,21 +205,29 @@ export default function TrainingDetail() {
       <section className="detail-section">
         <h2>Training Focuses</h2>
         {focuses.length === 0 ? (
-          <EmptyState title="No focuses yet" description="Focuses will appear here when added." />
+          <EmptyState
+            title="No focuses yet"
+            description="Focuses will appear here when added."
+          />
         ) : (
           <ol className="training-focus-list">
             {focuses.map((focus, index) => (
               <li key={focus.id} className="training-focus-item">
                 <span className="training-focus-title">
-                  {index + 1}.{' '}
+                  {index + 1}.{" "}
                   {focus.skill ? (
-                    <Link to={`/skills/${focus.skill.slug}`}>{focus.skill.title}</Link>
+                    <Link to={`/skills/${focus.skill.slug}`}>
+                      {focus.skill.title}
+                    </Link>
                   ) : (
                     focus.custom_focus
                   )}
                 </span>
                 {focus.skill?.category && (
-                  <span className="related-item-meta"> · {focus.skill.category.name}</span>
+                  <span className="related-item-meta">
+                    {" "}
+                    · {focus.skill.category.name}
+                  </span>
                 )}
                 {focus.description && <p>{focus.description}</p>}
               </li>
@@ -200,7 +239,10 @@ export default function TrainingDetail() {
       <section className="detail-section">
         <h2>Drills</h2>
         {drills.length === 0 ? (
-          <EmptyState title="No drills yet" description="Drills will appear here when added." />
+          <EmptyState
+            title="No drills yet"
+            description="Drills will appear here when added."
+          />
         ) : (
           <div className="training-drill-list">
             {drills.map((row, index) => {
@@ -210,10 +252,17 @@ export default function TrainingDetail() {
               return (
                 <article key={row.id} className="training-drill">
                   <h3>
-                    {index + 1}. <Link to={`/drills/${drill.slug}`}>{drill.title}</Link>
+                    {index + 1}.{" "}
+                    <Link to={`/drills/${drill.slug}`}>{drill.title}</Link>
                   </h3>
                   <p className="training-drill-meta">
-                    <Clock size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                    <Clock
+                      size={14}
+                      style={{
+                        marginRight: "0.25rem",
+                        verticalAlign: "middle",
+                      }}
+                    />
                     {formatDuration(row.duration_minutes)}
                   </p>
                   {row.notes && (
@@ -221,22 +270,40 @@ export default function TrainingDetail() {
                       <strong>Notes:</strong> {row.notes}
                     </p>
                   )}
-                  {drill.setup_instructions && <p>{drill.setup_instructions}</p>}
-                  {definition ? <DrillViewer definition={definition} /> : <EmptyState title="No visualisation yet" />}
+                  {drill.setup_instructions && (
+                    <p>{drill.setup_instructions}</p>
+                  )}
+                  {definition ? (
+                    <DrillViewer definition={definition} />
+                  ) : (
+                    <EmptyState title="No visualisation yet" />
+                  )}
                   <h4>Steps</h4>
                   <DrillSteps drill={drill} />
                   {drill.skills && drill.skills.length > 0 && (
                     <div className="tags">
                       {drill.skills.map((skill) => (
                         <span key={skill.id} className="tag">
-                          <Target size={12} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                          <Target
+                            size={12}
+                            style={{
+                              marginRight: "0.25rem",
+                              verticalAlign: "middle",
+                            }}
+                          />
                           {skill.title}
                         </span>
                       ))}
                     </div>
                   )}
                   <p className="related-item-meta">
-                    <Dumbbell size={14} style={{ marginRight: '0.25rem', verticalAlign: 'middle' }} />
+                    <Dumbbell
+                      size={14}
+                      style={{
+                        marginRight: "0.25rem",
+                        verticalAlign: "middle",
+                      }}
+                    />
                     <Link to={`/drills/${drill.slug}`}>Open full drill</Link>
                   </p>
                 </article>
@@ -259,5 +326,3 @@ export default function TrainingDetail() {
     </div>
   );
 }
-
-

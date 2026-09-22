@@ -50,7 +50,9 @@ function fromLocalInput(value: string): string {
 
 /** Turns a local "YYYY-MM-DDTHH:mm" start plus a length into the session end. */
 function addMinutes(localValue: string, minutes: number): string {
-  return new Date(new Date(localValue).getTime() + minutes * 60_000).toISOString();
+  return new Date(
+    new Date(localValue).getTime() + minutes * 60_000,
+  ).toISOString();
 }
 
 const emptyPreviewRow = (index: number) => ({ id: index });
@@ -508,6 +510,24 @@ export default function TrainingFormPage() {
           </label>
         </div>
 
+        <div className="admin-form-actions">
+          <button
+            type="submit"
+            className="admin-btn admin-btn-add"
+            disabled={saving}
+          >
+            {saving ? "Saving..." : isNew ? "Create Training" : "Save Changes"}
+          </button>
+          <button
+            type="button"
+            className="admin-btn"
+            onClick={() =>
+              navigate(isNew ? "/training" : `/training/${sessionId}`)
+            }
+          >
+            Cancel
+          </button>
+        </div>
         <SkillFocusSelector
           categories={categories}
           skills={skills}
@@ -571,7 +591,9 @@ export default function TrainingFormPage() {
               if (sessionId == null) return;
               api
                 .trainingSession(sessionId)
-                .then((loaded) => setSessionVideos(loaded.video_references ?? []))
+                .then((loaded) =>
+                  setSessionVideos(loaded.video_references ?? []),
+                )
                 .catch(console.error);
             }}
           />

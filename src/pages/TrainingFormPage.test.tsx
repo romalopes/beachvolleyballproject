@@ -31,7 +31,12 @@ vi.mock("../api", async (importOriginal) => {
 });
 
 const mockedApi = vi.mocked(api, true);
-const coachUser = { id: 2, name: "Coach", email_address: "coach@x.com", roles: ["coach"] };
+const coachUser = {
+  id: 2,
+  name: "Coach",
+  email_address: "coach@x.com",
+  roles: ["coach"],
+};
 
 const categories: Category[] = [
   { id: 1, name: "Defense", slug: "defense" },
@@ -39,8 +44,20 @@ const categories: Category[] = [
 ];
 
 const skills: Skill[] = [
-  { id: 5, title: "Serve Reception", slug: "serve-reception", description: null, category_id: 1 },
-  { id: 6, title: "Defensive Movement", slug: "defensive-movement", description: null, category_id: 1 },
+  {
+    id: 5,
+    title: "Serve Reception",
+    slug: "serve-reception",
+    description: null,
+    category_id: 1,
+  },
+  {
+    id: 6,
+    title: "Defensive Movement",
+    slug: "defensive-movement",
+    description: null,
+    category_id: 1,
+  },
 ];
 
 const drills: Drill[] = [
@@ -55,7 +72,15 @@ const drills: Drill[] = [
     max_players: 6,
     ideal_num_players: 6,
     definition: SAMPLE_DRILL_DEFINITION,
-    skills: [{ id: 5, title: "Serve Reception", slug: "serve-reception", description: null, category_id: 1 }],
+    skills: [
+      {
+        id: 5,
+        title: "Serve Reception",
+        slug: "serve-reception",
+        description: null,
+        category_id: 1,
+      },
+    ],
   },
   {
     id: 11,
@@ -81,7 +106,15 @@ const drills: Drill[] = [
     max_players: 6,
     ideal_num_players: 6,
     definition: SAMPLE_DRILL_DEFINITION,
-    skills: [{ id: 6, title: "Defensive Movement", slug: "defensive-movement", description: null, category_id: 1 }],
+    skills: [
+      {
+        id: 6,
+        title: "Defensive Movement",
+        slug: "defensive-movement",
+        description: null,
+        category_id: 1,
+      },
+    ],
   },
 ];
 
@@ -111,21 +144,30 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
-const focusSection = () => within(screen.getByRole("group", { name: "Training Focuses" }));
-const drillSection = () => within(screen.getByRole("group", { name: "Drills" }));
+const focusSection = () =>
+  within(screen.getByRole("group", { name: "Training Focuses" }));
+const drillSection = () =>
+  within(screen.getByRole("group", { name: "Drills" }));
 const drillRowTitles = () =>
   Array.from(
-    screen.getByRole("group", { name: "Drills" }).querySelectorAll(
-      ".training-drill-editor-row .training-focus-title",
-    ),
+    screen
+      .getByRole("group", { name: "Drills" })
+      .querySelectorAll(".training-drill-editor-row .training-focus-title"),
   ).map((el) => el.textContent);
 
 const addSkillFocus = async (skillId = "5") => {
-  await userEvent.selectOptions(focusSection().getByLabelText(/^Category$/i), "1");
-  await userEvent.selectOptions(focusSection().getByLabelText(/^Skill$/i), skillId);
-  await userEvent.click(focusSection().getByRole("button", { name: "Add focus" }));
+  await userEvent.selectOptions(
+    focusSection().getByLabelText(/^Category$/i),
+    "1",
+  );
+  await userEvent.selectOptions(
+    focusSection().getByLabelText(/^Skill$/i),
+    skillId,
+  );
+  await userEvent.click(
+    focusSection().getByRole("button", { name: "Add focus" }),
+  );
 };
-
 
 describe("TrainingFormPage — new training", () => {
   it("renders the basic information fields", async () => {
@@ -161,30 +203,49 @@ describe("TrainingFormPage — new training", () => {
     await screen.findByLabelText(/^Title$/i);
     await focusSection().findByLabelText(/^Category$/i);
 
-    await userEvent.selectOptions(focusSection().getByLabelText(/^Category$/i), "1");
-    await userEvent.selectOptions(focusSection().getByLabelText(/^Skill$/i), "5");
+    await userEvent.selectOptions(
+      focusSection().getByLabelText(/^Category$/i),
+      "1",
+    );
+    await userEvent.selectOptions(
+      focusSection().getByLabelText(/^Skill$/i),
+      "5",
+    );
     await userEvent.type(
       focusSection().getByLabelText(/focus description/i),
       "Focus on platform angle",
     );
-    await userEvent.click(focusSection().getByRole("button", { name: "Add focus" }));
+    await userEvent.click(
+      focusSection().getByRole("button", { name: "Add focus" }),
+    );
     expect(focusSection().getByText("1. Serve Reception")).toBeInTheDocument();
-    expect(focusSection().getByText(/Focus on platform angle/)).toBeInTheDocument();
+    expect(
+      focusSection().getByText(/Focus on platform angle/),
+    ).toBeInTheDocument();
 
-    await userEvent.click(focusSection().getByRole("radio", { name: /custom focus/i }));
-    const customInput = focusSection().getByPlaceholderText(/transition communication/i);
+    await userEvent.click(
+      focusSection().getByRole("radio", { name: /custom focus/i }),
+    );
+    const customInput = focusSection().getByPlaceholderText(
+      /transition communication/i,
+    );
     await userEvent.type(customInput, "Transition communication");
     await userEvent.type(
       focusSection().getByLabelText(/focus description/i),
       "Call early after the block",
     );
-    await userEvent.click(focusSection().getByRole("button", { name: "Add focus" }));
+    await userEvent.click(
+      focusSection().getByRole("button", { name: "Add focus" }),
+    );
     expect(
-      focusSection().getByText((_, el) => el?.textContent === "2. Transition communication"),
+      focusSection().getByText(
+        (_, el) => el?.textContent === "2. Transition communication",
+      ),
     ).toBeInTheDocument();
-    expect(focusSection().getByText(/Call early after the block/)).toBeInTheDocument();
+    expect(
+      focusSection().getByText(/Call early after the block/),
+    ).toBeInTheDocument();
   });
-
 
   it("recommends drills from focus skills and allows manual browse + add", async () => {
     renderForm();
@@ -192,18 +253,26 @@ describe("TrainingFormPage — new training", () => {
     await focusSection().findByLabelText(/^Category$/i);
     await addSkillFocus();
 
-    expect(screen.getByText(/Recommended drills based on/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Recommended drills based on/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Serve Receive Progression/)).toBeInTheDocument();
     // "Game Simulation" has no matching skill — not recommended by default.
     expect(screen.queryByText(/Game Simulation/)).not.toBeInTheDocument();
 
     // Manual browse: uncheck "Recommended only" to see the whole catalogue.
-    await userEvent.click(drillSection().getByRole("checkbox", { name: /recommended only/i }));
+    await userEvent.click(
+      drillSection().getByRole("checkbox", { name: /recommended only/i }),
+    );
     expect(screen.getByText(/Game Simulation/)).toBeInTheDocument();
 
-    await userEvent.click(drillSection().getAllByRole("button", { name: /^Add$/i })[0]);
+    await userEvent.click(
+      drillSection().getAllByRole("button", { name: /^Add$/i })[0],
+    );
     expect(
-      drillSection().getByText((_, el) => el?.textContent === "1. Serve Receive Progression"),
+      drillSection().getByText(
+        (_, el) => el?.textContent === "1. Serve Receive Progression",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -220,13 +289,19 @@ describe("TrainingFormPage — new training", () => {
     await focusSection().findByLabelText(/^Category$/i);
     await addSkillFocus();
 
-    await userEvent.click(drillSection().getAllByRole("button", { name: /^Add$/i })[0]);
+    await userEvent.click(
+      drillSection().getAllByRole("button", { name: /^Add$/i })[0],
+    );
     expect(
-      drillSection().getByText((_, el) => el?.textContent === "1. Serve Receive Progression"),
+      drillSection().getByText(
+        (_, el) => el?.textContent === "1. Serve Receive Progression",
+      ),
     ).toBeInTheDocument();
 
     // The fetched definition renders instead of the empty placeholder.
-    expect(drillSection().queryByText(/no visualisation yet/i)).not.toBeInTheDocument();
+    expect(
+      drillSection().queryByText(/no visualisation yet/i),
+    ).not.toBeInTheDocument();
     expect(mockedApi.drill).toHaveBeenCalledWith("serve-receive-progression");
   });
 
@@ -235,15 +310,29 @@ describe("TrainingFormPage — new training", () => {
     await screen.findByLabelText(/^Title$/i);
     await focusSection().findByLabelText(/^Category$/i);
     await addSkillFocus();
-    await userEvent.click(drillSection().getByRole("checkbox", { name: /recommended only/i }));
+    await userEvent.click(
+      drillSection().getByRole("checkbox", { name: /recommended only/i }),
+    );
     // Add the recommended drill, then re-query: the candidate list re-renders after each add.
-    await userEvent.click(drillSection().getAllByRole("button", { name: /^Add$/i })[0]);
-    await userEvent.click(drillSection().getAllByRole("button", { name: /^Add$/i })[0]);
+    await userEvent.click(
+      drillSection().getAllByRole("button", { name: /^Add$/i })[0],
+    );
+    await userEvent.click(
+      drillSection().getAllByRole("button", { name: /^Add$/i })[0],
+    );
 
-    expect(drillRowTitles()).toEqual(["1. Serve Receive Progression", "2. Game Simulation"]);
+    expect(drillRowTitles()).toEqual([
+      "1. Serve Receive Progression",
+      "2. Game Simulation",
+    ]);
 
-    await userEvent.click(drillSection().getByRole("button", { name: "Move drill 2 up" }));
-    expect(drillRowTitles()).toEqual(["1. Game Simulation", "2. Serve Receive Progression"]);
+    await userEvent.click(
+      drillSection().getByRole("button", { name: "Move drill 2 up" }),
+    );
+    expect(drillRowTitles()).toEqual([
+      "1. Game Simulation",
+      "2. Serve Receive Progression",
+    ]);
 
     const duration = drillSection().getAllByLabelText(/duration/i)[0];
     // Drill lengths come from a fixed list instead of free text.
@@ -253,11 +342,16 @@ describe("TrainingFormPage — new training", () => {
         .map((option) => option.textContent),
     ).toEqual(["Not set", "5", "10", "15", "20", "30", "40", "60"]);
     await userEvent.selectOptions(duration, "15");
-    await userEvent.type(drillSection().getAllByLabelText(/notes/i)[0], "Use stronger serves");
+    await userEvent.type(
+      drillSection().getAllByLabelText(/notes/i)[0],
+      "Use stronger serves",
+    );
     expect(screen.getByDisplayValue("15")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Use stronger serves")).toBeInTheDocument();
 
-    await userEvent.click(drillSection().getByRole("button", { name: "Remove drill 2" }));
+    await userEvent.click(
+      drillSection().getByRole("button", { name: "Remove drill 2" }),
+    );
     // Remaining drill renumbers to position 1.
     expect(drillRowTitles()).toEqual(["1. Game Simulation"]);
   });
@@ -266,14 +360,21 @@ describe("TrainingFormPage — new training", () => {
     renderForm();
     await screen.findByLabelText(/^Title$/i);
     await focusSection().findByLabelText(/^Category$/i);
-    await userEvent.type(screen.getByLabelText(/^Title$/i), "Serve Reception Training");
+    await userEvent.type(
+      screen.getByLabelText(/^Title$/i),
+      "Serve Reception Training",
+    );
     await userEvent.type(screen.getByLabelText(/^Date$/i), "2026-09-21");
     await userEvent.type(screen.getByLabelText(/start time/i), "09:00");
     await userEvent.selectOptions(screen.getByLabelText(/^Duration$/i), "120");
     await userEvent.type(screen.getByLabelText(/location/i), "Coogee Beach");
     await addSkillFocus();
-    await userEvent.click(drillSection().getByRole("button", { name: /^Add$/i }));
-    await userEvent.click(screen.getByRole("button", { name: /Create Training/i }));
+    await userEvent.click(
+      drillSection().getByRole("button", { name: /^Add$/i }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Create Training/i }),
+    );
 
     expect(mockedApi.createTrainingSession).toHaveBeenCalledTimes(1);
     const payload = mockedApi.createTrainingSession.mock.calls[0][0];
@@ -295,7 +396,9 @@ describe("TrainingFormPage — new training", () => {
     await userEvent.type(screen.getByLabelText(/start time/i), "09:00");
     expect(screen.getByLabelText(/^Duration$/i)).toHaveValue("90");
 
-    await userEvent.click(screen.getByRole("button", { name: /Create Training/i }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Create Training/i }),
+    );
 
     const payload = mockedApi.createTrainingSession.mock.calls[0][0];
     expect(payload.ends_at).toBe(new Date("2026-09-21T10:30").toISOString());
@@ -306,7 +409,9 @@ describe("TrainingFormPage — new training", () => {
     await screen.findByLabelText(/^Title$/i);
     await userEvent.type(screen.getByLabelText(/^Title$/i), "No start time");
     await userEvent.type(screen.getByLabelText(/^Date$/i), "2026-09-21");
-    await userEvent.click(screen.getByRole("button", { name: /Create Training/i }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Create Training/i }),
+    );
     expect(
       await screen.findByText(/Date and start time are required/i),
     ).toBeInTheDocument();
@@ -337,7 +442,9 @@ describe("TrainingFormPage — new training", () => {
       drillSection().getByRole("checkbox", { name: /recommended only/i }),
     );
     expect(screen.getByText("Game Simulation")).toBeInTheDocument();
-    expect(screen.queryByText("Serve Receive Progression")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Serve Receive Progression"),
+    ).not.toBeInTheDocument();
 
     await userEvent.clear(search);
     await userEvent.type(search, "zzz");
@@ -351,7 +458,9 @@ describe("TrainingFormPage — new training", () => {
     await addSkillFocus("5");
     await addSkillFocus("6");
 
-    const skillFilter = drillSection().getByLabelText(/filter drills by skill/i);
+    const skillFilter = drillSection().getByLabelText(
+      /filter drills by skill/i,
+    );
     expect(
       within(skillFilter)
         .getAllByRole("option")
@@ -361,7 +470,9 @@ describe("TrainingFormPage — new training", () => {
     // Picking a skill narrows the recommended drills to that skill's drills.
     await userEvent.selectOptions(skillFilter, "6");
     expect(screen.getByText("Defensive Shuffle")).toBeInTheDocument();
-    expect(screen.queryByText("Serve Receive Progression")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Serve Receive Progression"),
+    ).not.toBeInTheDocument();
 
     // "All skills" restores the combined recommendation.
     await userEvent.selectOptions(skillFilter, "");
@@ -390,12 +501,18 @@ describe("TrainingFormPage — new training", () => {
       drillSection().getByLabelText(/filter drills by skill/i),
       "6",
     );
-    expect(screen.queryByText("Serve Receive Progression")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Serve Receive Progression"),
+    ).not.toBeInTheDocument();
 
     // Removing the Defensive Movement focus resets the filter, so the remaining
     // skill's drills come back instead of an empty list.
-    await userEvent.click(focusSection().getByRole("button", { name: "Remove focus 2" }));
-    expect(drillSection().getByLabelText(/filter drills by skill/i)).toHaveValue("");
+    await userEvent.click(
+      focusSection().getByRole("button", { name: "Remove focus 2" }),
+    );
+    expect(
+      drillSection().getByLabelText(/filter drills by skill/i),
+    ).toHaveValue("");
     expect(screen.getByText("Serve Receive Progression")).toBeInTheDocument();
   });
 });
@@ -438,11 +555,15 @@ describe("TrainingFormPage — editing an existing training", () => {
 
     renderForm("/training/2/edit");
 
-    expect(await screen.findByDisplayValue("Existing Training")).toBeInTheDocument();
+    expect(
+      await screen.findByDisplayValue("Existing Training"),
+    ).toBeInTheDocument();
     expect(focusSection().getByText("1. Serve Reception")).toBeInTheDocument();
     expect(drillRowTitles()).toEqual(["1. Serve Receive Progression"]);
 
-    await userEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Save Changes/i }),
+    );
 
     expect(mockedApi.createTrainingSession).not.toHaveBeenCalled();
     expect(mockedApi.updateTrainingSession).toHaveBeenCalledTimes(1);
@@ -479,11 +600,17 @@ describe("TrainingFormPage — editing an existing training", () => {
     renderForm("/training/2/edit");
     await screen.findByDisplayValue("Existing Training");
 
-    await userEvent.click(focusSection().getByRole("button", { name: "Remove focus 1" }));
-    await userEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+    await userEvent.click(
+      focusSection().getByRole("button", { name: "Remove focus 1" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Save Changes/i }),
+    );
 
     const [, payload] = mockedApi.updateTrainingSession.mock.calls[0];
-    expect(payload.training_focuses_attributes).toEqual([{ id: 7, _destroy: true }]);
+    expect(payload.training_focuses_attributes).toEqual([
+      { id: 7, _destroy: true },
+    ]);
   });
 
   it("preserves a session length that is not one of the presets", async () => {
@@ -500,9 +627,13 @@ describe("TrainingFormPage — editing an existing training", () => {
     // of silently snapping the session to one of the presets.
     const duration = screen.getByLabelText(/^Duration$/i);
     expect(duration).toHaveValue("105");
-    expect(within(duration).getByRole("option", { name: "1:45h" })).toBeInTheDocument();
+    expect(
+      within(duration).getByRole("option", { name: "1:45h" }),
+    ).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Save Changes/i }),
+    );
 
     const [, payload] = mockedApi.updateTrainingSession.mock.calls[0];
     expect(payload.ends_at).toBe("2026-09-21T10:45:00.000Z");
@@ -512,7 +643,10 @@ describe("TrainingFormPage — editing an existing training", () => {
     mockedApi.trainingSession.mockResolvedValue({
       ...existingSession,
       training_session_drills: [
-        { ...existingSession.training_session_drills![0], duration_minutes: 25 },
+        {
+          ...existingSession.training_session_drills![0],
+          duration_minutes: 25,
+        },
       ],
     });
     mockedApi.updateTrainingSession.mockResolvedValue({ id: 2 } as never);
@@ -522,13 +656,17 @@ describe("TrainingFormPage — editing an existing training", () => {
 
     const duration = drillSection().getAllByLabelText(/duration/i)[0];
     expect(duration).toHaveValue("25");
-    expect(within(duration).getByRole("option", { name: "25" })).toBeInTheDocument();
+    expect(
+      within(duration).getByRole("option", { name: "25" }),
+    ).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Save Changes/i }),
+    );
 
     const [, payload] = mockedApi.updateTrainingSession.mock.calls[0];
-    expect(payload.training_session_drills_attributes?.[0]?.duration_minutes).toBe(25);
+    expect(
+      payload.training_session_drills_attributes?.[0]?.duration_minutes,
+    ).toBe(25);
   });
 });
-
-
