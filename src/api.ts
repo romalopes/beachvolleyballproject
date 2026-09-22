@@ -806,11 +806,11 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
   requestPasswordReset: (email_address: string) =>
     postJSON<void>("/passwords", { email_address }),
   resetPassword: (token: string, password: string, password_confirmation: string) =>
-    postJSON<UserWithToken>(`/passwords/${encodeURIComponent(token)}`, {
+        postJSON<UserWithToken>(`/passwords/${encodeURIComponent(token)}`, {
       password,
       password_confirmation,
       api: true,
-    }).then((data) => {
+    }, "PUT").then((data) => {
       if (data.token) setToken(data.token);
       return data;
     }),
