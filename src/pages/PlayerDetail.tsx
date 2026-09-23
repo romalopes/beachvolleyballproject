@@ -124,6 +124,7 @@ export default function PlayerDetail() {
             {player.training_session_count ?? history.length} training
             {(player.training_session_count ?? history.length) === 1 ? "" : "s"}
           </Tag>
+          {player.visibility === "private" && <Tag>Private</Tag>}
           {isArchived(player) && <Tag>Archived</Tag>}
         </div>
         {canEdit && (

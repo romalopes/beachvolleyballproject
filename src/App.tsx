@@ -26,6 +26,7 @@ import Schedule from "./pages/Schedule";
 import Players from "./pages/Players";
 import PlayerDetail from "./pages/PlayerDetail";
 import Coaches from "./pages/Coaches";
+import CoachDetail from "./pages/CoachDetail";
 import PersonProfileEditPage from "./pages/PersonProfileEditPage";
 import AdminUsers from "./pages/AdminUsers";
 import SettingsDashboard from "./pages/settings/SettingsDashboard";
@@ -187,6 +188,14 @@ export default function App() {
               element={
                 <ManagerRoute>
                   <PersonProfileEditPage kind="coach" />
+                </ManagerRoute>
+              }
+            />
+            <Route
+              path="/coaches/:id"
+              element={
+                <ManagerRoute>
+                  <CoachDetail />
                 </ManagerRoute>
               }
             />

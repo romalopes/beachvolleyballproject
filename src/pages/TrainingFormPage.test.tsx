@@ -400,6 +400,8 @@ describe("TrainingFormPage — new training", () => {
           preferred_position: "setter",
           level: "intermediate",
           status: "active",
+          visibility: "shared",
+          created_by: null,
           created_at: "2026-09-01T00:00:00.000Z",
           updated_at: "2026-09-01T00:00:00.000Z",
           full_name: "Maria Silva",

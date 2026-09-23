@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Archive, ArchiveRestore, Pencil, Search, UserPlus } from "lucide-react";
+import { Archive, ArchiveRestore, Eye, EyeOff, Pencil, Search, UserPlus } from "lucide-react";
 import { api, type PaginationMeta, type Player } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
@@ -45,12 +45,17 @@ export default function Players() {
   );
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Soft visibility: by default other coaches' private players are hidden.
+  const [showPrivate, setShowPrivate] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
 
   const requestParams = (pageNumber: number) => {
     const term = search.trim();
     return {
       ...(term ? { q: term } : {}),
       status: showArchived ? ("archived" as const) : ("active" as const),
+      include_private: showPrivate ? true : undefined,
+      mine: mineOnly ? true : undefined,
       page: pageNumber,
       per_page: PER_PAGE,
     };
@@ -63,6 +68,8 @@ export default function Players() {
       .players({
         ...(term ? { q: term } : {}),
         status: showArchived ? "archived" : "active",
+        include_private: showPrivate ? true : undefined,
+        mine: mineOnly ? true : undefined,
         page,
         per_page: PER_PAGE,
       })
@@ -83,7 +90,7 @@ export default function Players() {
     return () => {
       cancelled = true;
     };
-  }, [search, showArchived, page]);
+  }, [search, showArchived, showPrivate, mineOnly, page]);
 
   const reload = () => {
     api
@@ -179,6 +186,34 @@ export default function Players() {
             Archived players keep their training history — nothing was deleted.
           </span>
         )}
+        {canRecord && (
+          <>
+            <label className="people-filter-toggle">
+              <input
+                type="checkbox"
+                checked={showPrivate}
+                onChange={(event) => {
+                  setShowPrivate(event.target.checked);
+                  setPage(1);
+                }}
+              />
+              <EyeOff size={14} aria-hidden="true" />
+              Show private players
+            </label>
+            <label className="people-filter-toggle">
+              <input
+                type="checkbox"
+                checked={mineOnly}
+                onChange={(event) => {
+                  setMineOnly(event.target.checked);
+                  setPage(1);
+                }}
+              />
+              <Eye size={14} aria-hidden="true" />
+              My players only
+            </label>
+          </>
+        )}
       </div>
 
       {actionError && <div className="admin-error">{actionError}</div>}
@@ -252,6 +287,7 @@ export default function Players() {
                   : "Profile only"}
               </Tag>
               {isArchived(player) && <Tag>Archived</Tag>}
+              {player.visibility === "private" && <Tag>Private</Tag>}
               {canRecord && (
                 <Link
                   to={`/players/${player.id}/edit`}

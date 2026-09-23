@@ -5,9 +5,10 @@ import {
   api,
   ApiValidationError,
   type PersonIdentity,
-  type PlayerInput,
+  type ProfileOwner,
   type ProfilePerson,
 } from "../api";
+import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
 import PersonIdentityList from "../components/people/PersonIdentityList";
@@ -27,6 +28,8 @@ interface LoadedProfile {
   id: number;
   name: string;
   person: ProfilePerson;
+  /** Owner recorded at creation — decides who may flip the visibility. */
+  created_by: ProfileOwner | null;
   initialValues: PersonProfileInitialValues;
 }
 
@@ -39,12 +42,17 @@ interface LoadedProfile {
  * Ana") is exactly when the club discovers it has recorded someone twice.
  * Nothing is merged automatically; if it turns out the profile belongs to an
  * existing person, that is a merge, not an edit, and the API refuses it.
+ *
+ * Visibility (`shared`/`private`) is edited here too: the select is locked for
+ * everyone but the coach who recorded the profile or an admin, mirroring the
+ * API's 403 on an unauthorized flip.
  */
 export default function PersonProfileEditPage({
   kind,
 }: PersonProfileEditPageProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const numericId = Number(id);
   const invalidId = !id || Number.isNaN(numericId);
 
@@ -72,6 +80,7 @@ export default function PersonProfileEditPage({
           name:
             record.full_name?.trim() || personName(record.person, `This ${kind}`),
           person: record.person,
+          created_by: record.created_by,
           initialValues: {
             first_name: record.person.first_name,
             last_name: record.person.last_name,
@@ -84,6 +93,7 @@ export default function PersonProfileEditPage({
               "coaching_level" in record ? record.coaching_level : null,
             qualifications:
               "qualifications" in record ? record.qualifications : null,
+            visibility: record.visibility,
           },
         });
         setLoading(false);
@@ -107,14 +117,19 @@ export default function PersonProfileEditPage({
     setSavedName(null);
     setSubmitting(true);
     try {
-      const payload: PlayerInput = {
-        person: values.person,
-        player_profile: values.profile,
-      };
+      // The profile block is keyed per catalogue: the API reads
+      // `player_profile`/`coach_profile` and silently ignores the other key, so
+      // a shared key would drop every profile edit (visibility included).
       const saved =
         kind === "player"
-          ? await api.updatePlayer(loaded.id, payload)
-          : await api.updateCoach(loaded.id, payload);
+          ? await api.updatePlayer(loaded.id, {
+              person: values.person,
+              player_profile: values.profile,
+            })
+          : await api.updateCoach(loaded.id, {
+              person: values.person,
+              coach_profile: values.profile,
+            });
 
       setSavedName(
         saved.full_name?.trim() || personName(saved.person, `This ${kind}`),
@@ -140,7 +155,16 @@ export default function PersonProfileEditPage({
       />
     );
 
-  const backTo = kind === "player" ? `/players/${loaded.id}` : "/coaches";
+  const backTo =
+    kind === "player" ? `/players/${loaded.id}` : `/coaches/${loaded.id}`;
+
+  // Mirrors the API's rule: only the coach who recorded the profile or an
+  // admin may flip the visibility — legacy rows without an owner are therefore
+  // admin-only. The select is locked rather than offered-and-refused.
+  const visibilityEditable = Boolean(
+    user?.roles.includes("admin") ||
+      (user && loaded.created_by?.id === user.id),
+  );
 
   return (
     <div className="page">
@@ -152,7 +176,7 @@ export default function PersonProfileEditPage({
       <div className="person-edit-back">
         <button className="back-link" onClick={() => navigate(backTo)}>
           <ArrowLeft size={16} />
-          {kind === "player" ? "Back to player" : "Back to Coaches"}
+          {kind === "player" ? "Back to player" : "Back to coach"}
         </button>
       </div>
 
@@ -161,6 +185,7 @@ export default function PersonProfileEditPage({
           kind={kind}
           initialValues={loaded.initialValues}
           personFieldsLegend="Person"
+          visibilityEditable={visibilityEditable}
           submitting={submitting}
           errors={errors}
           submitLabel="Save changes"

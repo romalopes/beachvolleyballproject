@@ -450,6 +450,23 @@ export type AccountStatus = "connected" | "profile_only";
 export type ProfileStatus = "active" | "inactive" | "archived";
 
 /**
+ * Who may see a player/coach in the catalogues. `shared` is the normal case:
+ * every training manager sees the profile. `private` hides it from other
+ * coaches' lists and detail — the coach who recorded it keeps it to
+ * themselves. Curators and admins always see everything, and the flag never
+ * blocks scheduling: any coach can still add any player to any session. Soft
+ * means *presentation*, not authorization — the only hard rule is that the
+ * switch itself may be flipped only by the owner or an admin.
+ */
+export type ProfileVisibility = "shared" | "private";
+
+/** Who recorded the profile (nil for rows created before Phase C). */
+export interface ProfileOwner {
+  id: number;
+  name: string;
+}
+
+/**
  * How a Person came to exist. Provenance is what lets the system tell a
  * self-signup from a staff-recorded profile — claiming and duplicate
  * resolution both branch on it.
@@ -497,6 +514,10 @@ export interface Player {
   preferred_position: string | null;
   level: string | null;
   status: ProfileStatus;
+  /** Soft visibility: `shared` for everyone, `private` for the owner only. */
+  visibility: ProfileVisibility;
+  /** Who recorded the player (null for rows created before Phase C). */
+  created_by: ProfileOwner | null;
   created_at: string;
   updated_at: string;
   full_name?: string;
@@ -541,6 +562,7 @@ export interface PlayerInput {
     preferred_position?: string | null;
     level?: string | null;
     status?: ProfileStatus;
+    visibility?: ProfileVisibility;
   };
 }
 
@@ -550,6 +572,10 @@ export interface Coach {
   coaching_level: string | null;
   qualifications: string | null;
   status: ProfileStatus;
+  /** Soft visibility: `shared` for everyone, `private` for the owner only. */
+  visibility: ProfileVisibility;
+  /** Who recorded the coach (null for rows created before Phase C). */
+  created_by: ProfileOwner | null;
   created_at: string;
   updated_at: string;
   full_name?: string;
@@ -571,6 +597,7 @@ export interface CoachInput {
     coaching_level?: string | null;
     qualifications?: string | null;
     status?: ProfileStatus;
+    visibility?: ProfileVisibility;
   };
 }
 
@@ -843,13 +870,16 @@ export const api = {
   // ---------- Players (read: training managers; create: coach/admin) ----------
   /**
    * Paginated catalogue (`{ data, meta }`, 20 per page by default).
-   * The training form's player picker asks for a `per_page` big enough to hold
-   * the whole roster, so it can filter locally while a coach types.
+   * The training form's player picker asks for `include_private` (plus a
+   * `per_page` big enough to hold the roster), so it can filter locally while
+   * a coach types — visibility never blocks scheduling.
    */
   players: async (params?: {
     q?: string;
     email?: string;
     status?: ProfileStatus;
+    include_private?: boolean;
+    mine?: boolean;
     page?: number;
     per_page?: number;
   }) => {
@@ -857,6 +887,8 @@ export const api = {
     if (params?.q) qs.set("q", params.q);
     if (params?.email) qs.set("email", params.email);
     if (params?.status) qs.set("status", params.status);
+    if (params?.include_private) qs.set("include_private", "1");
+    if (params?.mine) qs.set("mine", "1");
     if (params?.page) qs.set("page", String(params.page));
     if (params?.per_page) qs.set("per_page", String(params.per_page));
     const query = qs.toString();
@@ -883,6 +915,8 @@ export const api = {
     q?: string;
     email?: string;
     status?: ProfileStatus;
+    include_private?: boolean;
+    mine?: boolean;
     page?: number;
     per_page?: number;
   }) => {
@@ -890,6 +924,8 @@ export const api = {
     if (params?.q) qs.set("q", params.q);
     if (params?.email) qs.set("email", params.email);
     if (params?.status) qs.set("status", params.status);
+    if (params?.include_private) qs.set("include_private", "1");
+    if (params?.mine) qs.set("mine", "1");
     if (params?.page) qs.set("page", String(params.page));
     if (params?.per_page) qs.set("per_page", String(params.per_page));
     const query = qs.toString();

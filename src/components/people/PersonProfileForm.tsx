@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { UserPlus } from "lucide-react";
+import type { ProfileVisibility } from "../../api";
 
 export type ProfileKind = "player" | "coach";
 
@@ -16,6 +17,7 @@ export interface PersonProfileValues {
     level?: string | null;
     coaching_level?: string | null;
     qualifications?: string | null;
+    visibility: ProfileVisibility;
   };
 }
 
@@ -28,6 +30,7 @@ export interface PersonProfileInitialValues {
   level?: string | null;
   coaching_level?: string | null;
   qualifications?: string | null;
+  visibility?: ProfileVisibility | null;
 }
 
 interface PersonProfileFormProps {
@@ -39,6 +42,12 @@ interface PersonProfileFormProps {
    */
   hidePersonFields?: boolean;
   personFieldsLegend?: string;
+  /**
+   * False when the signed-in user is neither the profile's owner nor an admin:
+   * the API answers 403 on such a flip, so the control is locked rather than
+   * offered and refused.
+   */
+  visibilityEditable?: boolean;
   submitting?: boolean;
   /** Errors from the API, rendered under the fields. */
   errors?: string[];
@@ -63,6 +72,7 @@ export default function PersonProfileForm({
   initialValues,
   hidePersonFields = false,
   personFieldsLegend = "New person (no account)",
+  visibilityEditable = true,
   submitting = false,
   errors = [],
   submitLabel,
@@ -83,6 +93,9 @@ export default function PersonProfileForm({
   );
   const [qualifications, setQualifications] = useState(
     blank(initialValues?.qualifications),
+  );
+  const [visibility, setVisibility] = useState<ProfileVisibility>(
+    initialValues?.visibility ?? "shared",
   );
   const [localErrors, setLocalErrors] = useState<string[]>([]);
 
@@ -106,10 +119,12 @@ export default function PersonProfileForm({
           ? {
               preferred_position: position.trim() || null,
               level: level.trim() || null,
+              visibility,
             }
           : {
               coaching_level: coachingLevel.trim() || null,
               qualifications: qualifications.trim() || null,
+              visibility,
             },
     });
   };
@@ -210,6 +225,33 @@ export default function PersonProfileForm({
           </>
         )}
       </fieldset>
+
+      <div className="profile-visibility-field">
+        <label>
+          Visibility
+          <select
+            value={visibility}
+            disabled={!visibilityEditable || submitting}
+            onChange={(event) =>
+              setVisibility(event.target.value as ProfileVisibility)
+            }
+          >
+            <option value="shared">Shared</option>
+            <option value="private">Private</option>
+          </select>
+        </label>
+        <span className="related-item-meta">
+          {visibility === "shared"
+            ? "Shared profiles are visible to every training manager."
+            : "Private profiles are hidden from other coaches' lists and detail pages; curators and admins still see everything."}
+        </span>
+        {!visibilityEditable && (
+          <span className="related-item-meta">
+            Only the coach who recorded this profile (or an admin) can change
+            visibility.
+          </span>
+        )}
+      </div>
 
       {messages.length > 0 && (
         <div className="admin-error">

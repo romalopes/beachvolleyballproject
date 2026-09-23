@@ -34,6 +34,8 @@ const coach = (overrides: Partial<Coach> & { id: number }): Coach => ({
   coaching_level: null,
   qualifications: null,
   status: "active",
+  visibility: "shared",
+  created_by: { id: 2, name: "Coach" },
   created_at: "2026-09-01T00:00:00.000Z",
   updated_at: "2026-09-01T00:00:00.000Z",
   account_status: "profile_only",
@@ -199,7 +201,11 @@ describe("Coaches", () => {
         email: null,
         phone: null,
       },
-      coach_profile: { coaching_level: "national", qualifications: null },
+      coach_profile: {
+        coaching_level: "national",
+        qualifications: null,
+        visibility: "shared",
+      },
     });
     expect(
       await screen.findByText("New Coach is now a coach"),

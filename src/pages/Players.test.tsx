@@ -39,6 +39,8 @@ const player = (overrides: Partial<Player> & { id: number }): Player => ({
   preferred_position: null,
   level: null,
   status: "active",
+  visibility: "shared",
+  created_by: { id: 2, name: "Coach" },
   created_at: "2026-09-01T00:00:00.000Z",
   updated_at: "2026-09-01T00:00:00.000Z",
   account_status: "profile_only",
@@ -269,6 +271,16 @@ describe("Players", () => {
     ).toBeInTheDocument();
   });
 
+  it("marks private players in the list", async () => {
+    mockedApi.players.mockResolvedValue(
+      paginated([player({ id: 5, visibility: "private" })]),
+    );
+    renderPlayers();
+
+    expect(await screen.findByText("Pedro Santos")).toBeInTheDocument();
+    expect(screen.getByText("Private")).toBeInTheDocument();
+  });
+
   it("links an existing person instead of recording a duplicate", async () => {
     mockedApi.people.mockResolvedValue([person({ id: 42 })]);
     mockedApi.createPlayer.mockResolvedValue({
@@ -292,7 +304,11 @@ describe("Players", () => {
     expect(mockedApi.createPlayer).toHaveBeenCalledWith({
       person_id: 42,
       person: undefined,
-      player_profile: { preferred_position: null, level: null },
+      player_profile: {
+        preferred_position: null,
+        level: null,
+        visibility: "shared",
+      },
     });
   });
 
@@ -318,7 +334,11 @@ describe("Players", () => {
         email: null,
         phone: null,
       },
-      player_profile: { preferred_position: null, level: null },
+      player_profile: {
+        preferred_position: null,
+        level: null,
+        visibility: "shared",
+      },
     });
     expect(
       await screen.findByText(/merged automatically/),

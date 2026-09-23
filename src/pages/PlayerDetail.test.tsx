@@ -45,6 +45,8 @@ const player = (overrides: Partial<Player> = {}): Player => ({
   preferred_position: "setter",
   level: "beginner",
   status: "active",
+  visibility: "shared",
+  created_by: { id: 2, name: "Coach" },
   created_at: "2026-09-01T00:00:00.000Z",
   updated_at: "2026-09-01T00:00:00.000Z",
   full_name: "Pedro Santos",
@@ -171,5 +173,20 @@ describe("PlayerDetail", () => {
     expect(
       await screen.findByRole("button", { name: "Archive" }),
     ).toBeInTheDocument();
+  });
+
+  it("marks a private player with a Private tag", async () => {
+    mockedApi.player.mockResolvedValue(player({ visibility: "private" }));
+    renderDetail();
+
+    await screen.findByRole("heading", { name: "Pedro Santos" });
+    expect(screen.getByText("Private")).toBeInTheDocument();
+  });
+
+  it("shows no Private tag for a shared player", async () => {
+    renderDetail();
+
+    await screen.findByRole("heading", { name: "Pedro Santos" });
+    expect(screen.queryByText("Private")).not.toBeInTheDocument();
   });
 });

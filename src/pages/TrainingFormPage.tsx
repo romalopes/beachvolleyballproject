@@ -124,7 +124,7 @@ export default function TrainingFormPage() {
       api.categories(),
       api.skills(),
       api.drills(),
-      api.players({ per_page: 100 }),
+      api.players({ include_private: true, per_page: 100 }),
     ])
       .then(([cats, sks, drs, pageOfPlayers]) => {
         if (cancelled) return;

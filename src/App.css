@@ -5025,10 +5025,15 @@
 }
 
 /* Visibility picker: the select sits in a label, the hint below it. */
-.training-visibility-field {
+.training-visibility-field,
+.profile-visibility-field {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.profile-visibility-field {
+  margin: 0 0 1rem;
 }
 
 

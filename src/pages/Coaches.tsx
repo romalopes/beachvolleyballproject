@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import {
   Archive,
   ArchiveRestore,
+  Eye,
+  EyeOff,
   Pencil,
   Search,
   UserPlus,
@@ -46,9 +48,14 @@ export default function Coaches() {
   // See Players: archived is an explicit mode, because the API filters a single
   // status at a time.
   const [showArchived, setShowArchived] = useState(false);
-  const [confirmingArchive, setConfirmingArchive] = useState<Coach | null>(null);
+  const [confirmingArchive, setConfirmingArchive] = useState<Coach | null>(
+    null,
+  );
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Soft visibility: by default other coaches' private coaches are hidden.
+  const [showPrivate, setShowPrivate] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,6 +64,8 @@ export default function Coaches() {
       .coaches({
         ...(term ? { q: term } : {}),
         status: showArchived ? "archived" : "active",
+        include_private: showPrivate ? true : undefined,
+        mine: mineOnly ? true : undefined,
         page,
         per_page: PER_PAGE,
       })
@@ -69,7 +78,9 @@ export default function Coaches() {
       .catch((err: unknown) => {
         if (cancelled) return;
         console.error(err);
-        setError(err instanceof Error ? err.message : "Failed to load coaches.");
+        setError(
+          err instanceof Error ? err.message : "Failed to load coaches.",
+        );
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -77,7 +88,7 @@ export default function Coaches() {
     return () => {
       cancelled = true;
     };
-  }, [search, showArchived, page]);
+  }, [search, showArchived, showPrivate, mineOnly, page]);
 
   const reload = () => {
     const term = search.trim();
@@ -85,6 +96,8 @@ export default function Coaches() {
       .coaches({
         ...(term ? { q: term } : {}),
         status: showArchived ? "archived" : "active",
+        include_private: showPrivate ? true : undefined,
+        mine: mineOnly ? true : undefined,
         page,
         per_page: PER_PAGE,
       })
@@ -174,6 +187,39 @@ export default function Coaches() {
           <Archive size={14} aria-hidden="true" />
           Show archived
         </label>
+        {showArchived && (
+          <span className="related-item-meta">
+            Archived coaches keep their record — nothing was deleted.
+          </span>
+        )}
+        {canEdit && (
+          <>
+            <label className="people-filter-toggle">
+              <input
+                type="checkbox"
+                checked={showPrivate}
+                onChange={(event) => {
+                  setShowPrivate(event.target.checked);
+                  setPage(1);
+                }}
+              />
+              <EyeOff size={14} aria-hidden="true" />
+              Show private coaches
+            </label>
+            <label className="people-filter-toggle">
+              <input
+                type="checkbox"
+                checked={mineOnly}
+                onChange={(event) => {
+                  setMineOnly(event.target.checked);
+                  setPage(1);
+                }}
+              />
+              <Eye size={14} aria-hidden="true" />
+              My coaches only
+            </label>
+          </>
+        )}
       </div>
 
       {actionError && <div className="admin-error">{actionError}</div>}
@@ -227,10 +273,10 @@ export default function Coaches() {
           {coaches.map((coach) => (
             <li key={coach.id} className="people-row">
               <div className="people-identity">
-                <span className="people-name">
+                <Link to={`/coaches/${coach.id}`} className="people-name">
                   {coach.full_name ??
                     `${coach.person.first_name} ${coach.person.last_name ?? ""}`}
-                </span>
+                </Link>
                 <span className="people-contact">
                   {[coach.person.email, coach.person.phone]
                     .filter(Boolean)
@@ -248,6 +294,7 @@ export default function Coaches() {
                   : "Profile only"}
               </Tag>
               {isArchived(coach) && <Tag>Archived</Tag>}
+              {coach.visibility === "private" && <Tag>Private</Tag>}
               {canEdit && (
                 <Link
                   to={`/coaches/${coach.id}/edit`}

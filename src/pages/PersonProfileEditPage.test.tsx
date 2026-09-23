@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthContext";
-import { ApiValidationError, api, type Player } from "../api";
+import { ApiValidationError, api, type Coach, type Player } from "../api";
 import PersonProfileEditPage from "./PersonProfileEditPage";
 
 vi.mock("../api", async (importOriginal) => {
@@ -34,6 +34,8 @@ const player = (overrides: Partial<Player> = {}): Player => ({
   preferred_position: "setter",
   level: "beginner",
   status: "active",
+  visibility: "shared",
+  created_by: { id: 2, name: "Coach" },
   created_at: "2026-09-01T00:00:00.000Z",
   updated_at: "2026-09-01T00:00:00.000Z",
   full_name: "Pedro Santos",
@@ -44,6 +46,30 @@ const player = (overrides: Partial<Player> = {}): Player => ({
     last_name: "Santos",
     email: "pedro@example.com",
     phone: "+61400000001",
+    date_of_birth: null,
+    creation_source: "coach_created",
+  },
+  ...overrides,
+});
+
+const coachRecord = (overrides: Partial<Coach> = {}): Coach => ({
+  id: 7,
+  person_id: 70,
+  coaching_level: null,
+  qualifications: null,
+  status: "active",
+  visibility: "shared",
+  created_by: { id: 2, name: "Coach" },
+  created_at: "2026-09-01T00:00:00.000Z",
+  updated_at: "2026-09-01T00:00:00.000Z",
+  full_name: "Ana Coach",
+  account_status: "profile_only",
+  person: {
+    id: 70,
+    first_name: "Ana",
+    last_name: "Coach",
+    email: "ana@example.com",
+    phone: null,
     date_of_birth: null,
     creation_source: "coach_created",
   },
@@ -90,6 +116,7 @@ describe("PersonProfileEditPage", () => {
     expect(screen.getByLabelText("Phone")).toHaveValue("+61400000001");
     expect(screen.getByLabelText("Preferred position")).toHaveValue("setter");
     expect(screen.getByLabelText("Level")).toHaveValue("beginner");
+    expect(screen.getByLabelText("Visibility")).toHaveValue("shared");
     expect(mockedApi.player).toHaveBeenCalledWith(12);
   });
 
@@ -113,7 +140,11 @@ describe("PersonProfileEditPage", () => {
         email: "pedro@example.com",
         phone: "+61400000001",
       },
-      player_profile: { preferred_position: "setter", level: "advanced" },
+      player_profile: {
+        preferred_position: "setter",
+        level: "advanced",
+        visibility: "shared",
+      },
     });
     expect(await screen.findByText("Pedro Santos saved.")).toBeInTheDocument();
   });
@@ -173,5 +204,83 @@ describe("PersonProfileEditPage", () => {
 
     expect(screen.getByText("A first name is required.")).toBeInTheDocument();
     expect(mockedApi.updatePlayer).not.toHaveBeenCalled();
+  });
+
+  it("flips visibility to private when the owner saves", async () => {
+    mockedApi.updatePlayer.mockResolvedValue({
+      ...player({ visibility: "private" }),
+      possible_duplicates: [],
+    });
+    renderEdit();
+    await screen.findByLabelText("Visibility");
+
+    await userEvent.selectOptions(screen.getByLabelText("Visibility"), "private");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(mockedApi.updatePlayer).toHaveBeenCalledWith(12, {
+      person: {
+        first_name: "Pedro",
+        last_name: "Santos",
+        email: "pedro@example.com",
+        phone: "+61400000001",
+      },
+      player_profile: {
+        preferred_position: "setter",
+        level: "beginner",
+        visibility: "private",
+      },
+    });
+  });
+
+  it("locks visibility when someone else recorded the profile", async () => {
+    mockedApi.player.mockResolvedValue(
+      player({ created_by: { id: 99, name: "Someone else" } }),
+    );
+    renderEdit();
+    await screen.findByLabelText("Visibility");
+
+    expect(screen.getByLabelText("Visibility")).toBeDisabled();
+    expect(
+      screen.getByText(/Only the coach who recorded this profile/),
+    ).toBeInTheDocument();
+  });
+
+  it("lets an admin change visibility on a profile they do not own", async () => {
+    mockedApi.me.mockResolvedValue({ ...coachUser, roles: ["admin"] });
+    mockedApi.player.mockResolvedValue(
+      player({ created_by: { id: 99, name: "Someone else" } }),
+    );
+    renderEdit();
+    await screen.findByLabelText("Visibility");
+
+    expect(screen.getByLabelText("Visibility")).not.toBeDisabled();
+  });
+
+  it("PATCHes a coach under the coach_profile key with its visibility", async () => {
+    mockedApi.coach.mockResolvedValue(coachRecord());
+    mockedApi.updateCoach.mockResolvedValue({
+      ...coachRecord({ visibility: "private" }),
+      possible_duplicates: [],
+    });
+    renderEdit("/coaches/7/edit");
+
+    await screen.findByLabelText("Visibility");
+    await userEvent.selectOptions(screen.getByLabelText("Visibility"), "private");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(mockedApi.updateCoach).toHaveBeenCalledWith(7, {
+      person: {
+        first_name: "Ana",
+        last_name: "Coach",
+        email: "ana@example.com",
+        phone: null,
+      },
+      coach_profile: {
+        coaching_level: null,
+        qualifications: null,
+        visibility: "private",
+      },
+    });
+    expect(await screen.findByText("Ana Coach saved.")).toBeInTheDocument();
   });
 });
