@@ -5,10 +5,10 @@ import {
   useLocation,
   Navigate,
 } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { AuthProvider } from "./auth/AuthContext";
+import { useState } from "react";
+import { AuthProvider } from "./auth/AuthProvider";
 import { useAuth } from "./auth/AuthContext";
-import { TestAccessProvider } from "./auth/TestAccessContext";
+import { TestAccessProvider } from "./auth/TestAccessProvider";
 import { useTestAccess } from "./auth/TestAccessContext";
 import Sidebar from "./components/Sidebar";
 import Footer from "./components/Footer";
@@ -82,12 +82,15 @@ function ManagerRoute({ children }: { children: React.ReactNode }) {
 }
 
 function Layout({ children }: { children: React.ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [location.pathname]);
+  // The mobile sidebar closes on every navigation. Remembering which pathname
+  // it was opened on makes that a derivation: as soon as the route changes the
+  // stored pathname stops matching and the sidebar reads as closed, so no
+  // state-syncing effect (and no cascading render) is needed.
+  const [nav, setNav] = useState({ path: location.pathname, open: false });
+  const sidebarOpen = nav.open && nav.path === location.pathname;
+  const setSidebarOpen = (open: boolean) =>
+    setNav({ path: location.pathname, open });
 
   return (
     <div className="app">

@@ -9,23 +9,19 @@ interface SkillFormProps {
 
 export default function SkillForm({ initial, onSuccess, onCancel }: SkillFormProps) {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [title, setTitle] = useState("");
-  const [categoryId, setCategoryId] = useState<string>("");
-  const [description, setDescription] = useState("");
+  // Seeded once from `initial`: the page renders the form only after the skill
+  // is loaded, and keys it by id, so no state-syncing effect is needed.
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [categoryId, setCategoryId] = useState<string>(
+    initial ? String(initial.category_id) : "",
+  );
+  const [description, setDescription] = useState(initial?.description ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api.categories().then(setCategories).catch(console.error);
   }, []);
-
-  useEffect(() => {
-    if (initial) {
-      setTitle(initial.title);
-      setCategoryId(String(initial.category_id));
-      setDescription(initial.description ?? "");
-    }
-  }, [initial]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

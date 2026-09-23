@@ -19,27 +19,37 @@ export default function VideosDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [video, setVideo] = useState<VideoSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // The load result for one video id. `loading` and `error` are derived from
+  // it: until the fetch for the current id answers the page is loading, and
+  // after an answer (or a failure) it is not. Deriving them keeps the effect
+  // free of synchronous state updates, which would cascade a second render.
+  const [result, setResult] = useState<{
+    id: string | null;
+    video: VideoSummary | null;
+    error: string | null;
+  }>({ id: null, video: null, error: null });
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
 
+  const isCurrent = result.id === id;
+  const video = isCurrent ? result.video : null;
+  const error = isCurrent ? result.error : null;
+  const loading = Boolean(id) && !isCurrent;
+
   const load = useCallback(() => {
     if (!id) return;
-    setLoading(true);
     api
       .video(id)
-      .then((data) => {
-        setVideo(data);
-        setError(null);
-      })
+      .then((data) => setResult({ id, video: data, error: null }))
       .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : "Failed to load the video."),
-      )
-      .finally(() => setLoading(false));
+        setResult({
+          id,
+          video: null,
+          error: err instanceof Error ? err.message : "Failed to load the video.",
+        }),
+      );
   }, [id]);
 
   useEffect(load, [load]);
@@ -126,6 +136,9 @@ export default function VideosDetail() {
           video={video}
           onSaved={() => {
             setEditing(false);
+            // Drop the stale copy so the page shows its loading state while the
+            // refreshed video is fetched.
+            setResult({ id: null, video: null, error: null });
             load();
           }}
           onCancel={() => setEditing(false)}

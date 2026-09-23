@@ -9,18 +9,20 @@ export default function SystemLogs() {
   const { user } = useAuth();
   const [lines, setLines] = useState<string[]>([]);
   const [lineCount, setLineCount] = useState(500);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // The loading state is switched on by the controls that change the query
+  // (the select and Refresh below) instead of inside the effect, which would
+  // cascade a second render on every change.
   useEffect(() => {
-    setLoading(true);
-    setError(null);
     api
       .adminSystemLogs(lineCount)
       .then((res) => setLines(res.lines ?? []))
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [lineCount]);
+  }, [lineCount, refreshKey]);
 
   if (!user?.roles?.includes("admin")) {
     return (
@@ -40,7 +42,11 @@ export default function SystemLogs() {
       <div className="settings-toolbar">
         <select
           value={lineCount}
-          onChange={(e) => setLineCount(Number(e.target.value))}
+          onChange={(e) => {
+            setLoading(true);
+            setError(null);
+            setLineCount(Number(e.target.value));
+          }}
           aria-label="Number of lines"
         >
           {LINE_OPTIONS.map((n) => (
@@ -53,7 +59,13 @@ export default function SystemLogs() {
           type="button"
           className="admin-btn admin-btn-add"
           disabled={loading}
-          onClick={() => setLineCount((c) => c)}
+          onClick={() => {
+            // This used to re-set `lineCount` to its own value, which React
+            // bails out of — so the button never refetched. Bumping a key does.
+            setLoading(true);
+            setError(null);
+            setRefreshKey((k) => k + 1);
+          }}
         >
           Refresh
         </button>

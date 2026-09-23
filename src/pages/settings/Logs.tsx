@@ -85,8 +85,6 @@ function LogFileViewer() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
     api
       .adminSystemLogs(lineCount)
       .then((res) => setLines(res.lines ?? []))
@@ -102,7 +100,13 @@ function LogFileViewer() {
         <select
           id="line-count"
           value={lineCount}
-          onChange={(e) => setLineCount(Number(e.target.value))}
+          onChange={(e) => {
+            // The fetch below is the only reader of the file, so the loading
+            // state is switched on where the request is triggered.
+            setLoading(true);
+            setError(null);
+            setLineCount(Number(e.target.value));
+          }}
           aria-label="Number of lines"
         >
           {LINE_COUNT_OPTIONS.map((n) => (
@@ -115,7 +119,11 @@ function LogFileViewer() {
           type="button"
           className="admin-btn admin-btn-add"
           disabled={loading}
-          onClick={() => setRefreshKey((k) => k + 1)}
+          onClick={() => {
+            setLoading(true);
+            setError(null);
+            setRefreshKey((k) => k + 1);
+          }}
         >
           Refresh
         </button>
@@ -155,8 +163,6 @@ function AuditLogTable() {
   const [knownActions, setKnownActions] = useState<string[]>(LOG_ACTION_OPTIONS);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
     api
       .adminLogs({
         page,
@@ -186,13 +192,22 @@ function AuditLogTable() {
 
   function applyFilters(e?: React.FormEvent) {
     e?.preventDefault();
+    // The loading state is switched on here (and in the other handlers that
+    // change the query) instead of inside the effect, which would cascade a
+    // second render on every change.
+    setLoading(true);
+    setError(null);
     setApplied({ ...draft });
     setPage(1);
   }
 
   function resetFilters() {
+    setLoading(true);
+    setError(null);
     setDraft(EMPTY_FILTERS);
-    setApplied(EMPTY_FILTERS);
+    // A fresh object is always a new query key, so clearing really refetches
+    // even when the filters were already empty.
+    setApplied({ ...EMPTY_FILTERS });
     setPage(1);
   }
 
@@ -313,6 +328,8 @@ function AuditLogTable() {
               <select
                 value={perPage}
                 onChange={(e) => {
+                  setLoading(true);
+                  setError(null);
                   setPerPage(Number(e.target.value));
                   setPage(1);
                 }}
@@ -379,7 +396,12 @@ function AuditLogTable() {
             totalPages={meta?.total_pages ?? 1}
             totalItems={meta?.total ?? logs.length}
             itemsPerPage={PER_PAGE}
-            onPageChange={setPage}
+            onPageChange={(next) => {
+              if (next === page) return;
+              setLoading(true);
+              setError(null);
+              setPage(next);
+            }}
           />
         </>
       )}

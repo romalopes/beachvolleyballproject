@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthProvider } from "../auth/AuthContext";
+import { AuthProvider } from "../auth/AuthProvider";
 import { api, type TrainingSession } from "../api";
 import Schedule from "./Schedule";
 

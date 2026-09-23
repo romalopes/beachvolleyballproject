@@ -1,7 +1,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import { AuthProvider } from "../auth/AuthContext";
+import { AuthProvider } from "../auth/AuthProvider";
 import { api, type VideoSummary } from "../api";
 import Videos from "./Videos";
 

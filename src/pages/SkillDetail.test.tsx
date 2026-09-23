@@ -6,7 +6,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthProvider } from "../auth/AuthContext";
+import { AuthProvider } from "../auth/AuthProvider";
 import { api, type Skill, type VideoReference } from "../api";
 import SkillDetail from "./SkillDetail";
 

@@ -44,6 +44,9 @@ export default function CategoryFormPage() {
     >
       {error && <div className="auth-flash auth-flash-error">{error}</div>}
       <CategoryForm
+        // Re-seed the fields when the edited record changes (the form keeps no
+        // prop-syncing effect).
+        key={isNew ? "new" : (initial?.id ?? slug)}
         initial={isNew ? null : initial}
         onCancel={() => navigate(backTo)}
         onSuccess={(saved) => navigate(`/settings/categories/${saved.slug}`)}

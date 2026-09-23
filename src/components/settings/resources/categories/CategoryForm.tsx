@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api, type Category } from "../../../../api";
 
 interface CategoryFormProps {
@@ -7,14 +7,17 @@ interface CategoryFormProps {
   onCancel: () => void;
 }
 
+/**
+ * Create/edit form for one category.
+ *
+ * The fields are seeded once from `initial` (the page renders the form only
+ * after the record is loaded, and keys it by id), so there is no
+ * state-syncing effect to re-run on every prop change.
+ */
 export default function CategoryForm({ initial, onSuccess, onCancel }: CategoryFormProps) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initial?.name ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (initial) setName(initial.name);
-  }, [initial]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

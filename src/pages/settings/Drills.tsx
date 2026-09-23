@@ -77,7 +77,8 @@ export default function Drills() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    setLoading(true);
+    // `loading` already starts true and `error` as null, so the mount fetch
+    // needs no synchronous state update of its own.
     Promise.all([
       api.adminDrills(),
       api.adminSkills({ per_page: 1000 }),

@@ -9,7 +9,6 @@ export default function AdminUsers() {
   const { user, startImpersonating } = useAuth();
   const isAdmin = user?.roles?.includes("admin") && !(user as { real_admin?: unknown }).real_admin;
   const [users, setUsers] = useState<AdminUser[] | null>(null);
-  const [loading, setLoading] = useState(isAdmin);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Record<number, boolean>>({});
   const [actingBusy, setActingBusy] = useState<Record<number, boolean>>({});
@@ -17,28 +16,44 @@ export default function AdminUsers() {
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
+  // Which query the rows on screen belong to. While a newer query is in flight
+  // the keys differ, so `loading` is derived from them instead of being synced
+  // by an effect (which would cascade a second render on every change).
+  const queryKey = `${page}|${search}|${refreshKey}`;
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const loading = isAdmin && loadedKey !== queryKey;
+
+  // The query the effect below re-runs on: `page`/`search` define it, and
+  // bumping `refreshKey` is the manual "reload" trigger (Refresh, role change).
   useEffect(() => {
-    if (isAdmin) loadUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, page, search]);
-
-  const loadUsers = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await api.adminUsers({ page, per_page: PER_PAGE, search: search || undefined });
-      setUsers(response.data);
-      setMeta(response.meta);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (!isAdmin) return;
+    let cancelled = false;
+    api
+      .adminUsers({ page, per_page: PER_PAGE, search: search || undefined })
+      .then((response) => {
+        if (cancelled) return;
+        setUsers(response.data);
+        setMeta(response.meta);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Failed to load users.");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        // Either way this query has been answered: stop showing the loading state.
+        setLoadedKey(queryKey);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, page, search, refreshKey, queryKey]);
 
   const applySearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setPage(1);
     setSearch(searchDraft.trim());
   };
@@ -49,12 +64,17 @@ export default function AdminUsers() {
   const toggleRole = async (u: AdminUser, role: string) => {
     const present = hasRole(u, role);
     setBusy((prev) => ({ ...prev, [u.id]: true }));
+    setError(null);
     try {
       if (present) await api.adminRemoveRole(u.id, role);
       else await api.adminAddRole(u.id, role);
-      await loadUsers();
-    } catch (e: any) {
-      setError(e.message);
+      // Re-read the roster: clearing the loaded key shows the loading state and
+      // bumping the key re-runs the load effect, exactly like the old
+      // `setLoading(true); loadUsers();` pair.
+      setLoadedKey(null);
+      setRefreshKey((k) => k + 1);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to update the role.");
     } finally {
       setBusy((prev) => ({ ...prev, [u.id]: false }));
     }
@@ -155,8 +175,12 @@ export default function AdminUsers() {
                       setActingBusy((prev) => ({ ...prev, [u.id]: true }));
                       try {
                         await startImpersonating(u.id);
-                      } catch (e: any) {
-                        setError(e.message);
+                      } catch (e: unknown) {
+                        setError(
+                          e instanceof Error
+                            ? e.message
+                            : "Failed to start impersonating.",
+                        );
                       } finally {
                         setActingBusy((prev) => ({ ...prev, [u.id]: false }));
                       }
@@ -177,7 +201,11 @@ export default function AdminUsers() {
           totalPages={meta.total_pages}
           totalItems={meta.total}
           itemsPerPage={PER_PAGE}
-          onPageChange={setPage}
+          onPageChange={(next) => {
+            if (next === page) return;
+            setError(null);
+            setPage(next);
+          }}
         />
       )}
 
@@ -185,8 +213,9 @@ export default function AdminUsers() {
         type="button"
         className="admin-btn admin-btn-add"
         onClick={() => {
+          setError(null);
           setPage(1);
-          loadUsers();
+          setRefreshKey((k) => k + 1);
         }}
         disabled={loading}
       >

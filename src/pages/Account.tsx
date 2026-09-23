@@ -22,11 +22,16 @@ export default function AccountPage() {
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    api.account().then(setAccount).catch((e) => setError(e.message)).finally(() => setLoading(false));
+    // With no user the render below short-circuits to the sign-in notice before
+    // it reads `loading`, so there is nothing to reset here.
+    if (!user) return;
+    api
+      .account()
+      .then(setAccount)
+      .catch((e: unknown) =>
+        setError(e instanceof Error ? e.message : "Failed to load the account."),
+      )
+      .finally(() => setLoading(false));
   }, [user]);
 
   if (!user) {
@@ -71,8 +76,8 @@ export default function AccountPage() {
       });
       setAccount(saved);
       setSuccess("Account updated successfully.");
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to save the account.");
     } finally {
       setSaving(false);
     }
@@ -93,8 +98,10 @@ export default function AccountPage() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (e: any) {
-      setPasswordError(e.message);
+    } catch (e: unknown) {
+      setPasswordError(
+        e instanceof Error ? e.message : "Failed to change the password.",
+      );
     } finally {
       setPasswordSaving(false);
     }

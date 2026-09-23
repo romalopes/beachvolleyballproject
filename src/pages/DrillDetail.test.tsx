@@ -10,7 +10,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthProvider } from "../auth/AuthContext";
+import { AuthProvider } from "../auth/AuthProvider";
 import { api, type Drill } from "../api";
 import type { VideoReference } from "../api";
 import { SAMPLE_DRILL_DEFINITION } from "../components/drill/definition";
