@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthContext";
-import { api, type Drill, type TrainingSession } from "../api";
+import { api, type Drill, type TrainingSession, type TrainingSessionParticipant } from "../api";
 import { SAMPLE_DRILL_DEFINITION } from "../components/drill/definition";
 import TrainingDetail from "./TrainingDetail";
 
@@ -14,6 +14,7 @@ vi.mock("../api", async (importOriginal) => {
     api: {
       me: vi.fn(),
       trainingSession: vi.fn(),
+      updateTrainingSession: vi.fn(),
       deleteTrainingSession: vi.fn(),
       createVideoReference: vi.fn(),
       updateVideoReference: vi.fn(),
@@ -49,6 +50,7 @@ const fullSession: TrainingSession = {
   ends_at: "2026-09-21T11:00:00.000Z",
   location: "Coogee Beach",
   status: "scheduled",
+  visibility: "shared",
   created_by_id: 2,
   duration_minutes: 120,
   status_label: "Scheduled",
@@ -81,6 +83,25 @@ const fullSession: TrainingSession = {
   ],
 };
 
+const participants: TrainingSessionParticipant[] = [
+  {
+    id: 5,
+    player_profile_id: 10,
+    status: "invited",
+    notes: null,
+    player_name: "Maria Silva",
+    account_connected: true,
+  },
+  {
+    id: 6,
+    player_profile_id: 11,
+    status: "confirmed",
+    notes: "First session back",
+    player_name: "Pedro Santos",
+    account_connected: false,
+  },
+];
+
 const renderDetail = (route = "/training/1") =>
   render(
     <MemoryRouter initialEntries={[route]}>
@@ -98,7 +119,6 @@ beforeEach(() => {
   mockedApi.me.mockResolvedValue(coachUser);
   mockedApi.trainingSession.mockResolvedValue(fullSession);
 });
-
 afterEach(cleanup);
 
 describe("TrainingDetail", () => {
@@ -188,5 +208,80 @@ describe("TrainingDetail", () => {
     expect(
       screen.getByRole("link", { name: /watch on youtube/i }),
     ).toHaveAttribute("href", "https://www.youtube.com/watch?v=Rec123");
+  });
+
+  it("shows the player roster read-only to a player", async () => {
+    mockedApi.me.mockResolvedValue(playerUser);
+    mockedApi.trainingSession.mockResolvedValue({
+      ...fullSession,
+      training_session_participants: participants,
+    });
+    renderDetail();
+
+    expect(await screen.findByText(/1\. Maria Silva/)).toBeInTheDocument();
+    expect(screen.getByText(/First session back/)).toBeInTheDocument();
+    expect(screen.getByText("2 players · 1 invited · 1 confirmed")).toBeInTheDocument();
+    // A player cannot change anybody's attendance.
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+  });
+
+  it("lets a coach mark attendance", async () => {
+    mockedApi.trainingSession.mockResolvedValue({
+      ...fullSession,
+      training_session_participants: participants,
+    });
+    mockedApi.updateTrainingSession.mockResolvedValue({
+      ...fullSession,
+      training_session_participants: [
+        { ...participants[0], status: "attended" },
+        participants[1],
+      ],
+    });
+    renderDetail();
+    await screen.findByText(/1\. Maria Silva/);
+
+    await userEvent.selectOptions(
+      screen.getByLabelText("Status of Maria Silva"),
+      "attended",
+    );
+
+    expect(mockedApi.updateTrainingSession).toHaveBeenCalledWith(1, {
+      training_session_participants_attributes: [
+        { id: 5, status: "attended" },
+      ],
+    });
+    expect(
+      await screen.findByText("2 players · 1 confirmed · 1 attended"),
+    ).toBeInTheDocument();
+  });
+
+  it("reports a failed attendance update", async () => {
+    mockedApi.trainingSession.mockResolvedValue({
+      ...fullSession,
+      training_session_participants: participants,
+    });
+    mockedApi.updateTrainingSession.mockRejectedValue(
+      new Error("API Error: 422"),
+    );
+    renderDetail();
+    await screen.findByText(/1\. Maria Silva/);
+
+    await userEvent.selectOptions(
+      screen.getByLabelText("Status of Pedro Santos"),
+      "absent",
+    );
+
+    expect(await screen.findByText("API Error: 422")).toBeInTheDocument();
+  });
+
+  it("flags a private session and states its visibility", async () => {
+    mockedApi.trainingSession.mockResolvedValue({
+      ...fullSession,
+      visibility: "private",
+    });
+    renderDetail();
+
+    expect(await screen.findByText("Private")).toBeInTheDocument();
+    expect(screen.getByText("Visibility: Private")).toBeInTheDocument();
   });
 });

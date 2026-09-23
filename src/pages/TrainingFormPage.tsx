@@ -5,10 +5,12 @@ import {
   ApiValidationError,
   type Category,
   type Drill,
+  type Player,
   type Skill,
   type TrainingSession,
   type TrainingSessionInput,
   type TrainingSessionStatus,
+  type TrainingSessionVisibility,
   type VideoReference,
 } from "../api";
 import { useAuth } from "../auth/AuthContext";
@@ -20,6 +22,11 @@ import TrainingFocusList from "../components/training/TrainingFocusList";
 import DrillSelector, {
   type DrillDraft,
 } from "../components/training/DrillSelector";
+import ParticipantSelector from "../components/training/ParticipantSelector";
+import {
+  participantDraftsFromSession,
+  type ParticipantDraft,
+} from "../components/training/participantDraft";
 import SkillFocusSelector from "../components/training/SkillFocusSelector";
 import {
   createCustomFocus,
@@ -33,6 +40,7 @@ import {
   durationChoices,
   TRAINING_DURATION_OPTIONS,
   TRAINING_STATUSES,
+  TRAINING_VISIBILITIES,
   trainingDurationLabel,
 } from "../utils/training";
 
@@ -69,6 +77,7 @@ export default function TrainingFormPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [drills, setDrills] = useState<Drill[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [referenceError, setReferenceError] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
@@ -80,10 +89,16 @@ export default function TrainingFormPage() {
   );
   const [location, setLocation] = useState("");
   const [status, setStatus] = useState<TrainingSessionStatus>("draft");
+  const [visibility, setVisibility] =
+    useState<TrainingSessionVisibility>("shared");
   const [focuses, setFocuses] = useState<FocusDraft[]>([]);
   const [selectedDrills, setSelectedDrills] = useState<DrillDraft[]>([]);
+  const [participants, setParticipants] = useState<ParticipantDraft[]>([]);
   const [originalFocusIds, setOriginalFocusIds] = useState<number[]>([]);
   const [originalDrillIds, setOriginalDrillIds] = useState<number[]>([]);
+  const [originalParticipantIds, setOriginalParticipantIds] = useState<
+    number[]
+  >([]);
   /** Videos attached to the edited session (edit mode only). */
   const [sessionVideos, setSessionVideos] = useState<VideoReference[]>([]);
   // The drills index endpoint strips `definition` (it is a large JSONB column
@@ -103,12 +118,20 @@ export default function TrainingFormPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.categories(), api.skills(), api.drills()])
-      .then(([cats, sks, drs]) => {
+    // The picker filters locally while a coach types, so it asks for a page
+    // large enough to hold the roster (the API caps per_page at 100).
+    Promise.all([
+      api.categories(),
+      api.skills(),
+      api.drills(),
+      api.players({ per_page: 100 }),
+    ])
+      .then(([cats, sks, drs, pageOfPlayers]) => {
         if (cancelled) return;
         setCategories(cats);
         setSkills(sks);
         setDrills(drs);
+        setPlayers(pageOfPlayers.data);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -148,6 +171,7 @@ export default function TrainingFormPage() {
         );
         setLocation(session.location ?? "");
         setStatus(session.status);
+        setVisibility(session.visibility ?? "shared");
         const orderedFocuses = [...(session.training_focuses ?? [])].sort(
           (a, b) => a.position - b.position,
         );
@@ -183,6 +207,15 @@ export default function TrainingFormPage() {
             })),
         );
         setOriginalDrillIds(orderedDrills.map((row) => row.id));
+        const storedParticipants = participantDraftsFromSession(
+          session.training_session_participants,
+        );
+        setParticipants(storedParticipants);
+        setOriginalParticipantIds(
+          storedParticipants
+            .map((row) => row.id)
+            .filter((rowId): rowId is number => rowId != null),
+        );
         setSessionVideos(session.video_references ?? []);
         setLoadingSession(false);
       })
@@ -267,6 +300,7 @@ export default function TrainingFormPage() {
           : new Date().toISOString(),
       location: location.trim() || null,
       status,
+      visibility,
       created_by_id: null,
       training_focuses: focuses.map((focus, index) => ({
         ...emptyPreviewRow(index),
@@ -319,6 +353,7 @@ export default function TrainingFormPage() {
       durationMinutes,
       location,
       status,
+      visibility,
       focuses,
       selectedDrills,
       skills,
@@ -373,6 +408,9 @@ export default function TrainingFormPage() {
     const removedDrillIds = originalDrillIds.filter(
       (id) => !selectedDrills.some((row) => row.id === id),
     );
+    const removedParticipantIds = originalParticipantIds.filter(
+      (id) => !participants.some((row) => row.id === id),
+    );
     const payload: TrainingSessionInput = {
       title: title.trim(),
       description: description.trim() || null,
@@ -380,6 +418,7 @@ export default function TrainingFormPage() {
       ends_at: endsAt,
       location: location.trim() || null,
       status,
+      visibility,
       training_focuses_attributes: [
         ...focuses.map((focus, index) => ({
           id: focus.id,
@@ -403,6 +442,18 @@ export default function TrainingFormPage() {
           notes: row.notes?.trim() ? row.notes.trim() : null,
         })),
         ...removedDrillIds.map((id) => ({ id, _destroy: true })),
+      ],
+      training_session_participants_attributes: [
+        ...participants.map((row) => ({
+          id: row.id,
+          // Either an existing player profile, or the inline person that the
+          // server turns into Person + PlayerProfile (no Account).
+          player_profile_id: row.player_profile_id,
+          person: row.player_profile_id ? undefined : row.person,
+          status: row.status,
+          notes: row.notes?.trim() ? row.notes.trim() : null,
+        })),
+        ...removedParticipantIds.map((id) => ({ id, _destroy: true })),
       ],
     };
     setSaving(true);
@@ -508,26 +559,32 @@ export default function TrainingFormPage() {
               ))}
             </select>
           </label>
+          <div className="training-visibility-field">
+            <label>
+              Visibility
+              <select
+                value={visibility}
+                onChange={(event) =>
+                  setVisibility(event.target.value as TrainingSessionVisibility)
+                }
+              >
+                {TRAINING_VISIBILITIES.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="related-item-meta">
+              {
+                TRAINING_VISIBILITIES.find(
+                  (option) => option.value === visibility,
+                )?.hint
+              }
+            </span>
+          </div>
         </div>
 
-        <div className="admin-form-actions">
-          <button
-            type="submit"
-            className="admin-btn admin-btn-add"
-            disabled={saving}
-          >
-            {saving ? "Saving..." : isNew ? "Create Training" : "Save Changes"}
-          </button>
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() =>
-              navigate(isNew ? "/training" : `/training/${sessionId}`)
-            }
-          >
-            Cancel
-          </button>
-        </div>
         <SkillFocusSelector
           categories={categories}
           skills={skills}
@@ -542,6 +599,12 @@ export default function TrainingFormPage() {
           focusSkillNames={focusSkillNames}
           selected={selectedDrills}
           onChange={setSelectedDrills}
+        />
+
+        <ParticipantSelector
+          players={players}
+          selected={participants}
+          onChange={setParticipants}
         />
 
         {errors.length > 0 && (

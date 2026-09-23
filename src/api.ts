@@ -318,6 +318,77 @@ export interface TrainingSessionDrillRow {
   drill?: Drill;
 }
 
+/**
+ * Who may see a training session. `shared` is the normal case: the session is
+ * part of the published schedule. `private` narrows it to the people who run
+ * trainings (coaches/curators/admins) — used for one-to-one work, rehab blocks
+ * and anything that should not appear in a player's calendar.
+ */
+export type TrainingSessionVisibility = "shared" | "private";
+
+/**
+ * Where a participant stands. The backend keeps the state machine
+ * (`invited → confirmed → attended|absent`, with `declined` as the opt-out), so
+ * the UI only labels and colours these values.
+ */
+export type ParticipantStatus =
+  | "invited"
+  | "confirmed"
+  | "declined"
+  | "attended"
+  | "absent";
+
+/** Person fields exposed on a serialized participant. */
+export interface ParticipantPerson {
+  id: number;
+  first_name: string;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+export interface ParticipantPlayerProfile {
+  id: number;
+  preferred_position: string | null;
+  level: string | null;
+  person?: ParticipantPerson;
+}
+
+export interface TrainingSessionParticipant {
+  id: number;
+  player_profile_id: number;
+  status: ParticipantStatus;
+  notes: string | null;
+  /** Server-computed display name (present on serialized rows). */
+  player_name?: string;
+  /** true when the player has an Account, false for a staff-recorded profile. */
+  account_connected?: boolean;
+  player_profile?: ParticipantPlayerProfile;
+}
+
+/**
+ * A participant row submitted with a training session (nested attributes).
+ *
+ * Either `player_profile_id` names an existing player, or `person` records a
+ * player who has no account yet — the server then creates Person +
+ * PlayerProfile (creation_source: "coach_created") and links them, without an
+ * Account. `_destroy` removes a row.
+ */
+export interface TrainingSessionParticipantInput {
+  id?: number;
+  player_profile_id?: number;
+  status?: ParticipantStatus;
+  notes?: string | null;
+  _destroy?: boolean;
+  person?: {
+    first_name: string;
+    last_name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    date_of_birth?: string | null;
+  };
+}
+
 export interface TrainingSession {
   id: number;
   title: string;
@@ -326,12 +397,14 @@ export interface TrainingSession {
   ends_at: string;
   location: string | null;
   status: TrainingSessionStatus;
+  visibility: TrainingSessionVisibility;
   created_by_id: number | null;
   duration_minutes?: number;
   status_label?: string;
   created_by?: { id: number; name: string } | null;
   training_focuses?: TrainingFocus[];
   training_session_drills?: TrainingSessionDrillRow[];
+  training_session_participants?: TrainingSessionParticipant[];
   video_references?: VideoReference[];
 }
 
@@ -360,8 +433,158 @@ export interface TrainingSessionInput {
   ends_at: string;
   location?: string | null;
   status?: TrainingSessionStatus;
+  visibility?: TrainingSessionVisibility;
   training_focuses_attributes?: TrainingFocusInput[];
   training_session_drills_attributes?: TrainingSessionDrillInput[];
+  training_session_participants_attributes?: TrainingSessionParticipantInput[];
+}
+
+// ---------- People, players and coaches (identity model) ----------
+/**
+ * Whether a person can authenticate. "connected" = the person has an Account
+ * (they signed up / were invited and accepted); "profile_only" = staff recorded
+ * them so they could be scheduled, without any Account or permissions.
+ */
+export type AccountStatus = "connected" | "profile_only";
+
+export type ProfileStatus = "active" | "inactive" | "archived";
+
+/**
+ * How a Person came to exist. Provenance is what lets the system tell a
+ * self-signup from a staff-recorded profile — claiming and duplicate
+ * resolution both branch on it.
+ */
+export type CreationSource = "signup" | "coach_created" | "player_created" | "system";
+
+/**
+ * Compact identity payload: returned by the people search (`GET /api/v1/people`)
+ * and inside `possible_duplicates` on player/coach creation, so both render
+ * with the same component.
+ */
+export interface PersonIdentity {
+  id: number;
+  first_name: string;
+  last_name: string | null;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  date_of_birth: string | null;
+  creation_source: CreationSource | string;
+  account_status: AccountStatus;
+  /** Set when the person is already a player / coach — no second profile needed. */
+  player_profile_id: number | null;
+  coach_profile_id: number | null;
+  /**
+   * Alternate names (nicknames, previous names after a rename). Not identity
+   * evidence, but how a coach usually recognises someone.
+   */
+  aliases?: string[];
+}
+
+export interface ProfilePerson {
+  id: number;
+  first_name: string;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+  date_of_birth: string | null;
+  creation_source: CreationSource | string;
+}
+
+export interface Player {
+  id: number;
+  person_id: number;
+  preferred_position: string | null;
+  level: string | null;
+  status: ProfileStatus;
+  created_at: string;
+  updated_at: string;
+  full_name?: string;
+  account_status?: AccountStatus;
+  player_profile_id?: number;
+  training_session_count?: number;
+  person: ProfilePerson;
+  /** Only on show: the sessions this player is attached to. */
+  training_session_participants?: {
+    id: number;
+    status: ParticipantStatus;
+    notes: string | null;
+    created_at: string;
+    training_session?: {
+      id: number;
+      title: string;
+      starts_at: string;
+      ends_at: string;
+      location: string | null;
+      status: TrainingSessionStatus;
+      visibility: TrainingSessionVisibility;
+    };
+  }[];
+}
+
+/**
+ * Create payload. Name the human either way:
+ *   * `person_id` — link a profile to a person that already exists (the result
+ *     of a people search);
+ *   * `person`    — record a new person, with no Account (coach_created).
+ */
+export interface PlayerInput {
+  person_id?: number;
+  person?: {
+    first_name: string;
+    last_name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    date_of_birth?: string | null;
+  };
+  player_profile?: {
+    preferred_position?: string | null;
+    level?: string | null;
+    status?: ProfileStatus;
+  };
+}
+
+export interface Coach {
+  id: number;
+  person_id: number;
+  coaching_level: string | null;
+  qualifications: string | null;
+  status: ProfileStatus;
+  created_at: string;
+  updated_at: string;
+  full_name?: string;
+  account_status?: AccountStatus;
+  coach_profile_id?: number;
+  person: ProfilePerson;
+}
+
+export interface CoachInput {
+  person_id?: number;
+  person?: {
+    first_name: string;
+    last_name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    date_of_birth?: string | null;
+  };
+  coach_profile?: {
+    coaching_level?: string | null;
+    qualifications?: string | null;
+    status?: ProfileStatus;
+  };
+}
+
+/**
+ * Creation response: the stored profile plus the people who may already
+ * describe the same human. Suggestions only — nothing is ever merged
+ * automatically, a coach decides.
+ */
+export interface PlayerCreateResponse extends Player {
+  possible_duplicates: PersonIdentity[];
+}
+
+export interface CoachCreateResponse extends Coach {
+  possible_duplicates: PersonIdentity[];
 }
 
 export interface User {
@@ -577,11 +800,14 @@ export const api = {
     starts_at_from?: string;
     starts_at_to?: string;
     status?: TrainingSessionStatus;
+    /** mine=true narrows the calendar to the current player's own sessions. */
+    mine?: boolean;
   }) => {
     const qs = new URLSearchParams();
     if (params?.starts_at_from) qs.set("starts_at_from", params.starts_at_from);
     if (params?.starts_at_to) qs.set("starts_at_to", params.starts_at_to);
     if (params?.status) qs.set("status", params.status);
+    if (params?.mine) qs.set("mine", "1");
     const query = qs.toString();
     return fetchAPI<TrainingSession[]>(
       `/training_sessions${query ? `?${query}` : ""}`
@@ -599,6 +825,85 @@ export const api = {
     ),
   deleteTrainingSession: (id: number) =>
     postJSON<void>(`/training_sessions/${id}`, {}, "DELETE"),
+
+  // ---------- People search (identity lookup, staff only) ----------
+  /**
+   * "Has this human already been recorded?" — the lookup the create-player /
+   * create-coach flow runs before recording a new person, so a coach can pick
+   * an existing identity instead of duplicating it.
+   */
+  people: (params?: { q?: string; email?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.q) qs.set("q", params.q);
+    if (params?.email) qs.set("email", params.email);
+    const query = qs.toString();
+    return fetchAPI<PersonIdentity[]>(`/people${query ? `?${query}` : ""}`);
+  },
+
+  // ---------- Players (read: training managers; create: coach/admin) ----------
+  /**
+   * Paginated catalogue (`{ data, meta }`, 20 per page by default).
+   * The training form's player picker asks for a `per_page` big enough to hold
+   * the whole roster, so it can filter locally while a coach types.
+   */
+  players: async (params?: {
+    q?: string;
+    email?: string;
+    status?: ProfileStatus;
+    page?: number;
+    per_page?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params?.q) qs.set("q", params.q);
+    if (params?.email) qs.set("email", params.email);
+    if (params?.status) qs.set("status", params.status);
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.per_page) qs.set("per_page", String(params.per_page));
+    const query = qs.toString();
+    const response = await fetchAPI<Player[] | PaginatedResponse<Player>>(
+      `/players${query ? `?${query}` : ""}`,
+    );
+    return normalizePaginatedResponse(response);
+  },
+  player: (id: number) => fetchAPI<Player>(`/players/${id}`),
+  createPlayer: (data: PlayerInput) =>
+    postJSON<PlayerCreateResponse>("/players", { player: data }),
+  /**
+   * Correct a player's own attributes or the person's contact details. The
+   * response carries `possible_duplicates` again: a correction is exactly when
+   * a duplicate shows up. `person_id` is rejected by the API — re-pointing a
+   * profile is a merge, not an edit.
+   */
+  updatePlayer: (id: number, data: PlayerInput) =>
+    postJSON<PlayerCreateResponse>(`/players/${id}`, { player: data }, "PATCH"),
+
+  // ---------- Coaches (read: training managers; create: coach/admin) ----------
+  /** Paginated catalogue — see `players`. */
+  coaches: async (params?: {
+    q?: string;
+    email?: string;
+    status?: ProfileStatus;
+    page?: number;
+    per_page?: number;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params?.q) qs.set("q", params.q);
+    if (params?.email) qs.set("email", params.email);
+    if (params?.status) qs.set("status", params.status);
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.per_page) qs.set("per_page", String(params.per_page));
+    const query = qs.toString();
+    const response = await fetchAPI<Coach[] | PaginatedResponse<Coach>>(
+      `/coaches${query ? `?${query}` : ""}`,
+    );
+    return normalizePaginatedResponse(response);
+  },
+  coach: (id: number) => fetchAPI<Coach>(`/coaches/${id}`),
+  createCoach: (data: CoachInput) =>
+    postJSON<CoachCreateResponse>("/coaches", { coach: data }),
+  /** See `updatePlayer` — same contract, same rules. */
+  updateCoach: (id: number, data: CoachInput) =>
+    postJSON<CoachCreateResponse>(`/coaches/${id}`, { coach: data }, "PATCH"),
 
 
   // Admin

@@ -1,4 +1,10 @@
-import type { TrainingSession, TrainingSessionStatus } from "../api";
+import type {
+  ParticipantStatus,
+  TrainingSession,
+  TrainingSessionParticipant,
+  TrainingSessionStatus,
+  TrainingSessionVisibility,
+} from "../api";
 import type { User } from "../api";
 
 /** Managers (coach/curator/admin) see drafts and can create/edit trainings. */
@@ -109,3 +115,126 @@ export function sessionsByDay(sessions: TrainingSession[]): Map<string, Training
   }
   return grouped;
 }
+
+// ---------- Visibility: shared schedule vs private session ----------
+/**
+ * Visibility choices offered in the training form. "shared" is the published
+ * schedule; "private" keeps the session to the people who run trainings (a
+ * one-to-one session or a rehab block should not appear in a player's
+ * calendar).
+ */
+export const TRAINING_VISIBILITIES: {
+  value: TrainingSessionVisibility;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "shared",
+    label: "Shared",
+    hint: "Visible to everyone the schedule is published to.",
+  },
+  {
+    value: "private",
+    label: "Private",
+    hint: "Only coaches, curators and admins can see this training.",
+  },
+];
+
+export function visibilityLabel(
+  visibility: TrainingSessionVisibility | null | undefined,
+): string {
+  return (
+    TRAINING_VISIBILITIES.find((option) => option.value === visibility)?.label ??
+    "Shared"
+  );
+}
+
+/** Private sessions are worth flagging in the UI — they are the exception. */
+export function isPrivateSession(session: {
+  visibility?: TrainingSessionVisibility | null;
+}): boolean {
+  return session.visibility === "private";
+}
+
+// ---------- Participants: who is coming, and who showed up ----------
+export const PARTICIPANT_STATUSES: {
+  value: ParticipantStatus;
+  label: string;
+}[] = [
+  { value: "invited", label: "Invited" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "declined", label: "Declined" },
+  { value: "attended", label: "Attended" },
+  { value: "absent", label: "Absent" },
+];
+
+export function participantStatusLabel(status: ParticipantStatus): string {
+  return (
+    PARTICIPANT_STATUSES.find((option) => option.value === status)?.label ??
+    status
+  );
+}
+
+/** "Jane Doe" from a person payload (first name is the only required part). */
+export function personName(
+  person:
+    | { first_name?: string | null; last_name?: string | null }
+    | null
+    | undefined,
+  fallback = "Unnamed person",
+): string {
+  const name = [person?.first_name, person?.last_name]
+    .filter((part): part is string => Boolean(part && part.trim()))
+    .join(" ")
+    .trim();
+  return name || fallback;
+}
+
+/**
+ * Display name of a participant row. The backend computes `player_name`; the
+ * nested profile is the fallback for payloads that only carry the association.
+ */
+export function participantName(
+  participant: TrainingSessionParticipant,
+): string {
+  return (
+    participant.player_name?.trim() ||
+    personName(
+      participant.player_profile?.person,
+      `Player #${participant.player_profile_id}`,
+    )
+  );
+}
+
+/**
+ * One line for the roster header: "3 players · 2 confirmed · 1 declined". The
+ * attendance counts are what a coach looks for at a glance.
+ */
+export function participantSummary(
+  participants: TrainingSessionParticipant[] | undefined | null,
+): string {
+  const rows = participants ?? [];
+  if (rows.length === 0) return "No players added yet";
+  const counts = PARTICIPANT_STATUSES.filter((option) =>
+    rows.some((row) => row.status === option.value),
+  ).map(
+    (option) =>
+      `${rows.filter((row) => row.status === option.value).length} ${option.label.toLowerCase()}`,
+  );
+  return [
+    `${rows.length} player${rows.length === 1 ? "" : "s"}`,
+    ...counts,
+  ].join(" · ");
+}
+
+/**
+ * A participant is either an account holder or a staff-recorded profile: the
+ * difference decides whether the player can see their own schedule yet.
+ */
+export function accountConnectionLabel(
+  connected: boolean | null | undefined,
+): string | null {
+  if (connected == null) return null;
+  return connected ? "Account connected" : "No account yet";
+}
+

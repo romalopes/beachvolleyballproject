@@ -3,6 +3,12 @@ import { AlertTriangle } from "lucide-react";
 interface DeleteConfirmProps {
   entityName: string;
   warning?: string;
+  /** Heading; defaults to a destructive "Delete …?" question. */
+  title?: string;
+  /** Confirm button label; defaults to "Delete". */
+  confirmLabel?: string;
+  /** Confirm button label while the request is in flight. */
+  pendingLabel?: string;
   onCancel: () => void;
   onConfirm: () => void;
   deleting: boolean;
@@ -12,6 +18,9 @@ interface DeleteConfirmProps {
 export default function DeleteConfirm({
   entityName,
   warning,
+  title,
+  confirmLabel = "Delete",
+  pendingLabel = "Deleting...",
   onCancel,
   onConfirm,
   deleting,
@@ -21,7 +30,7 @@ export default function DeleteConfirm({
     <div className="delete-confirm" role="alertdialog" aria-label={`Delete ${entityName}`}>
       <div className="delete-confirm-header">
         <AlertTriangle size={18} />
-        <strong>Delete &ldquo;{entityName}&rdquo;?</strong>
+        <strong>{title ?? `Delete “${entityName}”?`}</strong>
       </div>
       <p>{warning ?? "This action cannot be undone."}</p>
       {error && <div className="auth-flash auth-flash-error">{error}</div>}
@@ -40,7 +49,7 @@ export default function DeleteConfirm({
           onClick={onConfirm}
           disabled={deleting}
         >
-          {deleting ? "Deleting..." : "Delete"}
+          {deleting ? pendingLabel : confirmLabel}
         </button>
       </div>
     </div>

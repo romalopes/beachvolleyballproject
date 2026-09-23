@@ -23,6 +23,10 @@ import TrainingDetail from "./pages/TrainingDetail";
 import TrainingCalendar from "./pages/TrainingCalendar";
 import TrainingFormPage from "./pages/TrainingFormPage";
 import Schedule from "./pages/Schedule";
+import Players from "./pages/Players";
+import PlayerDetail from "./pages/PlayerDetail";
+import Coaches from "./pages/Coaches";
+import PersonProfileEditPage from "./pages/PersonProfileEditPage";
 import AdminUsers from "./pages/AdminUsers";
 import SettingsDashboard from "./pages/settings/SettingsDashboard";
 import SkillsSettings from "./pages/settings/Skills";
@@ -154,6 +158,46 @@ export default function App() {
             <Route path="/training/:id" element={<TrainingDetail />} />
             <Route path="/calendar" element={<TrainingCalendar />} />
             <Route path="/schedule" element={<Schedule />} />
+            <Route
+              path="/players"
+              element={
+                <ManagerRoute>
+                  <Players />
+                </ManagerRoute>
+              }
+            />
+            <Route
+              path="/players/:id/edit"
+              element={
+                <ManagerRoute>
+                  <PersonProfileEditPage kind="player" />
+                </ManagerRoute>
+              }
+            />
+            <Route
+              path="/players/:id"
+              element={
+                <ManagerRoute>
+                  <PlayerDetail />
+                </ManagerRoute>
+              }
+            />
+            <Route
+              path="/coaches/:id/edit"
+              element={
+                <ManagerRoute>
+                  <PersonProfileEditPage kind="coach" />
+                </ManagerRoute>
+              }
+            />
+            <Route
+              path="/coaches"
+              element={
+                <ManagerRoute>
+                  <Coaches />
+                </ManagerRoute>
+              }
+            />
             <Route
               path="/admin/users"
               element={

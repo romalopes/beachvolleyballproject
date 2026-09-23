@@ -11,6 +11,7 @@ import {
   type TrainingSession,
 } from "../api";
 import { SAMPLE_DRILL_DEFINITION } from "../components/drill/definition";
+import { paginated } from "../test/paginated";
 import TrainingFormPage from "./TrainingFormPage";
 
 vi.mock("../api", async (importOriginal) => {
@@ -22,6 +23,7 @@ vi.mock("../api", async (importOriginal) => {
       categories: vi.fn(),
       skills: vi.fn(),
       drills: vi.fn(),
+      players: vi.fn(),
       createTrainingSession: vi.fn(),
       updateTrainingSession: vi.fn(),
       trainingSession: vi.fn(),
@@ -139,6 +141,7 @@ beforeEach(() => {
   mockedApi.categories.mockResolvedValue(categories);
   mockedApi.skills.mockResolvedValue(skills);
   mockedApi.drills.mockResolvedValue(drills);
+  mockedApi.players.mockResolvedValue(paginated([]));
   mockedApi.createTrainingSession.mockResolvedValue({ id: 99 } as never);
 });
 
@@ -388,6 +391,109 @@ describe("TrainingFormPage — new training", () => {
     expect(payload.training_session_drills_attributes?.[0]?.position).toBe(1);
   });
 
+  it("submits the visibility and the chosen players", async () => {
+    mockedApi.players.mockResolvedValue(
+      paginated([
+        {
+          id: 12,
+          person_id: 120,
+          preferred_position: "setter",
+          level: "intermediate",
+          status: "active",
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:00:00.000Z",
+          full_name: "Maria Silva",
+          account_status: "connected",
+          person: {
+            id: 120,
+            first_name: "Maria",
+            last_name: "Silva",
+            email: "maria@example.com",
+            phone: null,
+            date_of_birth: null,
+            creation_source: "signup",
+          },
+        },
+      ]),
+    );
+    renderForm();
+    await screen.findByLabelText(/^Title$/i);
+    await userEvent.type(screen.getByLabelText(/^Title$/i), "Private session");
+    await userEvent.type(screen.getByLabelText(/^Date$/i), "2026-09-21");
+    await userEvent.type(screen.getByLabelText(/start time/i), "09:00");
+    await userEvent.selectOptions(
+      screen.getByLabelText(/^Visibility$/i),
+      "private",
+    );
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: "Add Maria Silva to the session",
+      }),
+    );
+    await userEvent.selectOptions(
+      screen.getByLabelText("Participant 1 status"),
+      "confirmed",
+    );
+    await userEvent.type(
+      screen.getByLabelText("Participant 1 notes"),
+      "Bring the blue pinnies",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Create Training/i }),
+    );
+
+    const payload = mockedApi.createTrainingSession.mock.calls[0][0];
+    expect(payload.visibility).toBe("private");
+    expect(payload.training_session_participants_attributes).toEqual([
+      {
+        id: undefined,
+        player_profile_id: 12,
+        person: undefined,
+        status: "confirmed",
+        notes: "Bring the blue pinnies",
+      },
+    ]);
+  });
+
+  it("submits an accountless player recorded for the session", async () => {
+    renderForm();
+    await screen.findByLabelText(/^Title$/i);
+    await userEvent.type(screen.getByLabelText(/^Title$/i), "New player");
+    await userEvent.type(screen.getByLabelText(/^Date$/i), "2026-09-21");
+    await userEvent.type(screen.getByLabelText(/start time/i), "09:00");
+    await userEvent.click(
+      screen.getByRole("button", { name: /Record a new player/ }),
+    );
+    await userEvent.type(
+      screen.getByLabelText("First name"),
+      "Guest",
+    );
+    await userEvent.type(screen.getByLabelText("Last name"), "Player");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Add player" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Create Training/i }),
+    );
+
+    const payload = mockedApi.createTrainingSession.mock.calls[0][0];
+    expect(payload.visibility).toBe("shared");
+    expect(payload.training_session_participants_attributes).toEqual([
+      {
+        id: undefined,
+        player_profile_id: undefined,
+        person: {
+          first_name: "Guest",
+          last_name: "Player",
+          email: null,
+          phone: null,
+        },
+        status: "invited",
+        notes: null,
+      },
+    ]);
+  });
+
   it("defaults to a 1:30h session and derives the end time", async () => {
     renderForm();
     await screen.findByLabelText(/^Title$/i);
@@ -526,6 +632,7 @@ describe("TrainingFormPage — editing an existing training", () => {
     ends_at: "2026-09-21T11:00:00.000Z",
     location: "Coogee Beach",
     status: "scheduled",
+    visibility: "shared",
     created_by_id: 2,
     training_focuses: [
       {

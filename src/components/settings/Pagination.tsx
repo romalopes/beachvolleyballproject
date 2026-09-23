@@ -53,12 +53,13 @@ export default function Pagination({
   currentPage,
   totalPages,
   totalItems,
+  itemsPerPage = 20,
   onPageChange,
 }: PaginationProps) {
   if (totalPages <= 1) return null;
 
-  const startItem = (currentPage - 1) * 20 + 1;
-  const endItem = Math.min(currentPage * 20, totalItems);
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
   const pageNumbers = getPageNumbers(currentPage, totalPages);
 
   return (

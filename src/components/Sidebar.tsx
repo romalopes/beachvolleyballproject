@@ -1,4 +1,7 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import {
+  NavLink,
+  useNavigate,
+} from "react-router-dom";
 import {
   Home,
   Target,
@@ -9,8 +12,10 @@ import {
   LogOut,
   LogIn,
   UserCircle,
+  Users,
   Settings,
   ShieldOff,
+  Volleyball,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useTestAccess } from "../auth/TestAccessContext";
@@ -25,10 +30,25 @@ const navItems = [
   { path: "/schedule", label: "Schedule", icon: CalendarDays },
 ];
 
+/**
+ * People pages are staff pages: the payloads carry contact details and the
+ * endpoints require a training manager (coach/curator/admin), so the links only
+ * appear for those roles instead of leading to a 403.
+ */
+const staffNavItems = [
+  { path: "/players", label: "Players", icon: Users },
+  { path: "/coaches", label: "Coaches", icon: Volleyball },
+];
+
 export default function Sidebar() {
   const { user, logout, impersonation, stopImpersonating } = useAuth();
   const { exit: exitTestAccess } = useTestAccess();
   const navigate = useNavigate();
+  const isStaff = Boolean(
+    user?.roles?.some(
+      (role) => role === "coach" || role === "curator" || role === "admin",
+    ),
+  );
 
   return (
     <>
@@ -56,6 +76,22 @@ export default function Sidebar() {
             </NavLink>
           );
         })}
+        {isStaff &&
+          staffNavItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  `sidebar-link${isActive ? " active" : ""}`
+                }
+              >
+                <Icon />
+                {item.label}
+              </NavLink>
+            );
+          })}
         {user?.roles?.includes("admin") && (
           <>
             <NavLink

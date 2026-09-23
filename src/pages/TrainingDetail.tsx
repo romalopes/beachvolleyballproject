@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { api, type Drill, type TrainingSession } from "../api";
+import {
+  api,
+  type Drill,
+  type ParticipantStatus,
+  type TrainingSession,
+} from "../api";
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
 import DrillViewer from "../components/drill/DrillViewer";
 import { resolveDrillDefinition } from "../components/drill/definition";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
+import ParticipantRoster from "../components/training/ParticipantRoster";
 import VideoList from "../components/video/VideoList";
 import {
   ArrowLeft,
@@ -19,7 +25,9 @@ import {
 import {
   canManageTrainings,
   formatTrainingDateRange,
+  isPrivateSession,
   statusLabel,
+  visibilityLabel,
 } from "../utils/training";
 
 function formatDuration(minutes: number | null): string {
@@ -60,6 +68,11 @@ export default function TrainingDetail() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   /** Bumped after video reference changes so the session refetches its videos. */
   const [videosReloadKey, setVideosReloadKey] = useState(0);
+  /** Participant whose attendance is being saved. */
+  const [savingParticipantId, setSavingParticipantId] = useState<number | null>(
+    null,
+  );
+  const [rosterError, setRosterError] = useState<string | null>(null);
 
   useEffect(() => {
     if (invalidId) return;
@@ -83,6 +96,32 @@ export default function TrainingDetail() {
       cancelled = true;
     };
   }, [invalidId, numericId, videosReloadKey]);
+
+  /**
+   * Attendance is a participant status, so marking it updates the session.
+   * The response is the full session, so the roster (and its summary) is
+   * refreshed from the server rather than patched locally.
+   */
+  const handleStatusChange = async (
+    participantId: number,
+    status: ParticipantStatus,
+  ) => {
+    if (!session) return;
+    setSavingParticipantId(participantId);
+    setRosterError(null);
+    try {
+      const updated = await api.updateTrainingSession(session.id, {
+        training_session_participants_attributes: [{ id: participantId, status }],
+      });
+      setSession(updated);
+    } catch (e) {
+      setRosterError(
+        e instanceof Error ? e.message : "Failed to update the participant.",
+      );
+    } finally {
+      setSavingParticipantId(null);
+    }
+  };
 
   const handleDelete = async () => {
     if (!session) return;
@@ -127,6 +166,7 @@ export default function TrainingDetail() {
         <h1>{session.title}</h1>
         <div className="tags" style={{ marginTop: "1rem" }}>
           <Tag variant="primary">{statusLabel(session.status)}</Tag>
+          {isPrivateSession(session) && <Tag>Private</Tag>}
           {session.duration_minutes != null && (
             <Tag>
               <Clock
@@ -193,7 +233,28 @@ export default function TrainingDetail() {
             </>
           )}
         </p>
+        <p className="related-item-meta">
+          Visibility: {visibilityLabel(session.visibility)}
+        </p>
       </section>
+
+      {(session.training_session_participants?.length ?? 0) > 0 ||
+      canManage ? (
+        <section className="detail-section">
+          <h2>Players</h2>
+          {canManage && (
+            <p className="related-item-meta">
+              Mark attendance once the session is over — attended or absent.
+            </p>
+          )}
+          {rosterError && <div className="admin-error">{rosterError}</div>}
+          <ParticipantRoster
+            participants={session.training_session_participants}
+            savingId={savingParticipantId}
+            onStatusChange={canManage ? handleStatusChange : undefined}
+          />
+        </section>
+      ) : null}
 
       {session.description && (
         <section className="detail-section">

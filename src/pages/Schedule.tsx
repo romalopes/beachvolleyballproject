@@ -1,23 +1,39 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, type TrainingSession } from '../api';
+import { useAuth } from '../auth/AuthContext';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
 import Tag from '../components/Tag';
-import { MapPin } from 'lucide-react';
-import { statusLabel } from '../utils/training';
+import { CalendarCheck, MapPin } from 'lucide-react';
+import { isPrivateSession, statusLabel } from '../utils/training';
 
 export default function Schedule() {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [loading, setLoading] = useState(true);
+  // "My schedule" (mine=1): only the sessions the signed-in player takes part
+  // in. The server answers with an empty list for accounts that have no player
+  // profile, so this needs no role logic on the client.
+  const [mine, setMine] = useState(false);
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.trainingSessions()
-      .then(setSessions)
+    let cancelled = false;
+    api
+      .trainingSessions({ mine })
+      .then((loaded) => {
+        if (cancelled) return;
+        setSessions(loaded);
+      })
       .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mine]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -38,8 +54,29 @@ export default function Schedule() {
         description="Upcoming training sessions and practice calendar."
       />
 
+      {user && (
+        <div className="schedule-filter">
+          <label className="schedule-mine">
+            <input
+              type="checkbox"
+              checked={mine}
+              onChange={(event) => setMine(event.target.checked)}
+            />
+            <CalendarCheck size={14} aria-hidden="true" />
+            My schedule only
+          </label>
+        </div>
+      )}
+
       {sessions.length === 0 ? (
-        <EmptyState title="No scheduled sessions" description="Training sessions will appear here when scheduled." />
+        <EmptyState
+          title={mine ? 'No sessions for you yet' : 'No scheduled sessions'}
+          description={
+            mine
+              ? 'Trainings you are added to will appear here.'
+              : 'Training sessions will appear here when scheduled.'
+          }
+        />
       ) : (
         <div className="schedule-list">
           {sessions.map((session) => {
@@ -62,6 +99,7 @@ export default function Schedule() {
                     {session.location || 'No location'} &middot; {date.weekday} at {date.time}
                   </p>
                   <Tag>{statusLabel(session.status)}</Tag>
+                  {isPrivateSession(session) && <Tag>Private</Tag>}
                 </div>
               </div>
             );

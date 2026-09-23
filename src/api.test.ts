@@ -286,4 +286,182 @@ describe("training sessions client", () => {
     expect(url).toBe("/api/v1/training_sessions/9");
     expect(init.method).toBe("DELETE");
   });
+
+  it("asks for the current player's own sessions with mine=1", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, body: [] });
+    await api.trainingSessions({ mine: true });
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/training_sessions?mine=1");
+  });
+
+  it("sends the session visibility and its players", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 201, body: { id: 9 } });
+    const payload = {
+      title: "Private session",
+      starts_at: "2026-10-01T09:00:00.000Z",
+      ends_at: "2026-10-01T11:00:00.000Z",
+      visibility: "private" as const,
+      training_session_participants_attributes: [
+        { player_profile_id: 12, status: "confirmed" as const },
+        { person: { first_name: "Guest" }, status: "invited" as const },
+      ],
+    };
+    await api.createTrainingSession(payload);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      training_session: payload,
+    });
+  });
+});
+
+describe("people, players and coaches", () => {
+  it("searches people with name and email filters", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, body: [] });
+    await api.people({ q: "pedro", email: "pedro@example.com" });
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/people?q=pedro&email=pedro%40example.com");
+  });
+
+  it("lists players with a search term", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, body: [] });
+    await api.players({ q: "pedro" });
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/players?q=pedro");
+  });
+
+  it("unwraps the paginated player catalogue", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      body: {
+        data: [{ id: 1 }],
+        meta: { page: 2, per_page: 20, total: 21, total_pages: 2 },
+      },
+    });
+
+    const page = await api.players({ page: 2, per_page: 20 });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "/api/v1/players?page=2&per_page=20",
+    );
+    expect(page.data).toEqual([{ id: 1 }]);
+    expect(page.meta).toEqual({
+      page: 2,
+      per_page: 20,
+      total: 21,
+      total_pages: 2,
+    });
+  });
+
+  it("still accepts a bare array from the coaches endpoint", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, body: [] });
+
+    const page = await api.coaches();
+
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/coaches");
+    expect(page.data).toEqual([]);
+    expect(page.meta.page).toBe(1);
+  });
+
+  it("fetches a player by id", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, body: { id: 3 } });
+    await api.player(3);
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/players/3");
+  });
+
+  it("records a new player without an account", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 201,
+      body: { id: 3, possible_duplicates: [] },
+    });
+    await api.createPlayer({
+      person: { first_name: "Pedro", last_name: "Santos" },
+      player_profile: { preferred_position: "setter" },
+    });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/players");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      player: {
+        person: { first_name: "Pedro", last_name: "Santos" },
+        player_profile: { preferred_position: "setter" },
+      },
+    });
+  });
+
+  it("links a player profile to an existing person", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 201,
+      body: { id: 4, possible_duplicates: [] },
+    });
+    await api.createPlayer({ person_id: 42, player_profile: {} });
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({
+      player: { person_id: 42, player_profile: {} },
+    });
+  });
+
+  it("lists and creates coaches", async () => {
+    const listMock = mockFetchOnce({ ok: true, status: 200, body: [] });
+    await api.coaches({ q: "olga" });
+    expect(listMock.mock.calls[0][0]).toBe("/api/v1/coaches?q=olga");
+
+    const createMock = mockFetchOnce({
+      ok: true,
+      status: 201,
+      body: { id: 5, possible_duplicates: [] },
+    });
+    await api.createCoach({
+      person: { first_name: "Olga" },
+      coach_profile: { coaching_level: "state" },
+    });
+    const [url, init] = createMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/coaches");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      coach: {
+        person: { first_name: "Olga" },
+        coach_profile: { coaching_level: "state" },
+      },
+    });
+  });
+
+  it("updates a player with PATCH and no person_id", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      body: { id: 12, possible_duplicates: [] },
+    });
+    await api.updatePlayer(12, {
+      person: { first_name: "Pedro", last_name: "Santos", email: null, phone: null },
+      player_profile: { preferred_position: "setter", level: "advanced" },
+    });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/players/12");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({
+      player: {
+        person: { first_name: "Pedro", last_name: "Santos", email: null, phone: null },
+        player_profile: { preferred_position: "setter", level: "advanced" },
+      },
+    });
+  });
+
+  it("updates a coach with PATCH", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      body: { id: 3, possible_duplicates: [] },
+    });
+    await api.updateCoach(3, { coach_profile: { coaching_level: "national" } });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/coaches/3");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({
+      coach: { coach_profile: { coaching_level: "national" } },
+    });
+  });
 });

@@ -32,6 +32,7 @@ const session = (overrides: Partial<TrainingSession>): TrainingSession =>
     ends_at: isoOnToday(11),
     location: "Coogee Beach",
     status: "scheduled",
+    visibility: "shared",
     ...overrides,
   }) as TrainingSession;
 
