@@ -1,14 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, type Assessment, type Coach, type Skill, type User } from "../../api";
+import { api, type Assessment, type Category, type Coach, type User } from "../../api";
 import AssessmentForm from "./AssessmentForm";
 import AssessmentList from "./AssessmentList";
 import ScoreBadge from "./ScoreBadge";
 
 vi.mock("../../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../api")>();
-  return { ...actual, api: { ...actual.api, createAssessment: vi.fn() } };
+  return { ...actual, api: { ...actual.api, createAssessment: vi.fn(), categories: vi.fn() } };
 });
 const mockedApi = vi.mocked(api, true);
 
@@ -18,8 +18,8 @@ const row = (overrides: Partial<Assessment> = {}): Assessment => ({
   id: 1,
   player_profile_id: 12,
   coach_profile_id: 7,
-  skill_id: 5,
-  custom_skill: null,
+  category_id: 5,
+  custom_category: null,
   training_session_id: null,
   score: 70,
   reported_value: 4,
@@ -28,17 +28,17 @@ const row = (overrides: Partial<Assessment> = {}): Assessment => ({
   status: "active",
   created_at: "2026-09-01T00:00:00.000Z",
   updated_at: "2026-09-01T00:00:00.000Z",
-  skill_label: "Forearm pass",
+  category_label: "Attack",
   ten_scale: 7,
   five_scale: 4,
   score_label: "70/100",
   status_label: "Published",
   created_by: { id: 2, name: "Coach Ana" },
-  skill: { id: 5, title: "Forearm pass", slug: "forearm-pass", description: null, category_id: 1 },
+  category: { id: 5, name: "Attack", slug: "attack" },
   ...overrides,
 });
 
-const skill: Skill = { id: 5, title: "Forearm pass", slug: "forearm-pass", description: null, category_id: 1 };
+const category: Category = { id: 5, name: "Attack", slug: "attack" };
 const coach: Coach = {
   id: 7, person_id: 70, coaching_level: null, qualifications: null, status: "active",
   visibility: "shared", created_by: null, created_at: "", updated_at: "",
@@ -64,12 +64,12 @@ describe("AssessmentList", () => {
       <AssessmentList
         assessments={[
           row(),
-          row({ id: 2, skill_id: null, skill: null, skill_label: "Serve consistency", custom_skill: "Serve consistency", score: 40, status: "draft", score_label: "40/100", ten_scale: 4, five_scale: 3, status_label: "Draft" }),
+          row({ id: 2, category_id: null, category: null, category_label: "Serve consistency", custom_category: "Serve consistency", score: 40, status: "draft", score_label: "40/100", ten_scale: 4, five_scale: 3, status_label: "Draft" }),
           row({ id: 3 }),
         ]}
       />,
     );
-    expect(screen.getAllByText("Forearm pass").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Attack").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Serve consistency").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Published").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Draft").length).toBeGreaterThan(0);
@@ -85,8 +85,8 @@ describe("AssessmentForm", () => {
   });
 
   it("previews the canonical conversion live (4/5 → 70/100)", async () => {
-    render(<AssessmentForm playerProfileId={12} user={coachUser} skills={[skill]} coaches={[coach]} onSaved={() => {}} onCancel={() => {}} />);
-    await userEvent.click(screen.getByRole("radio", { name: "Existing skill" }));
+    render(<AssessmentForm playerProfileId={12} user={coachUser} categories={[category]} coaches={[coach]} onSaved={() => {}} onCancel={() => {}} />);
+    await userEvent.click(screen.getByRole("radio", { name: "Existing category" }));
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Scale" }), "one_to_five");
     await userEvent.type(screen.getByRole("spinbutton", { name: "Value" }), "4");
     expect(await screen.findByText("70/100 · 7/10 · 4/5")).toBeInTheDocument();
@@ -94,30 +94,51 @@ describe("AssessmentForm", () => {
 
   it("submits the typed value and scale — never a client-derived score", async () => {
     const onSaved = vi.fn();
-    render(<AssessmentForm playerProfileId={12} user={coachUser} skills={[skill]} coaches={[coach]} onSaved={onSaved} onCancel={() => {}} />);
-    await userEvent.click(screen.getByRole("radio", { name: "Existing skill" }));
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Skill" }), "5");
+    render(<AssessmentForm playerProfileId={12} user={coachUser} categories={[category]} coaches={[coach]} onSaved={onSaved} onCancel={() => {}} />);
+    await userEvent.click(screen.getByRole("radio", { name: "Existing category" }));
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Category" }), "5");
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Scale" }), "one_to_five");
     await userEvent.type(screen.getByRole("spinbutton", { name: "Value" }), "4");
     await userEvent.click(screen.getByRole("button", { name: "Publish" }));
     expect(mockedApi.createAssessment).toHaveBeenCalledWith(
-      expect.objectContaining({ player_profile_id: 12, skill_id: 5, value: 4, scale: "one_to_five", status: "active" }),
+      expect.objectContaining({ player_profile_id: 12, category_id: 5, value: 4, scale: "one_to_five", status: "active" }),
     );
     expect(onSaved).toHaveBeenCalledWith(row());
   });
 
   it("offers the attributed-coach picker to oversight only, flagging accountless coaches", () => {
-    render(<AssessmentForm playerProfileId={12} user={coachUser} skills={[skill]} coaches={[coach]} onSaved={() => {}} onCancel={() => {}} />);
+    render(<AssessmentForm playerProfileId={12} user={coachUser} categories={[category]} coaches={[coach]} onSaved={() => {}} onCancel={() => {}} />);
     expect(screen.getByRole("combobox", { name: "Attributed coach" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Olga Reyes (profile only)" })).toBeInTheDocument();
+  });
+
+  it("loads the category catalogue when the page supplies none", async () => {
+    mockedApi.categories.mockResolvedValue([category]);
+    render(<AssessmentForm playerProfileId={12} user={coachUser} onSaved={() => {}} onCancel={() => {}} />);
+
+    await userEvent.click(screen.getByRole("radio", { name: "Existing category" }));
+
+    expect(mockedApi.categories).toHaveBeenCalled();
+    expect(await screen.findByRole("option", { name: "Attack" })).toBeInTheDocument();
+  });
+
+  it("submits a custom category as free text, with no category id", async () => {
+    render(<AssessmentForm playerProfileId={12} user={coachUser} categories={[category]} onSaved={() => {}} onCancel={() => {}} />);
+    await userEvent.type(screen.getByRole("textbox", { name: "Custom category" }), "Serve placement");
+    await userEvent.type(screen.getByRole("spinbutton", { name: "Value" }), "3");
+    await userEvent.click(screen.getByRole("button", { name: "Publish" }));
+
+    expect(mockedApi.createAssessment).toHaveBeenCalledWith(
+      expect.objectContaining({ custom_category: "Serve placement", category_id: null }),
+    );
   });
 
   it("renders API validation errors under the fields", async () => {
     mockedApi.createAssessment.mockRejectedValue(
       Object.assign(new Error("Value is not a value on the one_to_five scale"), { name: "ApiValidationError", errors: ["Value is not a value on the one_to_five scale"] }),
     );
-    render(<AssessmentForm playerProfileId={12} user={coachUser} skills={[skill]} coaches={[coach]} onSaved={() => {}} onCancel={() => {}} />);
-    await userEvent.type(screen.getByRole("textbox", { name: "Custom rubric" }), "Serve consistency");
+    render(<AssessmentForm playerProfileId={12} user={coachUser} categories={[category]} coaches={[coach]} onSaved={() => {}} onCancel={() => {}} />);
+    await userEvent.type(screen.getByRole("textbox", { name: "Custom category" }), "Serve consistency");
     await userEvent.type(screen.getByRole("spinbutton", { name: "Value" }), "4");
     await userEvent.click(screen.getByRole("button", { name: "Publish" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/one_to_five scale/);

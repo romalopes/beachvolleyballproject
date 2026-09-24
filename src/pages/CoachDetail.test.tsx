@@ -183,20 +183,20 @@ describe("CoachDetail", () => {
     mockedApi.coach.mockResolvedValue(coach({
       assessments_recorded_count: 1,
       recent_assessments: [{
-        id: 1, player_profile_id: 12, coach_profile_id: 7, skill_id: 5, custom_skill: null,
+        id: 1, player_profile_id: 12, coach_profile_id: 7, category_id: 5, custom_category: null,
         training_session_id: null, score: 70, reported_value: 4, scale: "one_to_five",
         notes: null, status: "active", created_at: "2026-09-01T00:00:00.000Z",
-        updated_at: "2026-09-01T00:00:00.000Z", skill_label: "Forearm pass", ten_scale: 7,
+        updated_at: "2026-09-01T00:00:00.000Z", category_label: "Attack", ten_scale: 7,
         five_scale: 4, score_label: "70/100", status_label: "Published",
         created_by: { id: 2, name: "Coach Ana" },
-        skill: { id: 5, title: "Forearm pass", slug: "forearm-pass", description: null, category_id: 1 },
+        category: { id: 5, name: "Attack", slug: "attack" },
       }],
     }));
     renderDetail();
 
     expect(await screen.findByRole("heading", { name: "Recorded assessments" })).toBeInTheDocument();
     expect(screen.getByText(/1 published assessment attributed to this coach/)).toBeInTheDocument();
-    expect(screen.getByText("Forearm pass")).toBeInTheDocument();
+    expect(screen.getByText("Attack")).toBeInTheDocument();
     expect(screen.getByText("70/100 · 7/10 · 4/5")).toBeInTheDocument();
   });
 });

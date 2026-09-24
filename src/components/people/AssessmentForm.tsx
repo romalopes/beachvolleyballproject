@@ -5,8 +5,8 @@ import type {
   AssessmentScale,
   AssessmentStatus,
   AssessmentUpdateInput,
+  Category,
   Coach,
-  Skill,
   User,
 } from "../../api";
 import { ApiValidationError, api } from "../../api";
@@ -17,7 +17,7 @@ import ScoreBadge from "./ScoreBadge";
 interface AssessmentFormProps {
   playerProfileId: number;
   user: User | null;
-  skills?: Skill[];
+  categories?: Category[];
   coaches?: Coach[];
   trainingSessionId?: number | null;
   initial?: Assessment | null;
@@ -28,18 +28,18 @@ interface AssessmentFormProps {
 export default function AssessmentForm({
   playerProfileId,
   user,
-  skills = [],
+  categories = [],
   coaches = [],
   trainingSessionId = null,
   initial = null,
   onSaved,
   onCancel,
 }: AssessmentFormProps) {
-  const [rubricType, setRubricType] = useState<"skill" | "custom">(
-    initial?.skill_id ? "skill" : "custom",
+  const [rubricType, setRubricType] = useState<"category" | "custom">(
+    initial?.category_id ? "category" : "custom",
   );
-  const [skillId, setSkillId] = useState(String(initial?.skill_id ?? ""));
-  const [customSkill, setCustomSkill] = useState(initial?.custom_skill ?? "");
+  const [categoryId, setCategoryId] = useState(String(initial?.category_id ?? ""));
+  const [customCategory, setCustomCategory] = useState(initial?.custom_category ?? "");
   const [scale, setScale] = useState<AssessmentScale>(initial?.scale ?? "one_to_ten");
   const [value, setValue] = useState(String(initial?.reported_value ?? ""));
   const [notes, setNotes] = useState(initial?.notes ?? "");
@@ -48,20 +48,20 @@ export default function AssessmentForm({
   );
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availableSkills, setAvailableSkills] = useState<Skill[]>(skills);
+  const [availableCategories, setAvailableCategories] = useState<Category[]>(categories);
 
   useEffect(() => {
-    if (skills.length > 0) return;
+    if (categories.length > 0) return;
     let cancelled = false;
     // Keep the custom-rubric path usable when the catalogue request fails.
-    const request = typeof api.skills === "function"
-      ? api.skills()
-      : Promise.resolve([] as Skill[]);
+    const request = typeof api.categories === "function"
+      ? api.categories()
+      : Promise.resolve([] as Category[]);
     void request.then((loaded) => {
-      if (!cancelled) setAvailableSkills(loaded);
+      if (!cancelled) setAvailableCategories(loaded);
     }).catch(() => undefined);
     return () => { cancelled = true; };
-  }, [skills]);
+  }, [categories]);
 
   const numericValue = Number(value);
   const previewScore = legalValue(value, scale) ? toScore(numericValue, scale) : null;
@@ -69,8 +69,8 @@ export default function AssessmentForm({
 
   const payload = (status?: AssessmentStatus): AssessmentInput | AssessmentUpdateInput => {
     const common: AssessmentUpdateInput = {
-      skill_id: rubricType === "skill" ? Number(skillId) : null,
-      custom_skill: rubricType === "custom" ? customSkill.trim() : null,
+      category_id: rubricType === "category" ? Number(categoryId) : null,
+      custom_category: rubricType === "custom" ? customCategory.trim() : null,
       value: legalValue(value, scale) ? numericValue : null,
       scale,
       notes: notes.trim() || null,
@@ -85,12 +85,12 @@ export default function AssessmentForm({
 
   const save = async (status?: AssessmentStatus) => {
     setError(null);
-    if (rubricType === "skill" && !skillId) {
-      setError("Choose a skill or describe a custom rubric.");
+    if (rubricType === "category" && !categoryId) {
+      setError("Choose a category or describe a custom category.");
       return;
     }
-    if (rubricType === "custom" && !customSkill.trim()) {
-      setError("Describe the custom rubric.");
+    if (rubricType === "custom" && !customCategory.trim()) {
+      setError("Describe the custom category.");
       return;
     }
     setWorking(true);
@@ -127,10 +127,10 @@ export default function AssessmentForm({
           <input
             type="radio"
             name="assessment-rubric"
-            checked={rubricType === "skill"}
-            onChange={() => setRubricType("skill")}
+            checked={rubricType === "category"}
+            onChange={() => setRubricType("category")}
           />
-          Existing skill
+          Existing category
         </label>
         <label>
           <input
@@ -139,22 +139,24 @@ export default function AssessmentForm({
             checked={rubricType === "custom"}
             onChange={() => setRubricType("custom")}
           />
-          Custom rubric
+          Custom category
         </label>
-        {rubricType === "skill" ? (
+        {rubricType === "category" ? (
           <label>
-            Skill
-            <select value={skillId} onChange={(event) => setSkillId(event.target.value)} required>
-              <option value="">Choose a skill</option>
-              {availableSkills.map((skill) => <option key={skill.id} value={skill.id}>{skill.title}</option>)}
+            Category
+            <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)} required>
+              <option value="">Choose a category</option>
+              {availableCategories.map((category) => (
+                <option key={category.id} value={category.id}>{category.name}</option>
+              ))}
             </select>
           </label>
         ) : (
           <label>
-            Custom rubric
+            Custom category
             <input
-              value={customSkill}
-              onChange={(event) => setCustomSkill(event.target.value)}
+              value={customCategory}
+              onChange={(event) => setCustomCategory(event.target.value)}
               placeholder="e.g. Serve consistency"
             />
           </label>
@@ -168,6 +170,7 @@ export default function AssessmentForm({
           <select value={scale} onChange={(event) => setScale(event.target.value as AssessmentScale)}>
             <option value="one_to_ten">1 to 10</option>
             <option value="one_to_five">1 to 5</option>
+            <option value="one_to_hundred">1 to 100</option>
           </select>
         </label>
         <label>
@@ -175,7 +178,7 @@ export default function AssessmentForm({
           <input
             type="number"
             min="1"
-            max={scale === "one_to_five" ? 5 : 10}
+            max={scale === "one_to_five" ? 5 : scale === "one_to_hundred" ? 100 : 10}
             step="1"
             value={value}
             onChange={(event) => setValue(event.target.value)}

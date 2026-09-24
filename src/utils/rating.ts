@@ -1,11 +1,12 @@
 import type { AssessmentScale } from "../api";
 
-export const SCALES: AssessmentScale[] = ["one_to_five", "one_to_ten"];
+export const SCALES: AssessmentScale[] = ["one_to_five", "one_to_ten", "one_to_hundred"];
 export const DEFAULT_SCALE: AssessmentScale = "one_to_ten";
 
 const ENTRY_VALUES: Record<AssessmentScale, Record<number, number>> = {
   one_to_five: { 1: 10, 2: 30, 3: 50, 4: 70, 5: 90 },
   one_to_ten: { 1: 10, 2: 20, 3: 30, 4: 40, 5: 50, 6: 60, 7: 70, 8: 80, 9: 90, 10: 100 },
+  one_to_hundred: Object.fromEntries(Array.from({ length: 100 }, (_, index) => [index + 1, index + 1])),
 };
 
 export function legalValue(value: unknown, scale: AssessmentScale): boolean {

@@ -22,8 +22,8 @@ const row = (overrides: Partial<Assessment> = {}): Assessment => ({
   id: 1,
   player_profile_id: 12,
   coach_profile_id: 7,
-  skill_id: 5,
-  custom_skill: null,
+  category_id: 5,
+  custom_category: null,
   training_session_id: null,
   score: 70,
   reported_value: 4,
@@ -32,13 +32,13 @@ const row = (overrides: Partial<Assessment> = {}): Assessment => ({
   status: "active",
   created_at: "2026-09-01T00:00:00.000Z",
   updated_at: "2026-09-01T00:00:00.000Z",
-  skill_label: "Forearm pass",
+  category_label: "Attack",
   ten_scale: 7,
   five_scale: 4,
   score_label: "70/100",
   status_label: "Published",
   created_by: { id: 2, name: "Coach Ana" },
-  skill: { id: 5, title: "Forearm pass", slug: "forearm-pass", description: null, category_id: 1 },
+  category: { id: 5, name: "Attack", slug: "attack" },
   ...overrides,
 });
 
@@ -65,7 +65,7 @@ describe("Assessments", () => {
     renderPage();
 
     expect(await screen.findByText("Player #12")).toBeInTheDocument();
-    expect(screen.getByText("Forearm pass")).toBeInTheDocument();
+    expect(screen.getByText("Attack")).toBeInTheDocument();
     expect(screen.getByText("70/100 · 7/10 · 4/5")).toBeInTheDocument();
     const statusTag = screen.getByTitle("70/100").closest("li");
     expect(statusTag).toHaveTextContent("Published");

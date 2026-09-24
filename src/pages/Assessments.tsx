@@ -115,10 +115,10 @@ export default function Assessments() {
                   Player #{row.player_profile_id}
                 </Link>
                 <span className="people-contact">
-                  {row.skill ? (
-                    <Link to={`/skills/${row.skill.slug}`}>{row.skill.title}</Link>
+                  {row.category ? (
+                    row.category.name
                   ) : (
-                    row.custom_skill ?? "Unspecified rubric"
+                    row.custom_category ?? "Unspecified rubric"
                   )}
                   {row.training_session_id && (
                     <>

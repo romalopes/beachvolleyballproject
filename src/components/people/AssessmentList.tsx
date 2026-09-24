@@ -30,7 +30,7 @@ export default function AssessmentList({
 
   const latestByRubric = new Map<string, Assessment>();
   for (const row of rows) {
-    const key = row.skill_id != null ? `skill:${row.skill_id}` : `custom:${row.custom_skill ?? "unspecified"}`;
+    const key = row.category_id != null ? `category:${row.category_id}` : `custom:${row.custom_category ?? "unspecified"}`;
     if (!latestByRubric.has(key)) latestByRubric.set(key, row);
   }
 

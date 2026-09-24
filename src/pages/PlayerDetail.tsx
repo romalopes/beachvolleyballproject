@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Archive, ArchiveRestore, ArrowLeft, Pencil } from "lucide-react";
-import { api, type Assessment, type Player } from "../api";
+import { api, type Assessment, type Coach, type Player } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import AssessmentForm from "../components/people/AssessmentForm";
 import AssessmentList from "../components/people/AssessmentList";
@@ -15,7 +15,7 @@ import {
   restorePlayer,
 } from "../utils/people";
 import { formatTrainingDateRange, participantStatusLabel } from "../utils/training";
-import { canEditAssessment, canManageAssessments } from "../utils/assessments";
+import { canEditAssessment, canManageAssessments, isAssessmentOversight } from "../utils/assessments";
 
 /**
  * Player detail: the identity behind the profile, plus the training history.
@@ -31,6 +31,7 @@ export default function PlayerDetail() {
   const canEdit = canManageProfiles(user);
   const canAssess = canManageAssessments(user);
   const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
+  const [coaches, setCoaches] = useState<Coach[]>([]);
   const numericId = Number(id);
   const invalidId = !id || Number.isNaN(numericId);
   const [player, setPlayer] = useState<Player | null>(null);
@@ -62,6 +63,23 @@ export default function PlayerDetail() {
       cancelled = true;
     };
   }, [invalidId, numericId]);
+
+  useEffect(() => {
+    if (!isAssessmentOversight(user) || !canAssess || typeof api.coaches !== "function") return;
+    let cancelled = false;
+    api.coaches({ status: "active", per_page: 100 })
+      .then((response) => {
+        if (!cancelled) setCoaches(response.data);
+      })
+      .catch((err: unknown) => {
+        // The picker is an optional attribution aid; a failed catalogue request
+        // must not prevent the player page or custom-rubric entry from rendering.
+        if (!cancelled) console.error(err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canAssess, user]);
 
   /** Archive/restore are the same PATCH the edit form uses. */
   const handleArchive = async () => {
@@ -237,6 +255,7 @@ export default function PlayerDetail() {
           <AssessmentForm
             playerProfileId={player.id}
             user={user}
+            coaches={coaches}
             initial={editingAssessment}
             onSaved={handleAssessmentSaved}
             onCancel={() => setEditingAssessment(null)}
@@ -245,6 +264,7 @@ export default function PlayerDetail() {
           <AssessmentForm
             playerProfileId={player.id}
             user={user}
+            coaches={coaches}
             onSaved={handleAssessmentSaved}
             onCancel={() => setEditingAssessment(null)}
           />

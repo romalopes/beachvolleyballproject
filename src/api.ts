@@ -391,14 +391,14 @@ export interface TrainingSessionParticipantInput {
   };
 }
 export type AssessmentStatus = "draft" | "active" | "withdrawn";
-export type AssessmentScale = "one_to_five" | "one_to_ten";
+export type AssessmentScale = "one_to_five" | "one_to_ten" | "one_to_hundred";
 
 export interface Assessment {
   id: number;
   player_profile_id: number;
   coach_profile_id: number;
-  skill_id: number | null;
-  custom_skill: string | null;
+  category_id: number | null;
+  custom_category: string | null;
   training_session_id: number | null;
   score: number | null;
   reported_value: number | null;
@@ -407,20 +407,20 @@ export interface Assessment {
   status: AssessmentStatus;
   created_at: string;
   updated_at: string;
-  skill_label: string;
+  category_label: string;
   ten_scale: number | null;
   five_scale: number | null;
   score_label: string;
   status_label: string;
   created_by: ProfileOwner | null;
-  skill: Skill | null;
+  category: Category | null;
 }
 
 export interface AssessmentInput {
   player_profile_id: number;
   coach_profile_id?: number | null;
-  skill_id?: number | null;
-  custom_skill?: string | null;
+  category_id?: number | null;
+  custom_category?: string | null;
   training_session_id?: number | null;
   value?: number | null;
   scale?: AssessmentScale;
@@ -432,7 +432,7 @@ export type AssessmentUpdateInput = Partial<Omit<AssessmentInput, "player_profil
 export interface AssessmentFilters {
   player_id?: number;
   coach_id?: number;
-  skill_id?: number;
+  category_id?: number;
   training_session_id?: number;
   status?: AssessmentStatus;
   mine?: boolean;
@@ -1006,7 +1006,7 @@ export const api = {
     const qs = new URLSearchParams();
     if (filters.player_id != null) qs.set("player_id", String(filters.player_id));
     if (filters.coach_id != null) qs.set("coach_id", String(filters.coach_id));
-    if (filters.skill_id != null) qs.set("skill_id", String(filters.skill_id));
+    if (filters.category_id != null) qs.set("category_id", String(filters.category_id));
     if (filters.training_session_id != null) qs.set("training_session_id", String(filters.training_session_id));
     if (filters.status) qs.set("status", filters.status);
     if (filters.mine) qs.set("mine", "1");
