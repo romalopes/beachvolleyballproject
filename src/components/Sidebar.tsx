@@ -16,6 +16,7 @@ import {
   Settings,
   ShieldOff,
   Volleyball,
+  Star,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useTestAccess } from "../auth/TestAccessContext";
@@ -38,6 +39,7 @@ const navItems = [
 const staffNavItems = [
   { path: "/players", label: "Players", icon: Users },
   { path: "/coaches", label: "Coaches", icon: Volleyball },
+  { path: "/assessments", label: "Assessments", icon: Star },
 ];
 
 export default function Sidebar() {

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Archive, ArchiveRestore, ArrowLeft, Pencil } from "lucide-react";
-import { api, type Player } from "../api";
+import { api, type Assessment, type Player } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import AssessmentForm from "../components/people/AssessmentForm";
+import AssessmentList from "../components/people/AssessmentList";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
@@ -13,6 +15,7 @@ import {
   restorePlayer,
 } from "../utils/people";
 import { formatTrainingDateRange, participantStatusLabel } from "../utils/training";
+import { canEditAssessment, canManageAssessments } from "../utils/assessments";
 
 /**
  * Player detail: the identity behind the profile, plus the training history.
@@ -26,6 +29,8 @@ export default function PlayerDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const canEdit = canManageProfiles(user);
+  const canAssess = canManageAssessments(user);
+  const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
   const numericId = Number(id);
   const invalidId = !id || Number.isNaN(numericId);
   const [player, setPlayer] = useState<Player | null>(null);
@@ -90,6 +95,21 @@ export default function PlayerDetail() {
     } finally {
       setWorking(false);
     }
+  };
+
+  const handleAssessmentSaved = (saved: Assessment) => {
+    setPlayer((current) => {
+      if (!current) return current;
+      const previous = current.assessments?.find((row) => row.id === saved.id);
+      const publishedDelta =
+        (saved.status === "active" ? 1 : 0) - (previous?.status === "active" ? 1 : 0);
+      return {
+        ...current,
+        assessments: [saved, ...(current.assessments ?? []).filter((row) => row.id !== saved.id)],
+        assessment_count: Math.max(0, (current.assessment_count ?? 0) + publishedDelta),
+      };
+    });
+    setEditingAssessment(null);
   };
 
   if (loading) return <div className="loading">Loading...</div>;
@@ -198,6 +218,37 @@ export default function PlayerDetail() {
             : player.person.creation_source}
           {player.person.date_of_birth ? ` · born ${player.person.date_of_birth}` : ""}
         </p>
+      </section>
+
+      <section className="detail-section assessment-section">
+        <h2>Assessments</h2>
+        <p className="related-item-meta">
+          {player.assessment_count ?? 0} published assessment{(player.assessment_count ?? 0) === 1 ? "" : "s"}.
+        </p>
+        <AssessmentList
+          assessments={player.assessments}
+          emptyTitle="No assessments yet"
+          emptyDescription="Published coaching assessments will appear here once recorded."
+          onEdit={canAssess ? (assessment) => {
+            if (canEditAssessment(assessment, user)) setEditingAssessment(assessment);
+          } : undefined}
+        />
+        {canAssess && (editingAssessment ? (
+          <AssessmentForm
+            playerProfileId={player.id}
+            user={user}
+            initial={editingAssessment}
+            onSaved={handleAssessmentSaved}
+            onCancel={() => setEditingAssessment(null)}
+          />
+        ) : (
+          <AssessmentForm
+            playerProfileId={player.id}
+            user={user}
+            onSaved={handleAssessmentSaved}
+            onCancel={() => setEditingAssessment(null)}
+          />
+        ))}
       </section>
 
       <section className="detail-section">

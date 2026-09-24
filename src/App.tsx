@@ -27,6 +27,7 @@ import Players from "./pages/Players";
 import PlayerDetail from "./pages/PlayerDetail";
 import Coaches from "./pages/Coaches";
 import CoachDetail from "./pages/CoachDetail";
+import Assessments from "./pages/Assessments";
 import PersonProfileEditPage from "./pages/PersonProfileEditPage";
 import AdminUsers from "./pages/AdminUsers";
 import SettingsDashboard from "./pages/settings/SettingsDashboard";
@@ -159,7 +160,7 @@ export default function App() {
             <Route path="/training" element={<Training />} />
             <Route path="/training/new" element={<ManagerRoute><TrainingFormPage /></ManagerRoute>} />
             <Route path="/training/:id/edit" element={<ManagerRoute><TrainingFormPage /></ManagerRoute>} />
-            <Route path="/training/:id" element={<TrainingDetail />} />
+            <Route path="/training/:id" element={<ManagerRoute><TrainingDetail /></ManagerRoute>} />
             <Route path="/calendar" element={<TrainingCalendar />} />
             <Route path="/schedule" element={<Schedule />} />
             <Route
@@ -183,6 +184,14 @@ export default function App() {
               element={
                 <ManagerRoute>
                   <PlayerDetail />
+                </ManagerRoute>
+              }
+            />
+            <Route
+              path="/assessments"
+              element={
+                <ManagerRoute>
+                  <Assessments />
                 </ManagerRoute>
               }
             />

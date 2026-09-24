@@ -189,4 +189,24 @@ describe("PlayerDetail", () => {
     await screen.findByRole("heading", { name: "Pedro Santos" });
     expect(screen.queryByText("Private")).not.toBeInTheDocument();
   });
+
+  it("shows the player's assessment history with scores", async () => {
+    mockedApi.player.mockResolvedValue(player({
+      assessment_count: 1,
+      assessments: [{
+        id: 1, player_profile_id: 12, coach_profile_id: 7, skill_id: 5, custom_skill: null,
+        training_session_id: null, score: 70, reported_value: 4, scale: "one_to_five",
+        notes: null, status: "active", created_at: "2026-09-01T00:00:00.000Z",
+        updated_at: "2026-09-01T00:00:00.000Z", skill_label: "Forearm pass", ten_scale: 7,
+        five_scale: 4, score_label: "70/100", status_label: "Published",
+        created_by: { id: 2, name: "Coach Ana" },
+        skill: { id: 5, title: "Forearm pass", slug: "forearm-pass", description: null, category_id: 1 },
+      }],
+    }));
+    renderDetail();
+
+    expect(await screen.findByRole("heading", { name: "Assessments" })).toBeInTheDocument();
+    expect(screen.getByText("Forearm pass")).toBeInTheDocument();
+    expect(screen.getByText("70/100 · 7/10 · 4/5")).toBeInTheDocument();
+  });
 });

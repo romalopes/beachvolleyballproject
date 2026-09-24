@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Archive, ArchiveRestore, ArrowLeft, Pencil } from "lucide-react";
 import { api, type Coach } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import AssessmentList from "../components/people/AssessmentList";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
@@ -188,6 +189,19 @@ export default function CoachDetail() {
             : ""}
           {coach.created_by ? ` · recorded by ${coach.created_by.name}` : ""}
         </p>
+      </section>
+
+      <section className="detail-section assessment-section">
+        <h2>Recorded assessments</h2>
+        <p className="related-item-meta">
+          {coach.assessments_recorded_count ?? 0} published assessment{(coach.assessments_recorded_count ?? 0) === 1 ? "" : "s"} attributed to this coach.
+        </p>
+        <AssessmentList
+          assessments={coach.recent_assessments}
+          emptyTitle="No assessments recorded"
+          emptyDescription="Ratings attributed to this coach will appear here."
+          showHistory={false}
+        />
       </section>
 
       <section className="detail-section">

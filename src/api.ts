@@ -363,6 +363,8 @@ export interface TrainingSessionParticipant {
   player_name?: string;
   /** true when the player has an Account, false for a staff-recorded profile. */
   account_connected?: boolean;
+  /** Published and stakeholder-visible assessments recorded during this session. */
+  assessments?: Assessment[];
   player_profile?: ParticipantPlayerProfile;
 }
 
@@ -388,6 +390,56 @@ export interface TrainingSessionParticipantInput {
     date_of_birth?: string | null;
   };
 }
+export type AssessmentStatus = "draft" | "active" | "withdrawn";
+export type AssessmentScale = "one_to_five" | "one_to_ten";
+
+export interface Assessment {
+  id: number;
+  player_profile_id: number;
+  coach_profile_id: number;
+  skill_id: number | null;
+  custom_skill: string | null;
+  training_session_id: number | null;
+  score: number | null;
+  reported_value: number | null;
+  scale: AssessmentScale;
+  notes: string | null;
+  status: AssessmentStatus;
+  created_at: string;
+  updated_at: string;
+  skill_label: string;
+  ten_scale: number | null;
+  five_scale: number | null;
+  score_label: string;
+  status_label: string;
+  created_by: ProfileOwner | null;
+  skill: Skill | null;
+}
+
+export interface AssessmentInput {
+  player_profile_id: number;
+  coach_profile_id?: number | null;
+  skill_id?: number | null;
+  custom_skill?: string | null;
+  training_session_id?: number | null;
+  value?: number | null;
+  scale?: AssessmentScale;
+  status?: AssessmentStatus;
+  notes?: string | null;
+}
+
+export type AssessmentUpdateInput = Partial<Omit<AssessmentInput, "player_profile_id">>;
+export interface AssessmentFilters {
+  player_id?: number;
+  coach_id?: number;
+  skill_id?: number;
+  training_session_id?: number;
+  status?: AssessmentStatus;
+  mine?: boolean;
+  page?: number;
+  per_page?: number;
+}
+
 
 export interface TrainingSession {
   id: number;
@@ -524,6 +576,8 @@ export interface Player {
   account_status?: AccountStatus;
   player_profile_id?: number;
   training_session_count?: number;
+  assessment_count?: number;
+  assessments?: Assessment[];
   person: ProfilePerson;
   /** Only on show: the sessions this player is attached to. */
   training_session_participants?: {
@@ -581,6 +635,8 @@ export interface Coach {
   full_name?: string;
   account_status?: AccountStatus;
   coach_profile_id?: number;
+  assessments_recorded_count?: number;
+  recent_assessments?: Assessment[];
   person: ProfilePerson;
 }
 
@@ -619,6 +675,10 @@ export interface User {
   name: string;
   email_address: string;
   roles: string[];
+  /** Present for the signed-in user; used to default assessment attribution. */
+  person_id?: number | null;
+  coach_profile_id?: number | null;
+  player_profile_id?: number | null;
 }
 
 export interface UserWithToken extends User {
@@ -941,6 +1001,25 @@ export const api = {
   updateCoach: (id: number, data: CoachInput) =>
     postJSON<CoachCreateResponse>(`/coaches/${id}`, { coach: data }, "PATCH"),
 
+  // ---------- Assessments (canonical score is derived by the server) ----------
+  assessments: (filters: AssessmentFilters = {}) => {
+    const qs = new URLSearchParams();
+    if (filters.player_id != null) qs.set("player_id", String(filters.player_id));
+    if (filters.coach_id != null) qs.set("coach_id", String(filters.coach_id));
+    if (filters.skill_id != null) qs.set("skill_id", String(filters.skill_id));
+    if (filters.training_session_id != null) qs.set("training_session_id", String(filters.training_session_id));
+    if (filters.status) qs.set("status", filters.status);
+    if (filters.mine) qs.set("mine", "1");
+    if (filters.page != null) qs.set("page", String(filters.page));
+    if (filters.per_page != null) qs.set("per_page", String(filters.per_page));
+    const query = qs.toString();
+    return fetchAPI<PaginatedResponse<Assessment>>(`/assessments${query ? `?${query}` : ""}`);
+  },
+  assessment: (id: number) => fetchAPI<Assessment>(`/assessments/${id}`),
+  createAssessment: (data: AssessmentInput) =>
+    postJSON<Assessment>("/assessments", { assessment: data }),
+  updateAssessment: (id: number, data: AssessmentUpdateInput) =>
+    postJSON<Assessment>(`/assessments/${id}`, { assessment: data }, "PATCH"),
 
   // Admin
   adminUsers: async (params?: { page?: number; per_page?: number; search?: string }) => {

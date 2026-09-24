@@ -7,6 +7,7 @@ import {
   type TrainingSession,
 } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import AssessmentList from "../components/people/AssessmentList";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
 import DrillViewer from "../components/drill/DrillViewer";
@@ -253,6 +254,19 @@ export default function TrainingDetail() {
             savingId={savingParticipantId}
             onStatusChange={canManage ? handleStatusChange : undefined}
           />
+          {(session.training_session_participants ?? []).some((participant) => (participant.assessments?.length ?? 0) > 0) && (
+            <div className="training-session-assessments">
+              <h3>Assessments in this session</h3>
+              {(session.training_session_participants ?? []).map((participant) => (
+                participant.assessments?.length ? (
+                  <div key={participant.id}>
+                    <h4>{participant.player_name ?? `Player #${participant.player_profile_id}`}</h4>
+                    <AssessmentList assessments={participant.assessments} showHistory={false} />
+                  </div>
+                ) : null
+              ))}
+            </div>
+          )}
         </section>
       ) : null}
 

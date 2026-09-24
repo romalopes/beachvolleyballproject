@@ -5306,3 +5306,93 @@
   width: auto;
 }
 
+/* ---- Assessment ratings (player, coach and training surfaces) ---- */
+.score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--charcoal);
+}
+
+.assessment-list,
+.assessment-latest-list,
+.assessment-history ul {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.assessment-list,
+.assessment-history ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.assessment-latest-row,
+.assessment-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.assessment-meta,
+.assessment-history-row span,
+.assessment-row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.assessment-history {
+  margin-top: 1rem;
+}
+.assessment-history summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.assessment-form,
+.assessment-rubric-fields,
+.assessment-rating-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.assessment-rubric-fields,
+.assessment-rating-fields {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
+.assessment-rating-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.assessment-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.assessment-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
