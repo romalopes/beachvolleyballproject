@@ -40,6 +40,7 @@ const staffNavItems = [
   { path: "/players", label: "Players", icon: Users },
   { path: "/coaches", label: "Coaches", icon: Volleyball },
   { path: "/assessments", label: "Assessments", icon: Star },
+  { path: "/assessment-definitions", label: "Assessment definitions", icon: ClipboardList },
 ];
 
 export default function Sidebar() {

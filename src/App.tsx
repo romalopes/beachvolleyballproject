@@ -28,6 +28,7 @@ import PlayerDetail from "./pages/PlayerDetail";
 import Coaches from "./pages/Coaches";
 import CoachDetail from "./pages/CoachDetail";
 import Assessments from "./pages/Assessments";
+import AssessmentDefinitions from "./pages/AssessmentDefinitions";
 import PersonProfileEditPage from "./pages/PersonProfileEditPage";
 import AdminUsers from "./pages/AdminUsers";
 import SettingsDashboard from "./pages/settings/SettingsDashboard";
@@ -192,6 +193,14 @@ export default function App() {
               element={
                 <ManagerRoute>
                   <Assessments />
+                </ManagerRoute>
+              }
+            />
+            <Route
+              path="/assessment-definitions"
+              element={
+                <ManagerRoute>
+                  <AssessmentDefinitions />
                 </ManagerRoute>
               }
             />

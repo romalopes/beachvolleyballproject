@@ -170,6 +170,59 @@ export interface Category {
   slug: string;
 }
 
+
+export interface CategoryCustom {
+  id: number;
+  name: string;
+  visibility: "shared" | "private";
+  created_by?: { id: number; name: string } | null;
+}
+
+export type AssessmentDefinitionStatus = "draft" | "active" | "archived";
+export type AssessmentCategorySource = "category" | "custom_category";
+
+export interface AssessmentCategory {
+  id: number;
+  category_id: number | null;
+  category_custom_id: number | null;
+  source_type: AssessmentCategorySource;
+  label: string;
+  weight: number;
+  position: number;
+  category?: Category | null;
+  category_custom?: { id: number; name: string; visibility: string } | null;
+}
+
+export interface AssessmentDefinition {
+  id: number;
+  name: string;
+  description: string | null;
+  status: AssessmentDefinitionStatus;
+  created_by_id: number | null;
+  created_by?: { id: number; name: string } | null;
+  created_at: string;
+  updated_at: string;
+  total_weight: number;
+  remaining_weight: number;
+  weights_balanced: boolean;
+  referenced: boolean;
+  assessment_categories: AssessmentCategory[];
+}
+
+export interface AssessmentDefinitionInput {
+  name: string;
+  description?: string | null;
+  status: AssessmentDefinitionStatus;
+  assessment_categories_attributes: Array<{
+    id?: number;
+    category_id?: number | null;
+    category_custom_id?: number | null;
+    weight: number;
+    position: number;
+    _destroy?: boolean;
+  }>;
+}
+
 export interface Skill {
   id: number;
   title: string;
@@ -393,16 +446,35 @@ export interface TrainingSessionParticipantInput {
 export type AssessmentStatus = "draft" | "active" | "withdrawn";
 export type AssessmentScale = "one_to_five" | "one_to_ten" | "one_to_hundred";
 
+export interface AssessmentCategoryScore {
+  id: number;
+  assessment_category_id: number;
+  label: string;
+  source_type: "category" | "custom_category";
+  weight: number;
+  score: number | null;
+  reported_value: number | null;
+  scale: AssessmentScale;
+  score_label: string;
+  ten_scale: number | null;
+  five_scale: number | null;
+  notes: string | null;
+}
+
 export interface Assessment {
   id: number;
   player_profile_id: number;
   coach_profile_id: number;
+  assessment_definition_id?: number | null;
+  assessment_definition?: AssessmentDefinition | null;
+  assessment_category_scores?: AssessmentCategoryScore[];
+  category_scores?: AssessmentCategoryScore[];
   category_id: number | null;
   custom_category: string | null;
   training_session_id: number | null;
   score: number | null;
   reported_value: number | null;
-  scale: AssessmentScale;
+  scale?: AssessmentScale | null;
   notes: string | null;
   status: AssessmentStatus;
   created_at: string;
@@ -419,6 +491,7 @@ export interface Assessment {
 export interface AssessmentInput {
   player_profile_id: number;
   coach_profile_id?: number | null;
+  assessment_definition_id?: number | null;
   category_id?: number | null;
   custom_category?: string | null;
   training_session_id?: number | null;
@@ -426,6 +499,13 @@ export interface AssessmentInput {
   scale?: AssessmentScale;
   status?: AssessmentStatus;
   notes?: string | null;
+  assessment_category_scores_attributes?: Array<{
+    id?: number;
+    assessment_category_id?: number | null;
+    value?: number | null;
+    scale?: AssessmentScale;
+    notes?: string | null;
+  }>;
 }
 
 export type AssessmentUpdateInput = Partial<Omit<AssessmentInput, "player_profile_id">>;
@@ -1020,6 +1100,29 @@ export const api = {
     postJSON<Assessment>("/assessments", { assessment: data }),
   updateAssessment: (id: number, data: AssessmentUpdateInput) =>
     postJSON<Assessment>(`/assessments/${id}`, { assessment: data }, "PATCH"),
+  assessmentDefinitions: (status?: AssessmentDefinitionStatus) =>
+    fetchAPI<PaginatedResponse<AssessmentDefinition>>(
+      `/assessment_definitions${status ? `?status=${encodeURIComponent(status)}` : ""}`,
+    ),
+  assessmentDefinition: (id: number) =>
+    fetchAPI<AssessmentDefinition>(`/assessment_definitions/${id}`),
+  createAssessmentDefinition: (data: AssessmentDefinitionInput) =>
+    postJSON<AssessmentDefinition>("/assessment_definitions", { assessment_definition: data }),
+  updateAssessmentDefinition: (id: number, data: Partial<AssessmentDefinitionInput>) =>
+    postJSON<AssessmentDefinition>(
+      `/assessment_definitions/${id}`,
+      { assessment_definition: data },
+      "PATCH",
+    ),
+  reorderAssessmentDefinition: (id: number, ids: number[]) =>
+    postJSON<AssessmentDefinition>(
+      `/assessment_definitions/${id}/reorder`,
+      { ids },
+      "PATCH",
+    ),
+  categoryCustoms: () => fetchAPI<CategoryCustom[]>("/category_customs"),
+  createCategoryCustom: (data: { name: string; visibility?: "shared" | "private" }) =>
+    postJSON<CategoryCustom>("/category_customs", { category_custom: data }),
 
   // Admin
   adminUsers: async (params?: { page?: number; per_page?: number; search?: string }) => {
