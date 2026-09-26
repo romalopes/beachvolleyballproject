@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Archive, ArchiveRestore, ArrowLeft, Pencil } from "lucide-react";
-import { api, type Assessment, type Coach, type Player } from "../api";
+import { api, type Player } from "../api";
 import { useAuth } from "../auth/AuthContext";
-import AssessmentForm from "../components/people/AssessmentForm";
 import AssessmentList from "../components/people/AssessmentList";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
@@ -15,23 +14,24 @@ import {
   restorePlayer,
 } from "../utils/people";
 import { formatTrainingDateRange, participantStatusLabel } from "../utils/training";
-import { canEditAssessment, canManageAssessments, isAssessmentOversight } from "../utils/assessments";
 
 /**
- * Player detail: the identity behind the profile, plus the training history.
+ * Player detail: the identity behind the profile, plus read-only history.
  *
- * The history comes from the participant rows, so it shows the same status the
- * coach set on the session (invited → confirmed → attended/absent) — one place
- * where attendance is recorded, one place where it is read.
+ * Training history comes from the participant rows, so it shows the same status
+ * the coach set on the session (invited → confirmed → attended/absent) — one
+ * place where attendance is recorded, one place where it is read.
+ *
+ * Assessments are listed read-only: they are now authored inside assessment
+ * sessions (assessment plan §8), so this page deliberately offers no
+ * assessment-creation form. That keeps "who rated this player, and on what
+ * rubric" authored in exactly one place.
  */
 export default function PlayerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const canEdit = canManageProfiles(user);
-  const canAssess = canManageAssessments(user);
-  const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
-  const [coaches, setCoaches] = useState<Coach[]>([]);
   const numericId = Number(id);
   const invalidId = !id || Number.isNaN(numericId);
   const [player, setPlayer] = useState<Player | null>(null);
@@ -63,23 +63,6 @@ export default function PlayerDetail() {
       cancelled = true;
     };
   }, [invalidId, numericId]);
-
-  useEffect(() => {
-    if (!isAssessmentOversight(user) || !canAssess || typeof api.coaches !== "function") return;
-    let cancelled = false;
-    api.coaches({ status: "active", per_page: 100 })
-      .then((response) => {
-        if (!cancelled) setCoaches(response.data);
-      })
-      .catch((err: unknown) => {
-        // The picker is an optional attribution aid; a failed catalogue request
-        // must not prevent the player page or custom-rubric entry from rendering.
-        if (!cancelled) console.error(err);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [canAssess, user]);
 
   /** Archive/restore are the same PATCH the edit form uses. */
   const handleArchive = async () => {
@@ -113,21 +96,6 @@ export default function PlayerDetail() {
     } finally {
       setWorking(false);
     }
-  };
-
-  const handleAssessmentSaved = (saved: Assessment) => {
-    setPlayer((current) => {
-      if (!current) return current;
-      const previous = current.assessments?.find((row) => row.id === saved.id);
-      const publishedDelta =
-        (saved.status === "active" ? 1 : 0) - (previous?.status === "active" ? 1 : 0);
-      return {
-        ...current,
-        assessments: [saved, ...(current.assessments ?? []).filter((row) => row.id !== saved.id)],
-        assessment_count: Math.max(0, (current.assessment_count ?? 0) + publishedDelta),
-      };
-    });
-    setEditingAssessment(null);
   };
 
   if (loading) return <div className="loading">Loading...</div>;
@@ -241,34 +209,14 @@ export default function PlayerDetail() {
       <section className="detail-section assessment-section">
         <h2>Assessments</h2>
         <p className="related-item-meta">
-          {player.assessment_count ?? 0} published assessment{(player.assessment_count ?? 0) === 1 ? "" : "s"}.
+          Read-only history · {player.assessment_count ?? 0} published assessment{(player.assessment_count ?? 0) === 1 ? "" : "s"}.
+          Assessments are recorded inside assessment sessions, not on this page.
         </p>
         <AssessmentList
           assessments={player.assessments}
           emptyTitle="No assessments yet"
-          emptyDescription="Published coaching assessments will appear here once recorded."
-          onEdit={canAssess ? (assessment) => {
-            if (canEditAssessment(assessment, user)) setEditingAssessment(assessment);
-          } : undefined}
+          emptyDescription="Published coaching assessments from assessment sessions will appear here."
         />
-        {canAssess && (editingAssessment ? (
-          <AssessmentForm
-            playerProfileId={player.id}
-            user={user}
-            coaches={coaches}
-            initial={editingAssessment}
-            onSaved={handleAssessmentSaved}
-            onCancel={() => setEditingAssessment(null)}
-          />
-        ) : (
-          <AssessmentForm
-            playerProfileId={player.id}
-            user={user}
-            coaches={coaches}
-            onSaved={handleAssessmentSaved}
-            onCancel={() => setEditingAssessment(null)}
-          />
-        ))}
       </section>
 
       <section className="detail-section">

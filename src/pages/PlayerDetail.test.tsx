@@ -212,4 +212,33 @@ describe("PlayerDetail", () => {
     expect(screen.getByText("Attack")).toBeInTheDocument();
     expect(screen.getByText("70/100 · 7/10 · 4/5")).toBeInTheDocument();
   });
+
+  it("has no assessment-creation controls on the player page", async () => {
+    mockedApi.player.mockResolvedValue(player({
+      assessment_count: 1,
+      assessments: [{
+        id: 1, player_profile_id: 12, coach_profile_id: 7, category_id: 5, custom_category: null,
+        training_session_id: null, score: 70, reported_value: 4, scale: "one_to_five",
+        notes: null, status: "active", created_at: "2026-09-01T00:00:00.000Z",
+        updated_at: "2026-09-01T00:00:00.000Z", category_label: "Attack", ten_scale: 7,
+        five_scale: 4, score_label: "70/100", status_label: "Published",
+        created_by: { id: 2, name: "Coach Ana" },
+        category: { id: 5, name: "Attack", slug: "attack" },
+      }],
+    }));
+    renderDetail();
+
+    const heading = await screen.findByRole("heading", { name: "Assessments" });
+    const section = heading.closest("section") as HTMLElement;
+
+    // The read-only history is present…
+    expect(within(section).getByText("Attack")).toBeInTheDocument();
+
+    // …but every legacy creation/edit control is gone (assessment plan §8).
+    expect(screen.queryByRole("button", { name: "Publish" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save draft" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Scale" })).not.toBeInTheDocument();
+    expect(within(section).queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+  });
+
 });

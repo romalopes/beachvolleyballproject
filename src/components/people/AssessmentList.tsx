@@ -13,7 +13,6 @@ interface AssessmentListProps {
   emptyTitle?: string;
   emptyDescription?: string;
   showHistory?: boolean;
-  onEdit?: (assessment: Assessment) => void;
 }
 
 export default function AssessmentList({
@@ -21,7 +20,6 @@ export default function AssessmentList({
   emptyTitle = "No assessments yet",
   emptyDescription = "Coaching assessments will appear here once recorded.",
   showHistory = true,
-  onEdit,
 }: AssessmentListProps) {
   const rows = assessments ?? [];
   if (rows.length === 0) {
@@ -66,7 +64,6 @@ export default function AssessmentList({
                 <div className="assessment-row-actions">
                   <Tag>{assessmentStatusLabel(row.status)}</Tag>
                   <ScoreBadge score={row.score} />
-                  {onEdit && <button type="button" className="admin-btn" onClick={() => onEdit(row)}>Edit</button>}
                 </div>
               </li>
             ))}
