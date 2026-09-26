@@ -6128,3 +6128,678 @@
   white-space: nowrap;
   user-select: none;
 }
+
+/* =============================================================
+   Assessment sessions — roster panel, score grid, ranking view.
+   Conventions follow .admin-table / .tag / .admin-btn above.
+   ============================================================= */
+
+.session-score-grid-container,
+.session-ranking-container {
+  margin-top: 1.5rem;
+}
+
+/* ---- Score grid: toolbar ---- */
+
+.session-grid-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.875rem;
+}
+
+.session-grid-scale-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.session-grid-scale-selector select {
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.session-grid-scale-selector select:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.session-grid-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.session-save-grid-btn {
+  background: var(--teal-50);
+  border-color: var(--teal-100);
+  color: var(--teal-600);
+}
+
+.session-save-grid-btn:hover:not(:disabled) {
+  background: var(--teal-100);
+}
+
+.session-save-grid-btn:disabled {
+  background: var(--bg-tertiary);
+  border-color: var(--border-light);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.session-save-success {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--teal-600);
+}
+
+.session-grid-empty,
+.ranking-empty-msg,
+.empty-roster-msg {
+  margin-top: 1rem;
+  padding: 1.25rem;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+
+
+/* ---- Score grid: the table ----
+   Fixed column widths keep the inputs from resizing as a "/5" scale badge
+   appears or disappears, so arrow-key navigation stays visually straight. */
+
+.session-score-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+}
+
+.session-score-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  min-width: 640px;
+}
+
+.session-score-table th {
+  text-align: left;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  font-weight: 700;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.session-score-table td {
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+}
+
+.session-score-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.session-score-table tbody tr:hover {
+  background: var(--sand-50);
+}
+
+.session-score-table .col-player-name {
+  width: 30%;
+  min-width: 9rem;
+}
+
+.session-score-table .col-category {
+  width: 9%;
+  min-width: 5rem;
+  text-align: center;
+}
+
+.session-score-table .col-preview-total {
+  width: 8rem;
+  text-align: right;
+}
+
+.category-header-title {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.category-header-weight {
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.cell-player-name {
+  padding-left: 0.875rem !important;
+}
+
+.player-name-text {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cell-score-input {
+  text-align: center;
+}
+
+/* The input fills its cell minus the room reserved for the scale badge, so
+   column widths stay constant whether or not a badge is shown. */
+.score-cell-wrap {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.125rem;
+}
+
+.score-cell-input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.375rem 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.score-cell-input:focus {
+  outline: none;
+  border-color: var(--amber-500);
+  box-shadow: 0 0 0 3px var(--amber-100);
+}
+
+.score-cell-input:disabled {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-primary);
+  cursor: default;
+}
+
+.score-cell-input.invalid {
+  border-color: var(--amber-600);
+  background: var(--amber-50);
+  color: var(--amber-600);
+}
+
+.score-cell-scale {
+  flex: none;
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.cell-preview-total {
+  text-align: right;
+  padding-right: 0.875rem !important;
+}
+
+.preview-score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.preview-score-badge.complete {
+  background: var(--teal-50);
+  color: var(--teal-600);
+
+/* ---- Roster: add-a-player controls ---- */
+
+.session-roster-section {
+  margin-top: 1.5rem;
+}
+
+.session-roster-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: 0.875rem;
+}
+
+/* The dropdown is positioned under the search box rather than floating over the
+   roster, so it cannot cover the list the coach is checking against. */
+.session-candidate-dropdown {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.candidate-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.candidate-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.candidate-item:last-child {
+  border-bottom: none;
+}
+
+.candidate-item:hover {
+  background: var(--sand-50);
+}
+
+.candidate-empty {
+  padding: 0.875rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.candidate-empty .link-button {
+  font-size: 0.8125rem;
+  vertical-align: middle;
+}
+
+.session-new-person-form {
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.session-new-person-form h4 {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.session-new-person-form .form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.session-new-person-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.session-new-person-form input {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.session-new-person-form input:focus {
+  outline: none;
+  border-color: var(--amber-500);
+  box-shadow: 0 0 0 3px var(--amber-100);
+}
+
+.session-btn-inline-person {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: var(--white);
+  border-color: var(--border);
+  color: var(--text-secondary);
+}
+
+.session-btn-inline-person:hover {
+  border-color: var(--amber-500);
+  color: var(--text-primary);
+}
+
+  border: 1px solid var(--teal-100);
+}
+
+/* ---- Roster: the list ---- */
+
+.session-roster-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  overflow: hidden;
+}
+
+.session-roster-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.875rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.session-roster-item:last-child {
+  border-bottom: none;
+}
+
+.session-roster-item:hover {
+  background: var(--sand-50);
+}
+
+.roster-item-index {
+  flex: none;
+  min-width: 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.roster-item-info {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.roster-player-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.roster-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1875rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.roster-badge.excluded {
+  background: var(--amber-50);
+  color: var(--amber-600);
+  border: 1px solid var(--amber-100);
+}
+
+.roster-badge.score {
+  background: var(--teal-50);
+  color: var(--teal-600);
+  border: 1px solid var(--teal-100);
+}
+
+.roster-badge.incomplete {
+  background: var(--sand-100);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.roster-item-actions {
+  display: flex;
+  gap: 0.375rem;
+}
+
+/* ---- Ranking view ---- */
+
+.ranking-section {
+  margin-top: 1.5rem;
+  padding: 1.125rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.ranking-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+}
+
+.ranking-section-header h4 {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.ranking-section-desc {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.ranking-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--white);
+}
+
+.session-ranking-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.session-ranking-table th {
+  text-align: left;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  font-weight: 700;
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  white-space: nowrap;
+}
+
+.session-ranking-table td {
+  padding: 0.625rem 0.875rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.session-ranking-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.session-ranking-table tbody tr:hover {
+  background: var(--sand-50);
+}
+
+.session-ranking-table .col-rank {
+  width: 5rem;
+}
+
+.session-ranking-table .col-score {
+  width: 9rem;
+  text-align: right;
+}
+
+.cell-score {
+  text-align: right;
+}
+
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  background: var(--sand-100);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.rank-badge.rank-1 {
+  background: var(--amber-50);
+  color: var(--amber-600);
+  border-color: var(--amber-100);
+}
+
+.rank-badge.rank-2,
+.rank-badge.rank-3 {
+  background: var(--teal-50);
+  color: var(--teal-600);
+  border-color: var(--teal-100);
+}
+
+.player-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.overall-score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  background: var(--teal-50);
+  color: var(--teal-600);
+  border: 1px solid var(--teal-100);
+}
+
+.incomplete-player-list,
+.excluded-player-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.incomplete-player-item,
+.excluded-player-item {
+  padding: 0.625rem 0.75rem;
+  background: var(--white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+}
+
+.incomplete-player-info,
+.excluded-player-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.incomplete-categories-badge {
+  font-size: 0.75rem;
+  color: var(--amber-600);
+  font-weight: 600;
+}
+
+.excluded-reason {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.ranking-icon {
+  flex: none;
+}
+
+.ranking-icon.alert {
+  color: var(--amber-600);
+}
+
+/* ---- Responsive ---- */
+
+@media (max-width: 720px) {
+  .session-new-person-form .form-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .session-grid-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .session-grid-actions {
+    justify-content: space-between;
+  }
+
+  .session-score-table {
+    min-width: 560px;
+  }
+}
+
+
+.preview-score-badge.saved {
+  background: var(--sand-100);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.preview-score-badge.incomplete {
+  background: var(--amber-50);
+  color: var(--amber-600);
+  border: 1px solid var(--amber-100);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+}
+
+.preview-score-badge.empty {
+  background: transparent;
+  color: var(--text-muted);
+}
+

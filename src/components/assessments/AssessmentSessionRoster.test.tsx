@@ -152,3 +152,105 @@ describe("AssessmentSessionRoster search", () => {
     ]);
   });
 });
+
+
+describe("AssessmentSessionRoster inline player creation", () => {
+  it("creates a new player from the inline form", async () => {
+    const user = userEvent.setup();
+    const onAddPlayers = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AssessmentSessionRoster
+        participants={[]}
+        searchPlayers={vi.fn()}
+        isDraft
+        onAddPlayers={onAddPlayers}
+        onRemovePlayers={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /record a new player/i }));
+    await user.type(screen.getByLabelText(/first name/i), "Carla");
+    await user.type(screen.getByLabelText(/last name/i), "Dias");
+    await user.type(screen.getByLabelText(/email/i), "carla@example.com");
+    await user.click(screen.getByRole("button", { name: /create & add player/i }));
+
+    expect(onAddPlayers).toHaveBeenCalledWith([
+      {
+        person: {
+          first_name: "Carla",
+          last_name: "Dias",
+          email: "carla@example.com",
+          phone: null,
+        },
+        inclusion: "included",
+      },
+    ]);
+  });
+
+  it("requires a first name and sends blanks as null, not empty strings", async () => {
+    const user = userEvent.setup();
+    const onAddPlayers = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AssessmentSessionRoster
+        participants={[]}
+        searchPlayers={vi.fn()}
+        isDraft
+        onAddPlayers={onAddPlayers}
+        onRemovePlayers={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /record a new player/i }));
+    await user.click(screen.getByRole("button", { name: /create & add player/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/first name is required/i);
+    expect(onAddPlayers).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText(/first name/i), "  Carla  ");
+    await user.click(screen.getByRole("button", { name: /create & add player/i }));
+
+    await waitFor(() => expect(onAddPlayers).toHaveBeenCalled());
+    const [entry] = onAddPlayers.mock.calls[0][0];
+    expect(entry.person).toEqual({
+      first_name: "Carla",
+      last_name: null,
+      email: null,
+      phone: null,
+    });
+  });
+
+  it("removes a player from a draft roster", async () => {
+    const user = userEvent.setup();
+    const onRemovePlayers = vi.fn().mockResolvedValue(undefined);
+    render(
+      <AssessmentSessionRoster
+        participants={[participant(10, 1, "Ana Silva")]}
+        searchPlayers={vi.fn()}
+        isDraft
+        onAddPlayers={vi.fn()}
+        onRemovePlayers={onRemovePlayers}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /remove ana silva/i }));
+    expect(onRemovePlayers).toHaveBeenCalledWith([1]);
+  });
+
+  it("locks the roster once the session is published", () => {
+    render(
+      <AssessmentSessionRoster
+        participants={[participant(10, 1, "Ana Silva")]}
+        searchPlayers={vi.fn()}
+        isDraft={false}
+        onAddPlayers={vi.fn()}
+        onRemovePlayers={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Search available players")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /remove ana silva/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/Roster is finalized/i)).toBeInTheDocument();
+  });
+});
