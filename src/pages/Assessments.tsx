@@ -12,9 +12,9 @@ const PER_PAGE = 20;
 
 /**
  * Assessment catalogue: every rating that exists for the signed-in viewer,
- * newest first. A read/navigation surface — recording and editing stay on the
- * player page (and the session page for in-session rows), because an assessment
- * always names the player it is about.
+ * newest first. A read/navigation surface — recording happens inside
+ * assessment sessions (assessment plan §8), because an assessment always
+ * names the player it is about.
  *
  * The API always scopes the list to `visible_to(Current.user)`: active rows by
  * default, drafts and withdrawn rows only for their stakeholders and oversight.
@@ -104,7 +104,7 @@ export default function Assessments() {
       ) : rows.length === 0 ? (
         <EmptyState
           title="No assessments found"
-          description="Nothing exists for this filter. Record an assessment from a player's page."
+          description="Nothing exists for this filter. Assessments are recorded inside assessment sessions."
         />
       ) : (
         <ul className="people-list">
