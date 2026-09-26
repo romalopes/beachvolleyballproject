@@ -31,6 +31,8 @@ import Assessments from "./pages/Assessments";
 import AssessmentDefinitions from "./pages/AssessmentDefinitions";
 import AssessmentSessions from "./pages/AssessmentSessions";
 import AssessmentSessionDetail from "./pages/AssessmentSessionDetail";
+import RankingConsolidations from "./pages/RankingConsolidations";
+import RankingConsolidationDetail from "./pages/RankingConsolidationDetail";
 import PersonProfileEditPage from "./pages/PersonProfileEditPage";
 import AdminUsers from "./pages/AdminUsers";
 import SettingsDashboard from "./pages/settings/SettingsDashboard";
@@ -211,6 +213,22 @@ export default function App() {
               element={
                 <ManagerRoute>
                   <AssessmentSessionDetail />
+                </ManagerRoute>
+              }
+            />
+            <Route
+              path="/ranking-consolidations"
+              element={
+                <ManagerRoute>
+                  <RankingConsolidations />
+                </ManagerRoute>
+              }
+            />
+            <Route
+              path="/ranking-consolidations/:id"
+              element={
+                <ManagerRoute>
+                  <RankingConsolidationDetail />
                 </ManagerRoute>
               }
             />

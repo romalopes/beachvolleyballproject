@@ -9,6 +9,7 @@ import {
   PlayCircle,
   CalendarDays,
   ClipboardList,
+  Trophy,
   LogOut,
   LogIn,
   UserCircle,
@@ -41,6 +42,7 @@ const staffNavItems = [
   { path: "/coaches", label: "Coaches", icon: Volleyball },
   { path: "/assessments", label: "Assessments", icon: Star },
   { path: "/assessment-sessions", label: "Assessment sessions", icon: CalendarDays },
+  { path: "/ranking-consolidations", label: "Ranking consolidations", icon: Trophy },
   { path: "/assessment-definitions", label: "Assessment definitions", icon: ClipboardList },
 ];
 

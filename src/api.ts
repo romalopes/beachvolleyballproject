@@ -622,6 +622,59 @@ export interface AssessmentSessionScoreInput {
 }
 
 
+// ---------- Ranking consolidation (Phase 4) ----------
+// A consolidation is an immutable snapshot merging several coaches' published
+// session results into one club ranking. Nothing here is ever edited: the
+// source sessions are snapshotted at creation, so withdrawing a session later
+// cannot rewrite the record (D24).
+/** One source session's frozen ranking, as captured at creation. */
+export interface RankingConsolidationSnapshotEntry {
+  player_profile_id: number;
+  overall_score: number;
+  rank: number;
+}
+
+export interface RankingConsolidationSource {
+  assessment_session_id: number;
+  name: string | null;
+  coach_name: string | null;
+  ranking_snapshot: RankingConsolidationSnapshotEntry[];
+}
+
+/**
+ * One ranked player. `coach_scores` maps a source session id to the score that
+ * coach gave; `coverage` is how many source sessions ranked the player. A player
+ * absent from some sessions averages over the covered ones only and is reported
+ * through a `coverage` below the session count — never zero-filled (D21).
+ */
+export interface RankingConsolidationRow {
+  player_profile_id: number;
+  player_name: string;
+  coach_scores: Record<string, number>;
+  coverage: number;
+  average_score: number;
+  rank: number;
+}
+
+export interface RankingConsolidation {
+  id: number;
+  name: string;
+  notes?: string | null;
+  created_by_id?: number | null;
+  assessment_definition: { id: number; name: string };
+  session_count: number;
+  player_count: number;
+  assessment_sessions: RankingConsolidationSource[];
+  rows: RankingConsolidationRow[];
+}
+
+export interface RankingConsolidationInput {
+  name: string;
+  assessment_definition_id: number;
+  assessment_session_ids: number[];
+  notes?: string | null;
+}
+
 export interface TrainingSession {
   id: number;
   title: string;
@@ -1271,6 +1324,18 @@ export const api = {
       incomplete: AssessmentSessionRankingRow[];
       excluded: AssessmentSessionRankingRow[];
     }>(`/assessment_sessions/${id}/ranking`),
+
+  // ---------- Ranking consolidations (Phase 4) ----------
+  // Archival records: there is no update or delete. A correction is a new
+  // consolidation, so a published club ranking can never be quietly rewritten.
+  rankingConsolidations: () =>
+    fetchAPI<{ ranking_consolidations: RankingConsolidation[] }>("/ranking_consolidations"),
+  rankingConsolidation: (id: number) =>
+    fetchAPI<{ ranking_consolidation: RankingConsolidation }>(`/ranking_consolidations/${id}`),
+  createRankingConsolidation: (data: RankingConsolidationInput) =>
+    postJSON<{ ranking_consolidation: RankingConsolidation }>("/ranking_consolidations", {
+      ranking_consolidation: data,
+    }),
 
   categoryCustoms: () => fetchAPI<CategoryCustom[]>("/category_customs"),
   createCategoryCustom: (data: { name: string; visibility?: "shared" | "private" }) =>
