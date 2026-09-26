@@ -29,6 +29,8 @@ import Coaches from "./pages/Coaches";
 import CoachDetail from "./pages/CoachDetail";
 import Assessments from "./pages/Assessments";
 import AssessmentDefinitions from "./pages/AssessmentDefinitions";
+import AssessmentSessions from "./pages/AssessmentSessions";
+import AssessmentSessionDetail from "./pages/AssessmentSessionDetail";
 import PersonProfileEditPage from "./pages/PersonProfileEditPage";
 import AdminUsers from "./pages/AdminUsers";
 import SettingsDashboard from "./pages/settings/SettingsDashboard";
@@ -193,6 +195,22 @@ export default function App() {
               element={
                 <ManagerRoute>
                   <Assessments />
+                </ManagerRoute>
+              }
+            />
+            <Route
+              path="/assessment-sessions"
+              element={
+                <ManagerRoute>
+                  <AssessmentSessions />
+                </ManagerRoute>
+              }
+            />
+            <Route
+              path="/assessment-sessions/:id"
+              element={
+                <ManagerRoute>
+                  <AssessmentSessionDetail />
                 </ManagerRoute>
               }
             />

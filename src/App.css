@@ -509,6 +509,21 @@
   color: var(--amber-600);
 }
 
+/* Inline text-button inside error banners (e.g. "try again" retries). */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  color: var(--charcoal);
+}
+
 .detail-header h1 {
   font-size: 2.75rem;
   margin-bottom: 1rem;
@@ -5695,6 +5710,219 @@
 
 .assessment-form,
 .assessment-rubric-fields,
+/* ---------- Assessment sessions (list + wizard + detail) ---------- */
+
+.assessment-sessions-page .page-header,
+.assessment-session-detail-page .page-header {
+  margin-bottom: 1.5rem;
+}
+
+.assessment-sessions-page .admin-error,
+.assessment-session-detail-page .admin-error {
+  margin-bottom: 1rem;
+}
+
+.session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.session-list-header,
+.session-row {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1.25fr 1fr 0.75fr auto;
+  align-items: center;
+  gap: 1rem;
+}
+
+.session-list-header {
+  padding: 0 1.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.session-row {
+  padding: 1rem 1.25rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: inherit;
+}
+
+.session-row:hover {
+  border-color: var(--amber-500);
+  box-shadow: var(--shadow-sm);
+}
+
+.session-row .session-name {
+  font-weight: 600;
+  color: var(--charcoal);
+}
+
+.session-row .session-def,
+.session-row .session-coach {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.session-row .session-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.session-row .session-roster-count {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.session-wizard {
+  max-width: 560px;
+}
+
+.session-wizard .wizard-steps {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.session-wizard .wizard-step {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.session-wizard .wizard-step.active {
+  border-color: var(--amber-500);
+  color: var(--charcoal);
+  background: var(--bg-secondary);
+}
+
+.session-wizard .wizard-step.done {
+  color: var(--charcoal);
+}
+
+.session-wizard .wizard-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.session-wizard .wizard-rubric-preview {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  padding: 0.75rem 1rem;
+}
+
+.session-wizard .wizard-rubric-preview ul {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.session-wizard .wizard-rubric-preview li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.875rem;
+}
+
+.session-wizard .wizard-weight {
+  font-weight: 600;
+  color: var(--charcoal);
+}
+
+.session-wizard .wizard-hint {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.session-wizard .admin-form-actions {
+  justify-content: flex-end;
+}
+
+@media (max-width: 720px) {
+  .session-list-header {
+    display: none;
+  }
+
+  .session-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ---------- Assessment session detail ---------- */
+
+.session-back-link {
+  margin: 0 0 0.75rem;
+}
+
+.session-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.session-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.session-actions {
+  margin-top: 1rem;
+}
+
+.session-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1.5rem 0 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.session-tab {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.session-tab:hover {
+  border-color: var(--amber-500);
+  color: var(--charcoal);
+}
+
+.session-tab.active {
+  background: var(--charcoal);
+  border-color: var(--charcoal);
+  color: var(--white);
+}
+
 .assessment-rating-fields {
   display: flex;
   flex-direction: column;

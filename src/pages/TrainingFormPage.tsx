@@ -28,6 +28,7 @@ import {
   type ParticipantDraft,
 } from "../components/training/participantDraft";
 import SkillFocusSelector from "../components/training/SkillFocusSelector";
+import TrainingFormActions from "../components/training/TrainingFormActions";
 import {
   createCustomFocus,
   createSkillFocus,
@@ -617,24 +618,13 @@ export default function TrainingFormPage() {
           </div>
         )}
 
-        <div className="admin-form-actions">
-          <button
-            type="submit"
-            className="admin-btn admin-btn-add"
-            disabled={saving}
-          >
-            {saving ? "Saving..." : isNew ? "Create Training" : "Save Changes"}
-          </button>
-          <button
-            type="button"
-            className="admin-btn"
-            onClick={() =>
-              navigate(isNew ? "/training" : `/training/${sessionId}`)
-            }
-          >
-            Cancel
-          </button>
-        </div>
+        <TrainingFormActions
+          saving={saving}
+          isNew={isNew}
+          onCancel={() =>
+            navigate(isNew ? "/training" : `/training/${sessionId}`)
+          }
+        />
       </form>
 
       {isNew || sessionId == null ? (

@@ -521,6 +521,107 @@ export interface AssessmentFilters {
 }
 
 
+export type AssessmentSessionStatus = "draft" | "published" | "withdrawn";
+export type AssessmentSessionInclusion = "included" | "excluded";
+
+export interface AssessmentSessionCategory {
+  id: number;
+  label: string;
+  weight: number;
+  position: number;
+}
+
+export interface AssessmentSessionDefinition {
+  id: number;
+  name: string;
+  status: AssessmentDefinitionStatus;
+  assessment_categories: AssessmentSessionCategory[];
+}
+
+export interface AssessmentSessionRankingRow {
+  player_profile_id: number;
+  player_name: string;
+  assessment_id?: number | null;
+  overall_score: number | null;
+  rank: number | null;
+  missing_category_ids: number[];
+  status?: string;
+  missing_reason?: string | null;
+}
+
+export interface AssessmentSessionRankingPayload {
+  ranking: AssessmentSessionRankingRow[];
+  incomplete: AssessmentSessionRankingRow[];
+  excluded: AssessmentSessionRankingRow[];
+}
+
+export interface AssessmentSessionParticipant {
+  id: number;
+  player_profile_id: number;
+  player_name: string;
+  inclusion: AssessmentSessionInclusion;
+  missing_reason?: string | null;
+  result?: AssessmentSessionRankingRow;
+}
+
+export interface AssessmentSession {
+  id: number;
+  name: string;
+  status: AssessmentSessionStatus;
+  status_label: string;
+  scheduled_on: string;
+  notes?: string | null;
+  published_at?: string | null;
+  created_by_id: number;
+  coach_profile_id: number;
+  coach_profile: {
+    id: number;
+    full_name: string;
+  };
+  group_id?: number | null;
+  group?: { id: number; name: string } | null;
+  assessment_definition: AssessmentSessionDefinition;
+  ranking: AssessmentSessionRankingPayload;
+  participants: AssessmentSessionParticipant[];
+}
+
+export interface AssessmentSessionInput {
+  name: string;
+  assessment_definition_id: number;
+  coach_profile_id: number;
+  group_id?: number | null;
+  scheduled_on: string;
+  notes?: string | null;
+}
+
+export interface AssessmentSessionPlayerInput {
+  player_profile_id?: number;
+  inclusion?: AssessmentSessionInclusion;
+  missing_reason?: string | null;
+  person?: {
+    first_name: string;
+    last_name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    date_of_birth?: string | null;
+  };
+}
+
+export interface AssessmentSessionCategoryScoreInput {
+  assessment_category_id: number;
+  scale?: AssessmentScale;
+  value?: number | null;
+  score?: number | null;
+  reported_value?: number | null;
+  notes?: string | null;
+}
+
+export interface AssessmentSessionScoreInput {
+  player_profile_id: number;
+  category_scores: AssessmentSessionCategoryScoreInput[];
+}
+
+
 export interface TrainingSession {
   id: number;
   title: string;
@@ -1120,6 +1221,57 @@ export const api = {
       { ids },
       "PATCH",
     ),
+  assessmentSessions: () =>
+    fetchAPI<{ assessment_sessions: AssessmentSession[] }>("/assessment_sessions"),
+  assessmentSession: (id: number) =>
+    fetchAPI<{ assessment_session: AssessmentSession }>(`/assessment_sessions/${id}`),
+  createAssessmentSession: (data: AssessmentSessionInput) =>
+    postJSON<{ assessment_session: AssessmentSession }>("/assessment_sessions", {
+      assessment_session: data,
+    }),
+  updateAssessmentSession: (id: number, data: Partial<AssessmentSessionInput>) =>
+    postJSON<{ assessment_session: AssessmentSession }>(
+      `/assessment_sessions/${id}`,
+      { assessment_session: data },
+      "PATCH",
+    ),
+  addAssessmentSessionPlayers: (id: number, players: AssessmentSessionPlayerInput[]) =>
+    postJSON<{ assessment_session: AssessmentSession; added: number }>(
+      `/assessment_sessions/${id}/add_players`,
+      { players },
+    ),
+  removeAssessmentSessionPlayers: (id: number, playerProfileIds: number[]) =>
+    postJSON<{ assessment_session: AssessmentSession; removed: number }>(
+      `/assessment_sessions/${id}/remove_players`,
+      { player_profile_ids: playerProfileIds },
+      "PATCH",
+    ),
+  saveAssessmentSessionScores: (id: number, scores: AssessmentSessionScoreInput[]) =>
+    postJSON<{ assessment_session: AssessmentSession }>(
+      `/assessment_sessions/${id}/scores`,
+      { scores },
+      "PUT",
+    ),
+  publishAssessmentSession: (id: number) =>
+    postJSON<{ assessment_session: AssessmentSession }>(
+      `/assessment_sessions/${id}/publish`,
+      {},
+      "POST",
+    ),
+  assessmentSessionRanking: (id: number) =>
+    fetchAPI<{
+      assessment_session: {
+        id: number;
+        name: string;
+        status: AssessmentSessionStatus;
+        scheduled_on: string;
+        assessment_definition: AssessmentSessionDefinition;
+      };
+      ranking: AssessmentSessionRankingRow[];
+      incomplete: AssessmentSessionRankingRow[];
+      excluded: AssessmentSessionRankingRow[];
+    }>(`/assessment_sessions/${id}/ranking`),
+
   categoryCustoms: () => fetchAPI<CategoryCustom[]>("/category_customs"),
   createCategoryCustom: (data: { name: string; visibility?: "shared" | "private" }) =>
     postJSON<CategoryCustom>("/category_customs", { category_custom: data }),
