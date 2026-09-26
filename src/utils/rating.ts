@@ -3,6 +3,20 @@ import type { AssessmentScale } from "../api";
 export const SCALES: AssessmentScale[] = ["one_to_five", "one_to_ten", "one_to_hundred"];
 export const DEFAULT_SCALE: AssessmentScale = "one_to_ten";
 
+/** The top of each scale, for showing a value's own range (e.g. "4/5"). */
+export const SCALE_MAXIMA: Record<AssessmentScale, number> = {
+  one_to_five: 5,
+  one_to_ten: 10,
+  one_to_hundred: 100,
+};
+
+/** Human-readable scale names, for labels and tooltips. */
+export const SCALE_LABELS: Record<AssessmentScale, string> = {
+  one_to_five: "1-5",
+  one_to_ten: "1-10",
+  one_to_hundred: "1-100",
+};
+
 const ENTRY_VALUES: Record<AssessmentScale, Record<number, number>> = {
   one_to_five: { 1: 10, 2: 30, 3: 50, 4: 70, 5: 90 },
   one_to_ten: { 1: 10, 2: 20, 3: 30, 4: 40, 5: 50, 6: 60, 7: 70, 8: 80, 9: 90, 10: 100 },

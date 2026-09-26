@@ -28,36 +28,25 @@ export default function AssessmentSessionDetail() {
   const sessionId = Number(id);
 
   const [session, setSession] = useState<AssessmentSession | null>(null);
-  const [availablePlayers, setAvailablePlayers] = useState<Player[]>([]);
   const [activeTab, setActiveTab] = useState<SessionTab>("roster");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [playersError, setPlayersError] = useState<string | null>(null);
-  const [playersLoading, setPlayersLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
 
-  const loadPlayers = async () => {
-    setPlayersLoading(true);
-    setPlayersError(null);
-    try {
-      const playersRes = await api.players({
-        include_private: true,
-        per_page: 100,
-        status: "active",
-      });
-      setAvailablePlayers(playersRes.data || []);
-    } catch (err) {
-      // The roster picker is auxiliary: the session itself already loaded, so
-      // a catalogue failure degrades to "can't add players right now" instead
-      // of the whole page reporting "session not found".
-      setAvailablePlayers([]);
-      setPlayersError(
-        err instanceof Error ? err.message : "Failed to load the player catalogue.",
-      );
-    } finally {
-      setPlayersLoading(false);
-    }
+  /**
+   * Server-side player search for the roster picker. Searching on demand rather
+   * than prefetching a page of the catalogue means no player is unreachable,
+   * and a failure is reported as a search failure rather than as an empty
+   * candidate list (which reads as "no players exist").
+   */
+  const searchPlayers = async (term: string): Promise<Player[]> => {
+    const res = await api.players({
+      q: term,
+      include_private: true,
+      per_page: 20,
+    });
+    return res.data || [];
   };
 
   const loadSession = async () => {
@@ -71,8 +60,6 @@ export default function AssessmentSessionDetail() {
     try {
       const sessionRes = await api.assessmentSession(sessionId);
       setSession(sessionRes.assessment_session);
-      // Fire-and-forget: the picker list must never block (or break) the page.
-      void loadPlayers();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load assessment session.");
     } finally {
@@ -216,33 +203,13 @@ export default function AssessmentSessionDetail() {
       </div>
 
       {activeTab === "roster" && (
-        <>
-          {playersLoading && <p className="loading">Loading player catalogue...</p>}
-          {playersError && (
-            <div className="admin-error" role="alert">
-              <AlertCircle size={16} />
-              <span>
-                Couldn&apos;t load the player catalogue ({playersError}). The roster
-                below is intact —{" "}
-                <button
-                  type="button"
-                  className="link-button"
-                  onClick={() => void loadPlayers()}
-                >
-                  try again
-                </button>
-                .
-              </span>
-            </div>
-          )}
-          <AssessmentSessionRoster
-            participants={session.participants || []}
-            availablePlayers={availablePlayers}
-            isDraft={isDraft}
-            onAddPlayers={handleAddPlayers}
-            onRemovePlayers={handleRemovePlayers}
-          />
-        </>
+        <AssessmentSessionRoster
+          participants={session.participants || []}
+          searchPlayers={searchPlayers}
+          isDraft={isDraft}
+          onAddPlayers={handleAddPlayers}
+          onRemovePlayers={handleRemovePlayers}
+        />
       )}
 
       {activeTab === "scores" && (

@@ -1,13 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { AlertCircle, Check, Save } from "lucide-react";
 import type {
   AssessmentScale,
   AssessmentSessionCategory,
+  AssessmentSessionCategoryScore,
   AssessmentSessionParticipant,
   AssessmentSessionScoreInput,
 } from "../../api";
-import { legalValue, toScore } from "../../utils/rating";
+import { legalValue, toScore, SCALE_LABELS, SCALE_MAXIMA } from "../../utils/rating";
 
 interface SpreadsheetScoreGridProps {
   categories: AssessmentSessionCategory[];
@@ -34,25 +35,75 @@ export default function SpreadsheetScoreGrid({
 
   const cellRefs = useRef<(HTMLInputElement | null)[][]>([]);
 
-  useEffect(() => {
-    if (dirty) return;
+  /**
+   * The saved entry for one cell, if the server has one. A saved row may be on
+   * a different scale than the grid's selector (D10 allows 1-5 for one area and
+   * 1-100 for another), so the cell keeps its own scale rather than being read
+   * through the selector — otherwise a `4` out of 5 would render next to a
+   * "out of 10" control and read as half marks.
+   */
+  const savedEntry = (
+    playerProfileId: number,
+    categoryId: number
+  ): AssessmentSessionCategoryScore | undefined =>
+    participants
+      .find((p) => p.player_profile_id === playerProfileId)
+      ?.result?.category_scores?.find((c) => c.assessment_category_id === categoryId);
 
+  // Hydrate from the server payload, not just local state: a published session is
+  // read-only, so without this its cells would stay permanently blank and the
+  // weighted total would have no visible derivation. Local edits win while dirty.
+  //
+  // The sync is keyed on the payload identity and applied during render rather
+  // than in an effect, so the grid does not cascade an extra render pass on load.
+  const serverSignature = useMemo(
+    () =>
+      includedParticipants
+        .map(
+          (p) =>
+            `${p.player_profile_id}:${(p.result?.category_scores ?? [])
+              .map((c) => `${c.assessment_category_id}=${c.reported_value}`)
+              .join(",")}`,
+        )
+        .join("|"),
+    [includedParticipants],
+  );
+
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
+
+  if (!dirty && hydratedFor !== serverSignature) {
+    setHydratedFor(serverSignature);
     setGridValues((prev) => {
       const merged: Record<number, Record<number, string>> = {};
       for (const p of includedParticipants) {
         merged[p.player_profile_id] = {};
         for (const cat of sortedCategories) {
+          const saved = savedEntry(p.player_profile_id, cat.id);
           merged[p.player_profile_id][cat.id] =
-            prev[p.player_profile_id]?.[cat.id] ?? "";
+            saved?.reported_value != null
+              ? String(saved.reported_value)
+              : (prev[p.player_profile_id]?.[cat.id] ?? "");
         }
       }
       return merged;
     });
-  }, [participants, categories, dirty]);
+  }
 
-  cellRefs.current = includedParticipants.map((_, r) =>
-    sortedCategories.map((_, c) => cellRefs.current[r]?.[c] || null)
-  );
+  // A local edit takes over from the server payload until the next reload.
+  if (dirty && hydratedFor === serverSignature) {
+    setHydratedFor(null);
+  }
+
+  // Keep the ref matrix sized to the current grid. Assigning during render is
+  // unsafe under concurrent rendering, so it is synced after commit instead.
+  const rowCount = includedParticipants.length;
+  const colCount = sortedCategories.length;
+
+  useEffect(() => {
+    cellRefs.current = Array.from({ length: rowCount }, (_, r) =>
+      Array.from({ length: colCount }, (_, c) => cellRefs.current[r]?.[c] ?? null),
+    );
+  }, [rowCount, colCount]);
 
   const handleCellChange = (
     playerProfileId: number,
@@ -269,25 +320,43 @@ export default function SpreadsheetScoreGrid({
                     const cellVal = gridValues[p.player_profile_id]?.[cat.id] ?? "";
                     const isCellInvalid =
                       cellVal.trim() !== "" && !legalValue(Number(cellVal), selectedScale);
+                    // Show the scale the value was actually entered on when it
+                    // differs from the grid's selector, so a published read-only
+                    // session can't imply the wrong maximum (D10).
+                    const cellScale: AssessmentScale = savedEntry(
+                      p.player_profile_id,
+                      cat.id,
+                    )?.scale ?? selectedScale;
+                    const scaleDiffers = cellScale !== selectedScale;
 
                     return (
                       <td key={cat.id} className="cell-score-input">
-                        <input
-                          ref={(el) => {
-                            if (!cellRefs.current[rIdx]) cellRefs.current[rIdx] = [];
-                            cellRefs.current[rIdx][cIdx] = el;
-                          }}
-                          type="text"
-                          inputMode="numeric"
-                          className={`score-cell-input${isCellInvalid ? " invalid" : ""}`}
-                          value={cellVal}
-                          disabled={!isDraft || saving}
-                          onChange={(e) =>
-                            handleCellChange(p.player_profile_id, cat.id, e.target.value)
-                          }
-                          onKeyDown={(e) => handleKeyDown(e, rIdx, cIdx)}
-                          aria-label={`${p.player_name} ${cat.label}`}
-                        />
+                        <div className="score-cell-wrap">
+                          <input
+                            ref={(el) => {
+                              if (!cellRefs.current[rIdx]) cellRefs.current[rIdx] = [];
+                              cellRefs.current[rIdx][cIdx] = el;
+                            }}
+                            type="text"
+                            inputMode="numeric"
+                            className={`score-cell-input${isCellInvalid ? " invalid" : ""}`}
+                            value={cellVal}
+                            disabled={!isDraft || saving}
+                            onChange={(e) =>
+                              handleCellChange(p.player_profile_id, cat.id, e.target.value)
+                            }
+                            onKeyDown={(e) => handleKeyDown(e, rIdx, cIdx)}
+                            aria-label={`${p.player_name} ${cat.label}`}
+                          />
+                          {scaleDiffers && cellVal.trim() !== "" && (
+                            <span
+                              className="score-cell-scale"
+                              title={`Entered on a ${SCALE_LABELS[cellScale]} scale`}
+                            >
+                              /{SCALE_MAXIMA[cellScale]}
+                            </span>
+                          )}
+                        </div>
                       </td>
                     );
                   })}

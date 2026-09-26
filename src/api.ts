@@ -538,6 +538,15 @@ export interface AssessmentSessionDefinition {
   assessment_categories: AssessmentSessionCategory[];
 }
 
+export interface AssessmentSessionCategoryScore {
+  assessment_category_id: number;
+  /** The coach's own typed entry, on `scale`. Null when the cell was left blank. */
+  reported_value: number | null;
+  scale: AssessmentScale;
+  /** The canonical 0-100 value after conversion through `scale`. */
+  score: number | null;
+}
+
 export interface AssessmentSessionRankingRow {
   player_profile_id: number;
   player_name: string;
@@ -545,6 +554,8 @@ export interface AssessmentSessionRankingRow {
   overall_score: number | null;
   rank: number | null;
   missing_category_ids: number[];
+  /** The per-category entries behind `overall_score`; empty when unscored. */
+  category_scores?: AssessmentSessionCategoryScore[];
   status?: string;
   missing_reason?: string | null;
 }

@@ -6112,3 +6112,19 @@
   }
 }
 
+
+/* Assessment session score grid.
+   The cell holds an input plus an optional "/5" scale badge, so the two must sit
+   on one baseline without the badge pushing the input wider between columns. */
+.score-cell-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.125rem;
+}
+
+.score-cell-scale {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  user-select: none;
+}

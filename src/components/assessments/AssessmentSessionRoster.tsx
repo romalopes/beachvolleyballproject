@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Plus, Search, Trash2, UserPlus, AlertCircle } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Plus, Search, Trash2, UserPlus, AlertCircle, RefreshCw } from "lucide-react";
 import type {
   AssessmentSessionParticipant,
   AssessmentSessionPlayerInput,
@@ -10,7 +10,13 @@ import { playerSubtitle } from "../training/participantDraft";
 
 interface AssessmentSessionRosterProps {
   participants: AssessmentSessionParticipant[];
-  availablePlayers: Player[];
+  /**
+   * Server-side player search. The catalogue is not prefetched into the page:
+   * `per_page` is capped server-side, so a prefetched list would silently hide
+   * every player past the first page, and the only working path would appear to
+   * be "create a new player".
+   */
+  searchPlayers: (term: string) => Promise<Player[]>;
   isDraft: boolean;
   onAddPlayers: (players: AssessmentSessionPlayerInput[]) => Promise<void>;
   onRemovePlayers: (playerProfileIds: number[]) => Promise<void>;
@@ -25,30 +31,87 @@ const emptyNewPerson = {
 
 export default function AssessmentSessionRoster({
   participants,
-  availablePlayers,
+  searchPlayers,
   isDraft,
   onAddPlayers,
   onRemovePlayers,
 }: AssessmentSessionRosterProps) {
   const [search, setSearch] = useState("");
+  const [matches, setMatches] = useState<Player[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [addingNew, setAddingNew] = useState(false);
   const [newPerson, setNewPerson] = useState(emptyNewPerson);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Never offer a player who is already on the roster.
   const candidates = useMemo(() => {
     const existingIds = new Set(participants.map((p) => p.player_profile_id));
-    return availablePlayers.filter((player) => !existingIds.has(player.id));
-  }, [availablePlayers, participants]);
+    return matches.filter((player) => !existingIds.has(player.id));
+  }, [matches, participants]);
 
-  const term = search.trim().toLowerCase();
-  const visibleCandidates = term
-    ? candidates.filter((player) =>
-        `${player.full_name ?? personName(player.person)} ${player.person?.email ?? ""}`
-          .toLowerCase()
-          .includes(term),
-      )
-    : candidates;
+  const term = search.trim();
+
+  // Monotonic request id, held in a ref: it is a guard, not rendered state.
+  const seqRef = useRef(0);
+
+  // Debounced server search. `searching` is derived from the term and the last
+  // settled signature rather than stored, so the effect body performs no
+  // synchronous setState; only the async callbacks below write state.
+  // The term whose search has settled. Written only from the async callbacks
+  // below, so the effect body performs no synchronous setState; derived (not
+  // stored) `searching` then needs no extra render pass.
+  const [settledTerm, setSettledTerm] = useState<string | null>(null);
+  // Bumped by "try again" so an identical term re-runs the effect.
+  const [retryNonce, setRetryNonce] = useState(0);
+
+  useEffect(() => {
+    if (!term) return;
+
+    const seq = ++seqRef.current;
+
+    const timer = setTimeout(() => {
+      searchPlayers(term)
+        .then((players) => {
+          if (seq !== seqRef.current) return;
+          setSettledTerm(term);
+          setMatches(players);
+          setSearchError(null);
+        })
+        .catch((err) => {
+          if (seq !== seqRef.current) return;
+          setSettledTerm(term);
+          setMatches([]);
+          setSearchError(
+            err instanceof Error ? err.message : "Failed to search players.",
+          );
+        });
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [term, searchPlayers, retryNonce]);
+
+  // Searching until the current term has been answered (or has failed).
+  const searching = Boolean(term) && settledTerm !== term;
+  const searchFailed = Boolean(term) && !searching && searchError != null;
+
+  // Search state is reset in the input handler, not in the effect: clearing the
+  // box is a user event, and doing it here would mean a cascading render.
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setSearchError(null);
+    if (!value.trim()) {
+      seqRef.current += 1; // invalidate any in-flight response
+      setSettledTerm(null);
+      setMatches([]);
+    }
+  };
+
+  const retrySearch = () => {
+    setSettledTerm(null);
+    setSearchError(null);
+    setRetryNonce((n) => n + 1);
+  };
 
   const handleAddPlayer = async (player: Player) => {
     setError(null);
@@ -120,20 +183,38 @@ export default function AssessmentSessionRoster({
             <input
               type="search"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search available players to add..."
               aria-label="Search available players"
               disabled={working}
             />
           </label>
 
-          {search.trim() && (
+          {term && (
             <div className="session-candidate-dropdown">
-              {visibleCandidates.length === 0 ? (
-                <div className="candidate-empty">No matching players found.</div>
+              {searching ? (
+                <div className="candidate-empty">Searching players...</div>
+              ) : searchFailed ? (
+                /* A failed search must not read as "no players exist", or the
+                   only working path appears to be creating a new player. */
+                <div className="candidate-empty" role="alert">
+                  Couldn&apos;t search players ({searchError}).{" "}
+                  <button
+                    type="button"
+                    className="link-button"
+                    onClick={retrySearch}
+                  >
+                    <RefreshCw size={12} /> try again
+                  </button>
+                </div>
+              ) : candidates.length === 0 ? (
+                <div className="candidate-empty">
+                  No players match &ldquo;{term}&rdquo;. Use &ldquo;Record a new
+                  player&rdquo; below if they aren&apos;t in the database yet.
+                </div>
               ) : (
                 <ul className="candidate-list">
-                  {visibleCandidates.slice(0, 10).map((player) => (
+                  {candidates.slice(0, 10).map((player) => (
                     <li key={player.id} className="candidate-item">
                       <div>
                         <strong>{player.full_name ?? personName(player.person)}</strong>
