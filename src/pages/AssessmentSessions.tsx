@@ -8,6 +8,7 @@ import {
   type AssessmentDefinition,
   type Coach,
   type AssessmentSessionInput,
+  type Group as GroupRecord,
 } from "../api";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
@@ -18,6 +19,7 @@ export default function AssessmentSessions() {
   const [sessions, setSessions] = useState<AssessmentSession[]>([]);
   const [definitions, setDefinitions] = useState<AssessmentDefinition[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
+  const [groups, setGroups] = useState<GroupRecord[]>([]);
   // Load-once page: `loading` is derived from whether the first load finished,
   // rather than synced by the effect (which would cascade a render, see
   // AdminUsers.tsx).
@@ -44,13 +46,17 @@ export default function AssessmentSessions() {
       api.assessmentSessions(),
       api.assessmentDefinitions("active"),
       api.coaches(),
+      // A group is optional and only seeds the roster, so a failure here must
+      // not stop the wizard from opening: it falls back to no group.
+      api.groups({ include_private: true }).catch(() => null),
     ])
-      .then(([sessionsRes, definitionsRes, coachesRes]) => {
+      .then(([sessionsRes, definitionsRes, coachesRes, groupsRes]) => {
         if (cancelled) return;
         setSessions(sessionsRes.assessment_sessions || []);
         setDefinitions(definitionsRes.data || []);
         const coachList = Array.isArray(coachesRes) ? coachesRes : coachesRes.data || [];
         setCoaches(coachList);
+        setGroups(groupsRes?.data || []);
 
         if (definitionsRes.data?.length > 0) {
           setFormData((prev) => ({
@@ -83,6 +89,7 @@ export default function AssessmentSessions() {
     setIsCreating(true);
     setWizardStep(1);
     setCreateError(null);
+    setFormData((prev) => ({ ...prev, group_id: null }));
   };
 
   const handleGoToStep2 = () => {
@@ -338,6 +345,31 @@ export default function AssessmentSessions() {
                           setFormData({ ...formData, scheduled_on: e.target.value })
                         }
                       />
+                    </div>
+                    <div className="admin-field">
+                      <label htmlFor="session-group">Group (optional)</label>
+                      <select
+                        id="session-group"
+                        value={formData.group_id ?? 0}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            group_id: Number(e.target.value) || null,
+                          })
+                        }
+                      >
+                        <option value={0}>No group — add players one by one</option>
+                        {groups.map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {group.name} ({group.player_count})
+                          </option>
+                        ))}
+                      </select>
+                      <p className="field-hint">
+                        Picking a group adds its players to the roster when the session
+                        is created. Membership is not attendance — you can still remove
+                        anyone who did not show up.
+                      </p>
                     </div>
                     <div className="admin-field">
                       <label htmlFor="session-notes">Notes</label>

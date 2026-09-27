@@ -14,6 +14,7 @@ vi.mock("../api", async (importOriginal) => {
       assessmentSessions: vi.fn(),
       assessmentDefinitions: vi.fn(),
       coaches: vi.fn(),
+      groups: vi.fn(),
       createAssessmentSession: vi.fn(),
     },
   };
@@ -87,6 +88,24 @@ beforeEach(() => {
       { id: 7, full_name: "Coach Ana", status: "active" },
       { id: 8, full_name: "Coach Will", status: "active" },
     ],
+  } as never);
+  mockedApi.groups.mockResolvedValue({
+    data: [
+      {
+        id: 3,
+        name: "U19 squad",
+        slug: "u19-squad",
+        description: null,
+        status: "active",
+        status_label: "Active",
+        visibility: "shared",
+        player_count: 2,
+        created_by: { id: 2, name: "Coach Ana" },
+        created_at: "2026-09-01T00:00:00Z",
+        updated_at: "2026-09-01T00:00:00Z",
+      },
+    ],
+    meta: { page: 1, per_page: 20, total: 1, total_pages: 1 },
   } as never);
 });
 
@@ -175,6 +194,37 @@ describe("AssessmentSessions wizard", () => {
       coach_profile_id: 7,
     });
     expect(payload.scheduled_on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("offers the optional group picker and sends the chosen group", async () => {
+    const user = userEvent.setup();
+    mockedApi.createAssessmentSession.mockResolvedValue({
+      assessment_session: session({ id: 99 }),
+    } as never);
+    renderPage();
+    await openWizard(user);
+
+    await user.click(screen.getByRole("button", { name: /next/i }));
+
+    // The picker is optional, and says so: no group is the default.
+    const picker = screen.getByLabelText(/Group \(optional\)/i);
+    expect(picker).toHaveDisplayValue(/no group/i);
+    await user.selectOptions(picker, "3");
+    // The hint makes the "membership is not attendance" rule explicit rather
+    // than leaving a coach to wonder whether the roster is now fixed.
+    expect(
+      screen.getByText(/membership is not attendance/i),
+    ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/Session name/i), "Autumn Combine");
+    await user.click(screen.getByRole("button", { name: /create/i }));
+
+    await waitFor(() =>
+      expect(mockedApi.createAssessmentSession).toHaveBeenCalled(),
+    );
+    expect(mockedApi.createAssessmentSession.mock.calls[0][0]).toMatchObject({
+      group_id: 3,
+    });
   });
 
   it("surfaces a server refusal and keeps the coach's input", async () => {

@@ -547,6 +547,56 @@ export interface AssessmentSessionCategoryScore {
   score: number | null;
 }
 
+// ---------- Groups (Phase A / D23) ----------
+
+/**
+ * A named roster ("U19 squad"). A group is a *selection aid* only: membership
+ * carries no authorization and no attendance, so nothing about a group changes
+ * what a coach may schedule. The lifecycle is archive-not-delete, and the
+ * visibility switch is presentation, never access control.
+ */
+export type GroupStatus = "active" | "archived";
+export type GroupVisibility = "shared" | "private";
+
+export interface Group {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  status: GroupStatus;
+  status_label: string;
+  visibility: GroupVisibility;
+  /** Roster size, so a picker can label a squad without loading its members. */
+  player_count: number;
+  created_by: { id: number; name: string } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GroupMember {
+  /** The GroupMembership id (not the player id). */
+  id: number;
+  player_profile_id: number;
+  player_name: string;
+  level: string | null;
+  preferred_position: string | null;
+  email: string | null;
+  status: string | null;
+  joined_at: string;
+}
+
+/** `show` returns the summary plus the roster rows. */
+export interface GroupDetail extends Group {
+  members: GroupMember[];
+}
+
+export interface GroupInput {
+  name: string;
+  description?: string | null;
+  visibility?: GroupVisibility;
+  status?: GroupStatus;
+}
+
 export interface AssessmentSessionRankingRow {
   player_profile_id: number;
   player_name: string;
@@ -1355,6 +1405,59 @@ export const api = {
       incomplete: AssessmentSessionRankingRow[];
       excluded: AssessmentSessionRankingRow[];
     }>(`/assessment_sessions/${id}/ranking`),
+
+  // ---------- Groups (Phase A / D23) ----------
+  // Read is open to training managers; create/update/delete need coach or admin.
+  // The picker asks for `include_private` because visibility is presentation
+  // only — a coach may schedule any group they can see the name of.
+  groups: async (params?: {
+    q?: string;
+    status?: GroupStatus | "all";
+    include_private?: boolean;
+    mine?: boolean;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params?.q) qs.set("q", params.q);
+    if (params?.status) qs.set("status", params.status);
+    if (params?.include_private) qs.set("include_private", "1");
+    if (params?.mine) qs.set("mine", "1");
+    const query = qs.toString();
+    const response = await fetchAPI<Group[] | PaginatedResponse<Group>>(
+      `/groups${query ? `?${query}` : ""}`,
+    );
+    return normalizePaginatedResponse(response);
+  },
+  /** Accepts an id or a slug; the API resolves both. */
+  group: (id: number | string) =>
+    fetchAPI<{ group: GroupDetail }>(`/groups/${id}`),
+  createGroup: (data: GroupInput, playerProfileIds: number[] = []) =>
+    postJSON<{ group: GroupDetail }>("/groups", {
+      group: data,
+      player_profile_ids: playerProfileIds,
+    }),
+  /** Omit `playerProfileIds` to leave the roster untouched; pass `[]` to clear it. */
+  updateGroup: (id: number, data: GroupInput, playerProfileIds?: number[]) =>
+    postJSON<{ group: GroupDetail }>(
+      `/groups/${id}`,
+      {
+        group: data,
+        ...(playerProfileIds ? { player_profile_ids: playerProfileIds } : {}),
+      },
+      "PATCH",
+    ),
+  /** Refused with 422 when the group has already run sessions — archive instead. */
+  deleteGroup: (id: number) =>
+    postJSON<{ message: string; id: number }>(`/groups/${id}`, {}, "DELETE"),
+  addGroupMembers: (id: number, playerProfileIds: number[]) =>
+    postJSON<{ group: GroupDetail; added: number }>(`/groups/${id}/members`, {
+      player_profile_ids: playerProfileIds,
+    }),
+  removeGroupMember: (id: number, playerProfileId: number) =>
+    postJSON<{ group: GroupDetail; removed: number }>(
+      `/groups/${id}/members/${playerProfileId}`,
+      {},
+      "DELETE",
+    ),
 
   // ---------- Ranking consolidations (Phase 4) ----------
   // Archival records: there is no update or delete. A correction is a new

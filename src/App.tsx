@@ -32,6 +32,7 @@ import AssessmentDefinitions from "./pages/AssessmentDefinitions";
 import AssessmentSessions from "./pages/AssessmentSessions";
 import AssessmentSessionDetail from "./pages/AssessmentSessionDetail";
 import RankingConsolidations from "./pages/RankingConsolidations";
+import Groups from "./pages/Groups";
 import RankingConsolidationDetail from "./pages/RankingConsolidationDetail";
 import PersonProfileEditPage from "./pages/PersonProfileEditPage";
 import AdminUsers from "./pages/AdminUsers";
@@ -229,6 +230,14 @@ export default function App() {
               element={
                 <ManagerRoute>
                   <RankingConsolidationDetail />
+                </ManagerRoute>
+              }
+            />
+            <Route
+              path="/groups"
+              element={
+                <ManagerRoute>
+                  <Groups />
                 </ManagerRoute>
               }
             />
