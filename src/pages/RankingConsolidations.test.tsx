@@ -51,6 +51,7 @@ const consolidation = (
   assessment_definition: { id: 5, name: "Balanced rubric" },
   session_count: 2,
   player_count: 2,
+  source_warnings: [],
   assessment_sessions: [],
   rows: [],
   ...overrides,

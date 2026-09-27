@@ -14,10 +14,14 @@ vi.mock("../api", async (importOriginal) => {
 
 const mockedApi = vi.mocked(api, true);
 
-const source = (id: number, name: string, coach: string) => ({
+// `incompletePlayers` defaults to none: a source session that left players
+// unfinished passes their names so the D21 warning banner can list them.
+const source = (id: number, name: string, coach: string, incompletePlayers: string[] = []) => ({
   assessment_session_id: id,
   name,
   coach_name: coach,
+  incomplete_count: incompletePlayers.length,
+  incomplete_players: incompletePlayers,
   ranking_snapshot: [],
 });
 
@@ -30,6 +34,7 @@ const consolidation = (
   assessment_definition: { id: 5, name: "Balanced rubric" },
   session_count: 2,
   player_count: 2,
+  source_warnings: [],
   assessment_sessions: [source(1, "First screening", "Coach Ana"), source(2, "Second screening", "Coach Bo")],
   rows: [],
   ...overrides,
@@ -165,5 +170,42 @@ describe("RankingConsolidationDetail", () => {
     renderPage();
 
     expect(await screen.findByText("API Error: 404")).toBeInTheDocument();
+  });
+
+  it("names the sessions that had incomplete scores in a warning banner", async () => {
+    mockedApi.rankingConsolidation.mockResolvedValue({
+      ranking_consolidation: consolidation({
+        source_warnings: [
+          {
+            assessment_session_id: 2,
+            name: "Second screening",
+            incomplete_count: 1,
+            incomplete_players: ["Diego Costa"],
+          },
+        ],
+        assessment_sessions: [
+          source(1, "First screening", "Coach Ana"),
+          source(2, "Second screening", "Coach Bo", ["Diego Costa"]),
+        ],
+        rows: [],
+      }),
+    });
+    renderPage();
+
+    // D21 never blocks the merge, so the reason it proceeded is what gets shown.
+    const banner = await screen.findByRole("status");
+    expect(banner).toHaveTextContent(
+      "Some source sessions had incomplete scores and were merged anyway.",
+    );
+    expect(banner).toHaveTextContent("Second screening");
+    expect(banner).toHaveTextContent("1 incomplete: Diego Costa");
+    expect(banner).toHaveTextContent("rather than counted as zero");
+  });
+
+  it("omits the warning banner when no source session was incomplete", async () => {
+    renderPage();
+
+    await screen.findByRole("table");
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });

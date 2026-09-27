@@ -15,7 +15,11 @@ export default function RankingConsolidations() {
   const navigate = useNavigate();
   const [consolidations, setConsolidations] = useState<RankingConsolidation[]>([]);
   const [sessions, setSessions] = useState<AssessmentSession[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Load-once page: `loading` is derived from whether the first load finished,
+  // rather than synced by the effect (which would cascade a render, see
+  // AdminUsers.tsx).
+  const [loaded, setLoaded] = useState(false);
+  const loading = !loaded;
   const [error, setError] = useState<string | null>(null);
 
   const [isCreating, setIsCreating] = useState(false);
@@ -28,27 +32,28 @@ export default function RankingConsolidations() {
     notes: "",
   });
 
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [consolidationsRes, sessionsRes] = await Promise.all([
-        api.rankingConsolidations(),
-        api.assessmentSessions(),
-      ]);
-      setConsolidations(consolidationsRes.ranking_consolidations || []);
-      setSessions(sessionsRes.assessment_sessions || []);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load ranking consolidations.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    void loadData();
+    let cancelled = false;
+    Promise.all([api.rankingConsolidations(), api.assessmentSessions()])
+      .then(([consolidationsRes, sessionsRes]) => {
+        if (cancelled) return;
+        setConsolidations(consolidationsRes.ranking_consolidations || []);
+        setSessions(sessionsRes.assessment_sessions || []);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(
+          err instanceof Error ? err.message : "Failed to load ranking consolidations.",
+        );
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Only published sessions can be consolidated, and only those sharing one

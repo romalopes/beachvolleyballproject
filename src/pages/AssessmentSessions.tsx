@@ -18,7 +18,11 @@ export default function AssessmentSessions() {
   const [sessions, setSessions] = useState<AssessmentSession[]>([]);
   const [definitions, setDefinitions] = useState<AssessmentDefinition[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Load-once page: `loading` is derived from whether the first load finished,
+  // rather than synced by the effect (which would cascade a render, see
+  // AdminUsers.tsx).
+  const [loaded, setLoaded] = useState(false);
+  const loading = !loaded;
   const [error, setError] = useState<string | null>(null);
 
   const [isCreating, setIsCreating] = useState(false);
@@ -34,41 +38,45 @@ export default function AssessmentSessions() {
     notes: "",
   });
 
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [sessionsRes, definitionsRes, coachesRes] = await Promise.all([
-        api.assessmentSessions(),
-        api.assessmentDefinitions("active"),
-        api.coaches(),
-      ]);
-      setSessions(sessionsRes.assessment_sessions || []);
-      setDefinitions(definitionsRes.data || []);
-      const coachList = Array.isArray(coachesRes) ? coachesRes : coachesRes.data || [];
-      setCoaches(coachList);
-
-      if (definitionsRes.data?.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          assessment_definition_id: definitionsRes.data[0].id,
-        }));
-      }
-      if (coachList.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          coach_profile_id: coachList[0].id,
-        }));
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load assessment sessions.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    void loadData();
+    let cancelled = false;
+    Promise.all([
+      api.assessmentSessions(),
+      api.assessmentDefinitions("active"),
+      api.coaches(),
+    ])
+      .then(([sessionsRes, definitionsRes, coachesRes]) => {
+        if (cancelled) return;
+        setSessions(sessionsRes.assessment_sessions || []);
+        setDefinitions(definitionsRes.data || []);
+        const coachList = Array.isArray(coachesRes) ? coachesRes : coachesRes.data || [];
+        setCoaches(coachList);
+
+        if (definitionsRes.data?.length > 0) {
+          setFormData((prev) => ({
+            ...prev,
+            assessment_definition_id: definitionsRes.data[0].id,
+          }));
+        }
+        if (coachList.length > 0) {
+          setFormData((prev) => ({
+            ...prev,
+            coach_profile_id: coachList[0].id,
+          }));
+        }
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load assessment sessions.");
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleStartCreate = () => {

@@ -29,10 +29,16 @@ export default function AssessmentSessionDetail() {
 
   const [session, setSession] = useState<AssessmentSession | null>(null);
   const [activeTab, setActiveTab] = useState<SessionTab>("roster");
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+
+  // `loading` is derived from the id on screen instead of being synced by an
+  // effect — an effect that called `setLoading` would cascade a second render on
+  // every navigation. Same approach as AdminUsers.tsx.
+  const invalidId = !Number.isFinite(sessionId);
+  const [loadedId, setLoadedId] = useState<number | null>(null);
+  const loading = !invalidId && loadedId !== sessionId;
 
   /**
    * Server-side player search for the roster picker. Searching on demand rather
@@ -49,27 +55,29 @@ export default function AssessmentSessionDetail() {
     return res.data || [];
   };
 
-  const loadSession = async () => {
-    if (!Number.isFinite(sessionId)) {
-      setError("Invalid assessment session id.");
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const sessionRes = await api.assessmentSession(sessionId);
-      setSession(sessionRes.assessment_session);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load assessment session.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    void loadSession();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!Number.isFinite(sessionId)) return;
+    let cancelled = false;
+    api
+      .assessmentSession(sessionId)
+      .then((sessionRes) => {
+        if (cancelled) return;
+        setSession(sessionRes.assessment_session);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(
+          err instanceof Error ? err.message : "Failed to load assessment session.",
+        );
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoadedId(sessionId);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [sessionId]);
   const handleAddPlayers = async (players: AssessmentSessionPlayerInput[]) => {
     if (!session) return;
@@ -120,12 +128,16 @@ export default function AssessmentSessionDetail() {
     );
   }
 
-  if (error || !session) {
+  if (invalidId || error || !session) {
     return (
       <div className="page assessment-session-detail-page">
         <EmptyState
           title="Assessment session not found"
-          description={error ?? "This session does not exist or you do not have access to it."}
+          description={
+            invalidId
+              ? "Invalid assessment session id."
+              : error ?? "This session does not exist or you do not have access to it."
+          }
         />
         <p>
           <Link to="/assessment-sessions" className="admin-btn">

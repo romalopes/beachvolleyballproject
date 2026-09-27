@@ -649,6 +649,13 @@ export interface RankingConsolidationSource {
   assessment_session_id: number;
   name: string | null;
   coach_name: string | null;
+  /**
+   * How many players this session left incomplete, plus their names (D21). A
+   * consolidation never blocks over these, so the session records why it merged
+   * anyway and the UI badges it.
+   */
+  incomplete_count: number;
+  incomplete_players: string[];
   ranking_snapshot: RankingConsolidationSnapshotEntry[];
 }
 
@@ -667,6 +674,18 @@ export interface RankingConsolidationRow {
   rank: number;
 }
 
+/**
+ * A source session that contributed fewer ranked rows than it had participants,
+ * captured at merge time so the consolidation explains itself even after the
+ * source session changes (D21).
+ */
+export interface RankingConsolidationWarning {
+  assessment_session_id: number;
+  name: string;
+  incomplete_count: number;
+  incomplete_players: string[];
+}
+
 export interface RankingConsolidation {
   id: number;
   name: string;
@@ -675,6 +694,7 @@ export interface RankingConsolidation {
   assessment_definition: { id: number; name: string };
   session_count: number;
   player_count: number;
+  source_warnings: RankingConsolidationWarning[];
   assessment_sessions: RankingConsolidationSource[];
   rows: RankingConsolidationRow[];
 }

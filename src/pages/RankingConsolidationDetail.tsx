@@ -9,37 +9,43 @@ export default function RankingConsolidationDetail() {
   const consolidationId = Number(id);
 
   const [consolidation, setConsolidation] = useState<RankingConsolidation | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadConsolidation = async () => {
-    if (!Number.isFinite(consolidationId)) {
-      setError("Invalid ranking consolidation id.");
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await api.rankingConsolidation(consolidationId);
-      setConsolidation(res.ranking_consolidation);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load ranking consolidation.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  // `loading` is derived from the id on screen instead of being synced by an
+  // effect — an effect that called `setLoading` would cascade a second render on
+  // every navigation. Same approach as AdminUsers.tsx.
+  const invalidId = !Number.isFinite(consolidationId);
+  const [loadedId, setLoadedId] = useState<number | null>(null);
+  const loading = !invalidId && loadedId !== consolidationId;
 
   useEffect(() => {
-    void loadConsolidation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!Number.isFinite(consolidationId)) return;
+    let cancelled = false;
+    api
+      .rankingConsolidation(consolidationId)
+      .then((res) => {
+        if (cancelled) return;
+        setConsolidation(res.ranking_consolidation);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(
+          err instanceof Error ? err.message : "Failed to load ranking consolidation.",
+        );
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoadedId(consolidationId);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [consolidationId]);
 
   if (loading) return <div className="page"><p className="loading">Loading...</p></div>;
 
-  if (error || !consolidation) {
+  if (invalidId || error || !consolidation) {
     return (
       <div className="page">
         <p className="session-back-link">
@@ -51,7 +57,11 @@ export default function RankingConsolidationDetail() {
         <PageHeader title="Ranking consolidation" />
         <div className="admin-error" role="alert">
           <AlertCircle size={16} />
-          <span>{error || "Ranking consolidation not found."}</span>
+          <span>
+            {invalidId
+              ? "Invalid ranking consolidation id."
+              : error || "Ranking consolidation not found."}
+          </span>
         </div>
       </div>
     );
@@ -63,6 +73,9 @@ export default function RankingConsolidationDetail() {
   // A player ranked by fewer sessions than were consolidated gets an explicit
   // coverage badge — never a zero for the sessions they missed (D21).
   const partialRows = rows.filter((r) => r.coverage < sessionCount);
+  // D21 never blocks a merge over incomplete scores, so sessions that left
+  // players unfinished are surfaced here instead of having refused the build.
+  const warningSessions = sessions.filter((s) => (s.incomplete_count ?? 0) > 0);
   return (
     <div className="page ranking-consolidation-detail-page">
       <p className="session-back-link">
@@ -94,6 +107,34 @@ export default function RankingConsolidationDetail() {
           the source sessions — including withdrawing one — do not alter it.
         </span>
       </div>
+
+      {warningSessions.length > 0 && (
+        <div className="consolidation-warning-banner" role="status">
+          <AlertCircle size={16} />
+          <div className="consolidation-warning-body">
+            <strong>
+              Some source sessions had incomplete scores and were merged anyway.
+            </strong>
+            <ul className="consolidation-warning-list">
+              {warningSessions.map((s) => (
+                <li key={s.assessment_session_id}>
+                  <span className="consolidation-warning-session">
+                    {s.name || `Session #${s.assessment_session_id}`}
+                  </span>
+                  <span className="consolidation-warning-detail">
+                    {s.incomplete_count} incomplete: {s.incomplete_players.join(", ")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="consolidation-warning-note">
+              Incomplete players are absent from those sessions' scores rather than
+              counted as zero, so their average is over fewer sessions than the
+              coverage badge shows.
+            </p>
+          </div>
+        </div>
+      )}
 
       <section className="ranking-section">
         <div className="ranking-section-header">
