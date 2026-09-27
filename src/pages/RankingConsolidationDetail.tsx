@@ -148,7 +148,9 @@ export default function RankingConsolidationDetail() {
                 <th className="col-player">Player</th>
                 {sessions.map((s) => (
                   <th key={s.assessment_session_id} className="col-score">
-                    {s.name || `Session #${s.assessment_session_id}`}
+                    <span className="consolidation-session-name">
+                      {s.name || `Session #${s.assessment_session_id}`}
+                    </span>
                     {s.coach_name && (
                       <span className="consolidation-coach-name">{s.coach_name}</span>
                     )}

@@ -19,6 +19,10 @@
   --amber-600: #B45309;
   --amber-100: #FEF3C7;
   --amber-50: #FFFBEB;
+  /* Two steps of the scale that call sites reference but that were never
+     defined, so those declarations were being dropped silently. */
+  --amber-400: #FBBF24;
+  --amber-700: #92400E;
 
   --teal-600: #0F766E;
   --teal-500: #14B8A6;
@@ -28,6 +32,8 @@
   --white: #FFFFFF;
   --border: var(--sand-300);
   --border-light: var(--sand-200);
+  /* Hover state for controls whose resting border is `--border`. */
+  --border-dark: var(--sand-400);
 
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 

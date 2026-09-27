@@ -5708,17 +5708,19 @@
   margin-bottom: 0.75rem;
 }
 
-.assessment-form,
-.assessment-rubric-fields,
 /* ---------- Assessment sessions (list + wizard + detail) ---------- */
 
 .assessment-sessions-page .page-header,
-.assessment-session-detail-page .page-header {
+.assessment-session-detail-page .page-header,
+.ranking-consolidations-page .page-header,
+.ranking-consolidation-detail-page .page-header {
   margin-bottom: 1.5rem;
 }
 
 .assessment-sessions-page .admin-error,
-.assessment-session-detail-page .admin-error {
+.assessment-session-detail-page .admin-error,
+.ranking-consolidations-page .admin-error,
+.ranking-consolidation-detail-page .admin-error {
   margin-bottom: 1rem;
 }
 
@@ -5923,36 +5925,6 @@
   color: var(--white);
 }
 
-.assessment-rating-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 0.875rem;
-}
-
-.assessment-rubric-fields,
-.assessment-rating-fields {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 1rem;
-}
-
-.assessment-rating-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.assessment-preview {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.assessment-form-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.625rem;
-}
-
 /* ---------- Ranking consolidation (Phase 4) ---------- */
 .ranking-consolidation-list {
   display: flex;
@@ -6049,14 +6021,32 @@
   margin-top: 0.1rem;
 }
 
+.field-hint {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin-top: 0.375rem;
+}
+
 /* One column per source session, so a coach's score sits under their session. */
-.consolidation-ranking-table th.consolidation-coach-name {
+.consolidation-ranking-table {
+  min-width: 600px;
+}
+
+.consolidation-ranking-table th .consolidation-session-name {
+  display: block;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.consolidation-ranking-table th .consolidation-coach-name {
   display: block;
   font-size: 0.7rem;
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
   color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .consolidation-coverage-badge {
@@ -6175,22 +6165,6 @@
 }
 
 
-/* Assessment session score grid.
-   The cell holds an input plus an optional "/5" scale badge, so the two must sit
-   on one baseline without the badge pushing the input wider between columns. */
-.score-cell-wrap {
-  display: flex;
-  align-items: baseline;
-  gap: 0.125rem;
-}
-
-.score-cell-scale {
-  font-size: 0.6875rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-  user-select: none;
-}
-
 /* =============================================================
    Assessment sessions — roster panel, score grid, ranking view.
    Conventions follow .admin-table / .tag / .admin-btn above.
@@ -6275,6 +6249,7 @@
 
 .session-grid-empty,
 .ranking-empty-msg,
+.session-ranking-empty,
 .empty-roster-msg {
   margin-top: 1rem;
   padding: 1.25rem;
@@ -6330,7 +6305,8 @@
   border-bottom: none;
 }
 
-.session-score-table tbody tr:hover {
+.session-score-table tbody tr:hover,
+.session-score-table .session-score-row:hover {
   background: var(--sand-50);
 }
 
@@ -6444,11 +6420,24 @@
 .preview-score-badge.complete {
   background: var(--teal-50);
   color: var(--teal-600);
+  border: 1px solid var(--teal-100);
+}
 
 /* ---- Roster: add-a-player controls ---- */
 
 .session-roster-section {
   margin-top: 1.5rem;
+}
+
+.session-roster-section .section-header {
+  margin-bottom: 0.75rem;
+}
+
+.session-roster-section .section-header h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--charcoal);
+  margin: 0 0 0.25rem;
 }
 
 .session-roster-controls {
@@ -6550,6 +6539,13 @@
   box-shadow: 0 0 0 3px var(--amber-100);
 }
 
+.session-new-person-form .form-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
 .session-btn-inline-person {
   align-self: flex-start;
   display: inline-flex;
@@ -6563,9 +6559,6 @@
 .session-btn-inline-person:hover {
   border-color: var(--amber-500);
   color: var(--text-primary);
-}
-
-  border: 1px solid var(--teal-100);
 }
 
 /* ---- Roster: the list ---- */
@@ -6714,12 +6707,19 @@
   border-bottom: none;
 }
 
-.session-ranking-table tbody tr:hover {
+.session-ranking-table tbody tr:hover,
+.session-ranking-table .ranking-row:hover {
   background: var(--sand-50);
 }
 
-.session-ranking-table .col-rank {
+.session-ranking-table .col-rank,
+.session-ranking-table .cell-rank {
   width: 5rem;
+}
+
+.session-ranking-table .col-player,
+.session-ranking-table .cell-player {
+  min-width: 10rem;
 }
 
 .session-ranking-table .col-score {
@@ -6820,8 +6820,24 @@
   flex: none;
 }
 
+.ranking-icon.trophy {
+  color: var(--amber-500);
+}
+
+.ranking-icon.minus {
+  color: var(--text-muted);
+}
+
 .ranking-icon.alert {
   color: var(--amber-600);
+}
+
+.ranking-section.incomplete-section {
+  border-color: var(--amber-100);
+}
+
+.ranking-section.excluded-section {
+  border-color: var(--border-light);
 }
 
 /* ---- Responsive ---- */
@@ -6842,6 +6858,15 @@
 
   .session-score-table {
     min-width: 560px;
+  }
+
+  .consolidation-ranking-table {
+    min-width: 520px;
+  }
+
+  .session-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
