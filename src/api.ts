@@ -205,7 +205,25 @@ export interface AssessmentDefinition {
   total_weight: number;
   remaining_weight: number;
   weights_balanced: boolean;
+  /** A recorded result quotes this configuration, so it is frozen (D7). */
   referenced: boolean;
+  /**
+   * What points at this definition. Wider than `referenced`: a session or ranking
+   * can quote a definition with no results recorded, and that still blocks a hard
+   * delete. Counts are absent on older payloads, hence the partials.
+   */
+  usage_counts?: {
+    assessments: number;
+    assessment_sessions: number;
+    ranking_consolidations: number;
+  };
+  in_use?: boolean;
+  /** Whether a hard delete would be accepted. Gates the delete button. */
+  deletable?: boolean;
+  /** Human-readable blockers, e.g. "2 assessment session(s)". */
+  usage_summary?: string;
+  archivable?: boolean;
+  restorable?: boolean;
   assessment_categories: AssessmentCategory[];
 }
 
@@ -1447,6 +1465,27 @@ export const api = {
       `/assessment_definitions/${id}/reorder`,
       { ids },
       "PATCH",
+    ),
+  /**
+   * Soft delete: archives a definition so it drops out of circulation but is kept,
+   * and can be brought back. Never blocked by usage — hiding a configuration people
+   * are still scoring against loses nothing. Admin only.
+   */
+  archiveAssessmentDefinition: (id: number) =>
+    postJSON<AssessmentDefinition>(`/assessment_definitions/${id}/archive`, {}, "POST"),
+  /** Undo an archive, returning the definition to draft. Admin only. */
+  restoreAssessmentDefinition: (id: number) =>
+    postJSON<AssessmentDefinition>(`/assessment_definitions/${id}/restore`, {}, "POST"),
+  /**
+   * Hard delete, admin only, and only for a definition nothing references. The
+   * server refuses when it is in use, so `deletable` is the gate to check first:
+   * it is what the UI uses to explain the refusal instead of offering a dead button.
+   */
+  deleteAssessmentDefinition: (id: number) =>
+    postJSON<{ message: string; id: number }>(
+      `/assessment_definitions/${id}`,
+      {},
+      "DELETE",
     ),
   assessmentSessions: () =>
     fetchAPI<{ assessment_sessions: AssessmentSession[] }>("/assessment_sessions"),

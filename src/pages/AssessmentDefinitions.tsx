@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { api, type AssessmentCategory, type AssessmentDefinition, type AssessmentDefinitionInput, type Category } from "../api";
+import { useAuth } from "../auth/AuthContext";
 
 type DraftRow = AssessmentCategory & { weight: number };
 const emptyRow = (position: number): DraftRow => ({ id: 0, category_id: null, category_custom_id: null, source_type: "category", label: "Select a category", weight: 0, position, category: null, category_custom: null });
 
 export default function AssessmentDefinitions() {
+  const { user } = useAuth();
   const [definitions, setDefinitions] = useState<AssessmentDefinition[]>([]);
   const [selectedId, setSelectedId] = useState<number | "new" | null>(null);
   const [name, setName] = useState(""); const [description, setDescription] = useState("");
@@ -12,11 +14,23 @@ export default function AssessmentDefinitions() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [addType, setAddType] = useState<"category" | "custom_category">("category"); const [addId, setAddId] = useState("");
   const [error, setError] = useState<string | null>(null); const [saving, setSaving] = useState(false);
+  // Publishing gives no visible sign on its own — the button and the editor look
+  // exactly the same afterwards — so the outcome is stated in words as well as by
+  // the button's own state. Cleared whenever a different definition is selected, so
+  // it can never claim the wrong one was published.
+  const [notice, setNotice] = useState<string | null>(null);
+  // Retirement is admin-only server-side; the controls are hidden for everyone else
+  // rather than shown and then refused. Impersonation is excluded for the same
+  // reason as elsewhere: an admin browsing as somebody else must not delete.
+  const isAdmin =
+    !!user?.roles?.includes("admin") &&
+    !(user as { real_admin?: unknown }).real_admin;
 
   function select(definition: AssessmentDefinition | null) {
     if (definition) { setSelectedId(definition.id); setName(definition.name); setDescription(definition.description ?? ""); setRows(definition.assessment_categories.map((row) => ({ ...row, weight: Number(row.weight) }))); }
     else { setSelectedId("new"); setName(""); setDescription(""); setRows([]); }
     setError(null);
+    setNotice(null);
   }
   useEffect(() => { Promise.all([api.assessmentDefinitions(), api.categories(), api.categoryCustoms()]).then(([page, standard]) => { setDefinitions(page.data); setCategories(standard); if (page.data[0]) select(page.data[0]); }).catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load assessment definitions.")); }, []);
 
@@ -48,7 +62,65 @@ export default function AssessmentDefinitions() {
   async function save(nextStatus: "draft" | "active") {
     if (!name.trim()) { setError("Give the assessment a name."); return; } if (nextStatus === "active" && !canPublish) { setError("Weights must total 100% before publishing."); return; }
     const input: AssessmentDefinitionInput = { name: name.trim(), description: description.trim() || null, status: nextStatus, assessment_categories_attributes: rows.map((row) => ({ id: row.id || undefined, category_id: row.category_id, category_custom_id: row.category_custom_id, weight: row.weight, position: row.position })) };
-    setSaving(true); setError(null); try { const saved = selectedId && selectedId !== "new" ? await api.updateAssessmentDefinition(selectedId, input) : await api.createAssessmentDefinition(input); setDefinitions((current) => [saved, ...current.filter((item) => item.id !== saved.id)]); select(saved); } catch (err) { setError(err instanceof Error ? err.message : "Failed to save assessment definition."); } finally { setSaving(false); }
+    setSaving(true); setError(null);
+    try {
+      const saved = selectedId && selectedId !== "new" ? await api.updateAssessmentDefinition(selectedId, input) : await api.createAssessmentDefinition(input);
+      setDefinitions((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
+      select(saved);
+      // Set after `select`, which clears it — otherwise the confirmation would wipe
+      // itself out on the very render that produced it.
+      setNotice(
+        nextStatus === "active"
+          ? `“${saved.name}” is now published and can be used for new sessions.`
+          : `“${saved.name}” saved as a draft.`,
+      );
+    } catch (err) { setError(err instanceof Error ? err.message : "Failed to save assessment definition."); } finally { setSaving(false); }
+  }
+
+  // The publish button reports the outcome rather than only enabling and disabling:
+  // once a definition is live the button says so and stops inviting a pointless
+  // re-publish. `selected` is the saved copy, not the in-progress edits, so this
+  // cannot claim "published" for a definition the coach has only just edited.
+  const selected = definitions.find((item) => item.id === selectedId) ?? null;
+  const isPublished = selected?.status === "active";
+
+  // Replaces the edited row in place, so the editor does not jump back to a stale
+  // copy after a lifecycle action.
+  function applySaved(saved: AssessmentDefinition) {
+    setDefinitions((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
+    select(saved);
+  }
+
+  async function archiveSelected() {
+    if (selectedId === null || selectedId === "new") return;
+    setSaving(true); setError(null);
+    try { applySaved(await api.archiveAssessmentDefinition(selectedId)); }
+    catch (err) { setError(err instanceof Error ? err.message : "Failed to archive the assessment definition."); }
+    finally { setSaving(false); }
+  }
+
+  async function restoreSelected() {
+    if (selectedId === null || selectedId === "new") return;
+    setSaving(true); setError(null);
+    try { applySaved(await api.restoreAssessmentDefinition(selectedId)); }
+    catch (err) { setError(err instanceof Error ? err.message : "Failed to restore the assessment definition."); }
+    finally { setSaving(false); }
+  }
+
+  // The one irreversible action, so it names what is destroyed — the definition
+  // and its category weighting, which nothing can be recovered from afterwards.
+  async function deleteSelected() {
+    if (selectedId === null || selectedId === "new") return;
+    if (!window.confirm(`Permanently delete "${name}"? This removes the definition and its ${rows.length} categor${rows.length === 1 ? "y" : "ies"} and cannot be undone. Archiving is reversible.`)) return;
+    setSaving(true); setError(null);
+    try {
+      await api.deleteAssessmentDefinition(selectedId);
+      const remaining = definitions.filter((item) => item.id !== selectedId);
+      setDefinitions(remaining);
+      if (remaining[0]) select(remaining[0]); else select(null);
+    }
+    catch (err) { setError(err instanceof Error ? err.message : "Failed to delete the assessment definition."); }
+    finally { setSaving(false); }
   }
 
   return (
@@ -84,6 +156,7 @@ export default function AssessmentDefinitions() {
       </header>
 
       {error && <div className="admin-error" role="alert">{error}</div>}
+      {notice && !error && <p className="admin-success" role="status">{notice}</p>}
 
       <section className="assessment-definition-panel" aria-label="Definition details">
         <div className="assessment-definition-fields">
@@ -166,8 +239,91 @@ export default function AssessmentDefinitions() {
 
       <div className="admin-form-actions assessment-definition-actions">
         <button type="button" className="admin-btn" disabled={saving} onClick={() => save("draft")}>Save draft</button>
-        <button type="button" className="admin-btn admin-btn-add" disabled={saving || !canPublish} onClick={() => save("active")}>Publish</button>
+        {isPublished ? (
+          /* The definition is already live. Saying so in the button itself means the
+             outcome is readable without hunting for a message, and it stops the button
+             inviting a publish that would change nothing. */
+          <button type="button" className="admin-btn admin-btn-success" disabled>
+            ✓ Published
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="admin-btn admin-btn-add"
+            disabled={saving || !canPublish}
+            onClick={() => save("active")}
+          >
+            Publish
+          </button>
+        )}
       </div>
+
+      {isAdmin && selected && (
+        <div className="admin-form-actions assessment-definition-actions assessment-definition-retirement">
+          <h2>Retire this definition</h2>
+          {selected.status === "archived" ? (
+            <>
+              <p className="field-hint">
+                Archived definitions stay on record but drop out of circulation. An
+                admin can bring this one back.
+              </p>
+              <div className="admin-form-actions">
+                <button
+                  type="button"
+                  className="admin-btn admin-btn-add"
+                  disabled={saving}
+                  onClick={() => void restoreSelected()}
+                >
+                  Restore to draft
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="field-hint">
+                Archiving is the safe option: it keeps the definition and its weights
+                intact and can be undone. It is offered even while the definition is
+                in use, because hiding it costs nothing.
+              </p>
+              <div className="admin-form-actions">
+                <button
+                  type="button"
+                  className="admin-btn"
+                  disabled={saving}
+                  onClick={() => void archiveSelected()}
+                >
+                  Archive
+                </button>
+              </div>
+            </>
+          )}
+
+          <div className="admin-form-actions assessment-definition-danger">
+            {selected.deletable === false ? (
+              <p className="field-hint">
+                This definition cannot be deleted because it is in use by{" "}
+                {selected.usage_summary || "existing records"}. Archive it instead —
+                that keeps the history intact.
+              </p>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="admin-btn admin-btn-remove"
+                  disabled={saving}
+                  onClick={() => void deleteSelected()}
+                >
+                  Delete permanently
+                </button>
+                <p className="field-hint">
+                  Removes the definition and its categories for good. Only possible
+                  while nothing uses it.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 

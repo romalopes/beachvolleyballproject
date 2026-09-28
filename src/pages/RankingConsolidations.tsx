@@ -214,24 +214,39 @@ export default function RankingConsolidations() {
                       onChange={() => toggleSession(s.id)}
                     />
                     <span className="session-option-body">
-                      <span className="session-option-name">{s.name}</span>
+                      <span className="session-option-head">
+                        <span className="session-option-name">{s.name}</span>
+                        {/* Status is stated for every session, not only drafts. Showing
+                            it only when it is a problem makes "published" something a
+                            coach has to infer from the absence of a warning. */}
+                        <span
+                          className={`consolidation-status ${s.status === "published" ? "published" : "draft"}`}
+                        >
+                          {s.status_label || (s.status === "published" ? "Published" : "Draft")}
+                        </span>
+                      </span>
                       <span className="session-option-meta">
                         <span>{formatSessionDate(s.scheduled_on)}</span>
                         <span className="session-option-sep" aria-hidden="true">·</span>
                         <span>{s.coach_profile?.full_name}</span>
                         <span className="session-option-sep" aria-hidden="true">·</span>
-                        <span>{s.ranking?.ranking?.length ?? 0} ranked</span>
-                        {s.status === "published" ? null : (
-                          <>
-                            <span className="session-option-sep" aria-hidden="true">·</span>
-                            {/* Names the blocker rather than hiding the session: a
-                                draft may be consolidated, it just cannot publish yet. */}
-                            <span className="session-option-draft">
-                              Draft — holds publishing back
-                            </span>
-                          </>
-                        )}
+                        {/* "6 ranked" reads like a rank position. This is a count of
+                            players, and saying so removes the ambiguity. */}
+                        <span
+                          className={
+                            (s.ranking?.ranking?.length ?? 0) === 0
+                              ? "session-option-empty"
+                              : undefined
+                          }
+                        >
+                          {s.ranking?.ranking?.length ?? 0} players ranked
+                        </span>
                       </span>
+                      {s.status === "published" ? null : (
+                        <span className="session-option-draft">
+                          Draft — holds publishing back
+                        </span>
+                      )}
                     </span>
                   </label>
                 );

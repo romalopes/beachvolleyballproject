@@ -31,7 +31,6 @@ const session = (overrides: Partial<AssessmentSession> = {}): AssessmentSession 
     id: 1,
     name: "Autumn screening",
     status: "published",
-    status_label: "Published",
     scheduled_on: "2026-09-20",
     created_by_id: 2,
     coach_profile_id: 7,
@@ -40,6 +39,11 @@ const session = (overrides: Partial<AssessmentSession> = {}): AssessmentSession 
     ranking: { ranking: [], incomplete: [], excluded: [] },
     participants: [],
     ...overrides,
+    // Derived after the spread, so a fixture that overrides `status` without
+    // also overriding the label still shows a label that matches its status.
+    status_label:
+      overrides.status_label ??
+      (overrides.status === "draft" ? "Draft" : "Published"),
   }) as AssessmentSession;
 
 const consolidation = (
@@ -161,6 +165,57 @@ describe("RankingConsolidations", () => {
     // jsdom renders the formatted date in the runtime's locale, so match the
     // year rather than pinning a locale-specific string.
     expect(picker).toHaveTextContent(/2026/);
+    // "6 ranked" reads like a rank position; this is a count of players.
+    expect(picker).toHaveTextContent(/players ranked/);
+  });
+
+  // The picker was hard to check at a glance because status appeared only when a
+  // session was a draft — "published" had to be inferred from the absence of a
+  // warning. Every row now states its status.
+  it("states the status of every session, not only the drafts", async () => {
+    mockedApi.assessmentSessions.mockResolvedValue({
+      assessment_sessions: [
+        session({ id: 1, name: "Published one" }),
+        session({ id: 2, name: "Draft one", status: "draft" }),
+      ],
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /new consolidation/i }),
+    );
+    const picker = await screen.findByRole("group", { name: /^sessions$/i });
+
+    const publishedRow = picker
+      .querySelector(".consolidation-session-option") as HTMLElement;
+    expect(publishedRow).toHaveTextContent("Published one");
+    expect(
+      publishedRow.querySelector(".consolidation-status.published"),
+    ).toHaveTextContent(/published/i);
+
+    const draftRow = picker.querySelectorAll(".consolidation-session-option")[1];
+    expect(draftRow.querySelector(".consolidation-status.draft")).toHaveTextContent(
+      /draft/i,
+    );
+  });
+
+  it("flags a session that would contribute nothing because nobody is scored", async () => {
+    // A draft with no ranking merges as an empty snapshot, which is worth saying
+    // rather than leaving the coach to discover it after publishing.
+    mockedApi.assessmentSessions.mockResolvedValue({
+      assessment_sessions: [
+        session({ id: 1, name: "Unscored draft", status: "draft", ranking: { ranking: [], incomplete: [], excluded: [] } }),
+      ],
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /new consolidation/i }),
+    );
+    const picker = await screen.findByRole("group", { name: /^sessions$/i });
+
+    expect(picker).toHaveTextContent(/0 players ranked/);
+    expect(picker.querySelector(".session-option-empty")).not.toBeNull();
   });
 
   it("reports how many sessions are selected and offers select-all / clear", async () => {
