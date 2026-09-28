@@ -644,6 +644,51 @@ export interface AssessmentSessionParticipant {
 }
 
 /**
+ * A hierarchical organisational context: a federation, a state body, a club.
+ * `parent_organisation_id` builds an unbounded tree — nothing assumes a fixed
+ * number of tiers — and `organisation_type` is a label only, never something
+ * behaviour branches on.
+ */
+export type OrganisationType =
+  | "international_federation"
+  | "national_federation"
+  | "state_federation"
+  | "club"
+  | "academy"
+  | "school"
+  | "association"
+  | "other";
+
+export interface Organisation {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  organisation_type: OrganisationType;
+  status: "active" | "archived";
+  status_label: string;
+  parent_organisation_id: number | null;
+  parent_organisation: { id: number; name: string } | null;
+  /** Immediate children only; the full subtree is deliberately not inlined. */
+  child_count: number;
+  /** Tiers above this organisation, 0 for a root. */
+  depth: number;
+  /** Absolute URL, or null when no logo is attached. */
+  logo_url: string | null;
+  logo_attached: boolean;
+  created_by_person: { id: number; name: string } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrganisationInput {
+  name: string;
+  description?: string | null;
+  organisation_type?: OrganisationType;
+  parent_organisation_id?: number | null;
+}
+
+/**
  * A club ranking this session was merged into. `included_in_ranking` is the
  * snapshot's own record of whether this session's scores are in the numbers: a
  * withdrawn source stays attached to its ranking without contributing to it, so
@@ -1231,6 +1276,29 @@ async function postJSON<T>(endpoint: string, body: unknown, method = "POST"): Pr
   return response.json();
 }
 
+/**
+ * Posts multipart form data, for the one endpoint that accepts a file.
+ *
+ * Deliberately does not set `Content-Type`: the browser must add it *with* the
+ * multipart boundary, and setting it by hand produces a body the server cannot
+ * parse. Error handling mirrors `postJSON` so a rejected upload surfaces the same
+ * way as any other API failure.
+ */
+async function postFormData<T>(endpoint: string, form: FormData): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: "POST",
+    headers: authHeaders(),
+    credentials: "same-origin",
+    body: form,
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw throwApiError(response.status, data, `API Error: ${response.status}`);
+  }
+  if (response.status === 204) return undefined as T;
+  return response.json();
+}
+
 // ---------- Test access API (private test-access gate) ----------
 export interface TestAccessResponse {
   authenticated: boolean;
@@ -1487,6 +1555,40 @@ export const api = {
       {},
       "DELETE",
     ),
+  // ---- Organisations -------------------------------------------------------
+  organisations: (status?: string, type?: string) => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (type) params.set("organisation_type", type);
+    const query = params.toString();
+    return fetchAPI<PaginatedResponse<Organisation>>(
+      `/organisations${query ? `?${query}` : ""}`,
+    );
+  },
+  organisation: (id: number) => fetchAPI<Organisation>(`/organisations/${id}`),
+  createOrganisation: (data: OrganisationInput) =>
+    postJSON<Organisation>("/organisations", { organisation: data }),
+  updateOrganisation: (id: number, data: Partial<OrganisationInput>) =>
+    postJSON<Organisation>(
+      `/organisations/${id}`,
+      { organisation: data },
+      "PATCH",
+    ),
+  archiveOrganisation: (id: number) =>
+    postJSON<Organisation>(`/organisations/${id}/archive`, {}),
+  restoreOrganisation: (id: number) =>
+    postJSON<Organisation>(`/organisations/${id}/restore`, {}),
+  /**
+   * Uploads or replaces a logo. Multipart, and on its own route so the JSON
+   * `update` above keeps a single content-type contract. The server validates
+   * content type, size and pixel dimensions.
+   */
+  uploadOrganisationLogo: (id: number, file: File) => {
+    const form = new FormData();
+    form.append("logo", file);
+    return postFormData<Organisation>(`/organisations/${id}/logo`, form);
+  },
+
   assessmentSessions: () =>
     fetchAPI<{ assessment_sessions: AssessmentSession[] }>("/assessment_sessions"),
   assessmentSession: (id: number) =>
