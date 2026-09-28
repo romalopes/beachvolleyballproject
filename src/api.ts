@@ -700,12 +700,31 @@ export interface RankingConsolidationSource {
   name: string | null;
   coach_name: string | null;
   /**
+   * Whether this source is finished. A draft source holds the whole consolidation
+   * back from being published, so the UI badges it rather than hiding it.
+   */
+  status?: AssessmentSessionStatus | null;
+  status_label?: string | null;
+  /**
    * How many players this session left incomplete, plus their names (D21). A
    * consolidation never blocks over these, so the session records why it merged
    * anyway and the UI badges it.
    */
   incomplete_count: number;
   incomplete_players: string[];
+  /**
+   * When this source was retracted. Present only for a withdrawn source, and the
+   * basis for telling "already excluded" from "still counted" against the ranking's
+   * `computed_at` — live status alone cannot answer that.
+   */
+  withdrawn_at?: string | null;
+  /**
+   * Whether this source's scores are in the figures being shown. A published ranking
+   * keeps a source that was withdrawn after it was frozen, so this stays `true` until
+   * the ranking is recalculated. Inferring it from `status` would make the UI claim a
+   * session is excluded while its scores are still on screen.
+   */
+  included_in_ranking: boolean;
   ranking_snapshot: RankingConsolidationSnapshotEntry[];
 }
 
@@ -736,14 +755,65 @@ export interface RankingConsolidationWarning {
   incomplete_players: string[];
 }
 
+/** A consolidation is assembled as a draft and frozen when published. */
+export type RankingConsolidationStatus = "draft" | "published" | "withdrawn";
+
 export interface RankingConsolidation {
   id: number;
   name: string;
   notes?: string | null;
+  status: RankingConsolidationStatus;
+  status_label: string;
+  published_at: string | null;
   created_by_id?: number | null;
   assessment_definition: { id: number; name: string };
   session_count: number;
   player_count: number;
+  /**
+   * How many source sessions are still drafts. This is the publish gate: a
+   * consolidation stays a draft until every source is finished. Withdrawn sessions
+   * are NOT counted here — they are excluded from the ranking rather than blocking
+   * it, and are reported by `withdrawn_session_count`.
+   */
+  unpublished_session_count: number;
+  /**
+   * How many source sessions were withdrawn. They stay in the consolidation but
+   * contribute no scores, so the coach is told which sessions are being left out of
+   * the ranking.
+   */
+  withdrawn_session_count: number;
+  /**
+   * Withdrawn sources whose scores are *still in* the figures on screen, because they
+   * were retracted after this ranking was computed. A withdrawal does not cascade, so
+   * these keep counting until someone recalculates — which is why they must not be
+   * reported as excluded.
+   */
+  stale_withdrawn_session_count: number;
+  /**
+   * Withdrawn sources already absent from the figures, because they were retracted
+   * before the ranking was computed and the merge skipped them.
+   */
+  excluded_withdrawn_session_count: number;
+  /**
+   * When these figures were computed: the original publication, or a later
+   * recalculation. Compare against a source's `withdrawn_at` to tell a retracted
+   * session that is out of the numbers from one that is still counted in them.
+   */
+  computed_at: string | null;
+  /** Set only when a curator/admin has corrected the ranking after publication. */
+  recalculated_at: string | null;
+  recalculated_by_id?: number | null;
+  /**
+   * Whether there is anything to correct: a published ranking with a source retracted
+   * after it was frozen.
+   */
+  recalculable: boolean;
+  /**
+   * Whether the signed-in user may do it. `recalculable` describes the ranking, this
+   * describes the viewer — recalculating is curator/admin work, so a coach is not
+   * shown a button that would be refused.
+   */
+  can_recalculate: boolean;
   source_warnings: RankingConsolidationWarning[];
   assessment_sessions: RankingConsolidationSource[];
   rows: RankingConsolidationRow[];
@@ -1392,6 +1462,34 @@ export const api = {
       {},
       "POST",
     ),
+  /**
+   * Retract a published session. Reversible by an admin via `restore`; deleting
+   * is a separate, admin-only, irreversible route.
+   */
+  withdrawAssessmentSession: (id: number) =>
+    postJSON<{ assessment_session: AssessmentSession }>(
+      `/assessment_sessions/${id}/withdraw`,
+      {},
+      "POST",
+    ),
+  /** Admin only. `to` is "draft" or "published". */
+  restoreAssessmentSession: (id: number, to: "draft" | "published") =>
+    postJSON<{ assessment_session: AssessmentSession }>(
+      `/assessment_sessions/${id}/restore`,
+      { to_status: to },
+      "POST",
+    ),
+  /**
+   * Discard a draft session. A published or withdrawn one may be deleted by an
+   * admin only, as the escape hatch for a publication that should not have
+   * happened.
+   */
+  deleteAssessmentSession: (id: number) =>
+    postJSON<{ message: string; id: number }>(
+      `/assessment_sessions/${id}`,
+      {},
+      "DELETE",
+    ),
   assessmentSessionRanking: (id: number) =>
     fetchAPI<{
       assessment_session: {
@@ -1470,6 +1568,62 @@ export const api = {
     postJSON<{ ranking_consolidation: RankingConsolidation }>("/ranking_consolidations", {
       ranking_consolidation: data,
     }),
+  /**
+   * Freeze a draft as the club's official ranking. Refused with 422 while any
+   * source session is still unpublished; the server re-derives the ranking from
+   * the sessions' current scores before freezing it, so a published ranking can
+   * never disagree with the sessions behind it.
+   */
+  publishRankingConsolidation: (id: number) =>
+    postJSON<{ ranking_consolidation: RankingConsolidation }>(
+      `/ranking_consolidations/${id}/publish`,
+      {},
+      "POST",
+    ),
+  /**
+   * Retract a published ranking. Reversible: an admin can restore it to draft or
+   * published. Deleting is a separate, admin-only, irreversible route.
+   */
+  withdrawRankingConsolidation: (id: number) =>
+    postJSON<{ ranking_consolidation: RankingConsolidation }>(
+      `/ranking_consolidations/${id}/withdraw`,
+      {},
+      "POST",
+    ),
+  /** Admin only. `to` is "draft" or "published"; published re-derives the ranking. */
+  restoreRankingConsolidation: (id: number, to: "draft" | "published") =>
+    postJSON<{ ranking_consolidation: RankingConsolidation }>(
+      `/ranking_consolidations/${id}/restore`,
+      { to_status: to },
+      "POST",
+    ),
+  /**
+   * Rebuild a published ranking so a source withdrawn *after* publication stops
+   * contributing. Curator/admin only, and only offered when `can_recalculate` — a
+   * withdrawal never cascades on its own, so this is the deliberate, recorded
+   * correction. `published_at` is preserved; `recalculated_at` records the change.
+   */
+  recalculateRankingConsolidation: (id: number) =>
+    postJSON<{ ranking_consolidation: RankingConsolidation }>(
+      `/ranking_consolidations/${id}/recalculate`,
+      {},
+      "POST",
+    ),
+  updateRankingConsolidation: (
+    id: number,
+    data: Pick<RankingConsolidationInput, "name" | "notes">,
+  ) =>
+    postJSON<{ ranking_consolidation: RankingConsolidation }>(
+      `/ranking_consolidations/${id}`,
+      { ranking_consolidation: data },
+      "PATCH",
+    ),
+  deleteRankingConsolidation: (id: number) =>
+    postJSON<{ message: string; id: number }>(
+      `/ranking_consolidations/${id}`,
+      {},
+      "DELETE",
+    ),
 
   categoryCustoms: () => fetchAPI<CategoryCustom[]>("/category_customs"),
   createCategoryCustom: (data: { name: string; visibility?: "shared" | "private" }) =>

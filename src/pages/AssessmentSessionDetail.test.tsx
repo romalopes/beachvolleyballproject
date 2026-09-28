@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type AssessmentSession } from "../api";
+import { AuthContext, type AuthContextValue } from "../auth/AuthContext";
 import AssessmentSessionDetail from "./AssessmentSessionDetail";
 
 vi.mock("../api", async (importOriginal) => {
@@ -13,6 +14,9 @@ vi.mock("../api", async (importOriginal) => {
       ...actual.api,
       assessmentSession: vi.fn(),
       publishAssessmentSession: vi.fn(),
+      deleteAssessmentSession: vi.fn(),
+      withdrawAssessmentSession: vi.fn(),
+      restoreAssessmentSession: vi.fn(),
       addAssessmentSessionPlayers: vi.fn(),
       removeAssessmentSessionPlayers: vi.fn(),
       saveAssessmentSessionScores: vi.fn(),
@@ -63,16 +67,43 @@ const session = (overrides: Partial<AssessmentSession> = {}): AssessmentSession 
     ...overrides,
   }) as AssessmentSession;
 
-const renderPage = () =>
+// The page reads the signed-in user to decide whether the admin-only controls are
+// offered, so tests supply one directly rather than standing up a full provider.
+// `null` is the default: a non-admin, which is what most of these tests are.
+const authValue = (overrides: Partial<AuthContextValue> = {}): AuthContextValue => ({
+  user: null,
+  loading: false,
+  login: vi.fn(),
+  register: vi.fn(),
+  resetPassword: vi.fn(),
+  logout: vi.fn(),
+  impersonation: { active: false, realAdmin: null },
+  startImpersonating: vi.fn(),
+  stopImpersonating: vi.fn(),
+  ...overrides,
+});
+
+const adminUser = {
+  id: 1,
+  email: "admin@example.com",
+  roles: ["admin"],
+} as unknown as AuthContextValue["user"];
+
+const renderPage = (auth: AuthContextValue = authValue()) =>
   render(
-    <MemoryRouter initialEntries={["/assessment-sessions/12"]}>
-      <Routes>
-        <Route
-          path="/assessment-sessions/:id"
-          element={<AssessmentSessionDetail />}
-        />
-      </Routes>
-    </MemoryRouter>,
+    <AuthContext.Provider value={auth}>
+      <MemoryRouter initialEntries={["/assessment-sessions/12"]}>
+        <Routes>
+          <Route
+            path="/assessment-sessions/:id"
+            element={<AssessmentSessionDetail />}
+          />
+          {/* So a successful delete has somewhere to land; without it the
+              navigation logs a "no routes matched" warning. */}
+          <Route path="/assessment-sessions" element={<div>All sessions</div>} />
+        </Routes>
+      </MemoryRouter>
+    </AuthContext.Provider>,
   );
 
 beforeEach(() => {
@@ -81,6 +112,195 @@ beforeEach(() => {
     assessment_session: session(),
   } as never);
   mockedApi.players.mockResolvedValue({ data: [] } as never);
+});
+
+describe("withdrawal and restore", () => {
+  it("offers Withdraw on a published session", async () => {
+    mockedApi.assessmentSession.mockResolvedValue({
+      assessment_session: session({ status: "published" }),
+    });
+    renderPage();
+
+    // Anchored on the button itself: the default fixture has no players, so there
+    // is no ranking table to wait for.
+    expect(await screen.findByRole("button", { name: /^withdraw$/i })).toBeInTheDocument();
+  });
+
+  it("withdraws a published session and shows it as withdrawn", async () => {
+    mockedApi.assessmentSession.mockResolvedValue({
+      assessment_session: session({ status: "published", status_label: "Published" }),
+    });
+    mockedApi.withdrawAssessmentSession.mockResolvedValue({
+      assessment_session: session({
+        status: "withdrawn",
+        status_label: "Withdrawn",
+        published_at: null,
+      }),
+    });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /^withdraw$/i }));
+
+    expect(mockedApi.withdrawAssessmentSession).toHaveBeenCalledWith(12);
+    await screen.findByText("Withdrawn");
+    confirmSpy.mockRestore();
+  });
+
+  it("keeps the session when the withdrawal is cancelled", async () => {
+    mockedApi.assessmentSession.mockResolvedValue({
+      assessment_session: session({ status: "published" }),
+    });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /^withdraw$/i }));
+
+    expect(mockedApi.withdrawAssessmentSession).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  // The admin-only rule is a real boundary, so the UI must not offer the
+  // irreversible control to a non-admin: the server would refuse, but offering it
+  // would teach coaches to expect something that cannot happen.
+  it("offers no permanent delete on a published session to a non-admin", async () => {
+    mockedApi.assessmentSession.mockResolvedValue({
+      assessment_session: session({ status: "published" }),
+    });
+    renderPage(authValue());
+
+    expect(await screen.findByRole("button", { name: /^withdraw$/i })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /delete permanently/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers an admin restore and permanent delete on a withdrawn session", async () => {
+    mockedApi.assessmentSession.mockResolvedValue({
+      assessment_session: session({
+        status: "withdrawn",
+        status_label: "Withdrawn",
+        published_at: null,
+      }),
+    });
+    renderPage(authValue({ user: adminUser }));
+
+    expect(
+      await screen.findByRole("button", { name: /restore to published/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /restore to draft/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /delete permanently/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("restores a withdrawn session to draft for an admin", async () => {
+    mockedApi.assessmentSession.mockResolvedValue({
+      assessment_session: session({
+        status: "withdrawn",
+        status_label: "Withdrawn",
+        published_at: null,
+      }),
+    });
+    mockedApi.restoreAssessmentSession.mockResolvedValue({
+      assessment_session: session({ status: "draft", status_label: "Draft" }),
+    });
+    renderPage(authValue({ user: adminUser }));
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /restore to draft/i }),
+    );
+
+    expect(mockedApi.restoreAssessmentSession).toHaveBeenCalledWith(12, "draft");
+    await screen.findByRole("button", { name: /^publish$/i });
+  });
+
+  it("surfaces a refusal and keeps the session withdrawn", async () => {
+    mockedApi.assessmentSession.mockResolvedValue({
+      assessment_session: session({
+        status: "withdrawn",
+        status_label: "Withdrawn",
+        published_at: null,
+      }),
+    });
+    mockedApi.restoreAssessmentSession.mockRejectedValue(
+      new Error("Only a draft session can be published"),
+    );
+    renderPage(authValue({ user: adminUser }));
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /restore to published/i }),
+    );
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Only a draft session can be published");
+    // Still withdrawn: a refused restore must not look like a successful one.
+    expect(
+      screen.getByRole("button", { name: /restore to published/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("draft deletion", () => {
+  it("offers deleting a draft and returns to the list on success", async () => {
+    const user = userEvent.setup();
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    mockedApi.deleteAssessmentSession.mockResolvedValue({
+      message: "Draft session deleted",
+      id: 12,
+    } as never);
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /delete draft/i }));
+
+    expect(mockedApi.deleteAssessmentSession).toHaveBeenCalledWith(12);
+    expect(confirmSpy).toHaveBeenCalled();
+  });
+
+  it("keeps the session when the coach cancels the confirmation", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /delete draft/i }));
+
+    expect(mockedApi.deleteAssessmentSession).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a server refusal instead of navigating away", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    mockedApi.deleteAssessmentSession.mockRejectedValue(
+      new Error("Only draft sessions can be modified"),
+    );
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /delete draft/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Only draft sessions can be modified",
+    );
+  });
+
+  // A published session is archival, so the control is not merely refused — it
+  // is absent, so nobody is offered a delete that cannot work.
+  it("offers no delete control on a published session", async () => {
+    mockedApi.assessmentSession.mockResolvedValue({
+      assessment_session: session({ status: "published", status_label: "Published" }),
+    } as never);
+    renderPage();
+
+    await screen.findByText("September Combine");
+
+    expect(
+      screen.queryByRole("button", { name: /delete draft/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^publish$/i }),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("AssessmentSessionDetail", () => {

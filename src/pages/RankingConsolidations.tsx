@@ -59,19 +59,32 @@ export default function RankingConsolidations() {
   // Only published sessions can be consolidated, and only those sharing one
   // rubric. The server re-validates all of this; narrowing the picker just stops
   // a curator being offered combinations guaranteed to fail.
-  const publishedSessions = sessions.filter((s) => s.status === "published");
+  // Any non-withdrawn session may be consolidated, drafts included: a club
+  // ranking is assembled from several coaches' work that is often still in
+  // progress. What differs is *publishing*, which needs every source finished —
+  // so the picker offers drafts but marks them. Withdrawn sessions are excluded
+  // because they are no longer a coach's current view of that player.
+  const consolidatableSessions = sessions.filter((s) => s.status !== "withdrawn");
   const definitionId = formData.assessment_definition_id;
   const eligibleSessions = definitionId
-    ? publishedSessions.filter((s) => s.assessment_definition?.id === definitionId)
+    ? consolidatableSessions.filter((s) => s.assessment_definition?.id === definitionId)
     : [];
   const definitionOptions = Array.from(
     new Map(
-      publishedSessions.map((s) => [
+      consolidatableSessions.map((s) => [
         s.assessment_definition.id,
         s.assessment_definition.name,
       ]),
     ).entries(),
   ).map(([id, name]) => ({ id: Number(id), name }));
+
+  // `scheduled_on` is a plain calendar date, so it is parsed as local midnight.
+  // `new Date("2026-09-20")` would read it as UTC and can render a day early for
+  // anyone west of Greenwich — the same guard the other session pages use.
+  const formatSessionDate = (value: string) => {
+    const date = new Date(`${value}T00:00:00`);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+  };
 
   const handleStartCreate = () => {
     setIsCreating(true);
@@ -138,31 +151,98 @@ export default function RankingConsolidations() {
           ))}
         </select>
         <p className="field-hint">
-          Every session must be published and use this same rubric.
+          Every session must use this same rubric. Draft sessions can be included,
+          but each one holds the ranking back until it is published.
         </p>
       </div>
 
       <div className="admin-field">
-        <label>Published sessions</label>
+        <label id="consolidation-sessions-label">Sessions</label>
         {eligibleSessions.length === 0 ? (
-          <p className="field-hint">No published sessions use this rubric yet.</p>
+          <p className="field-hint">No sessions use this rubric yet.</p>
         ) : (
           <div className="consolidation-session-picker">
-            {eligibleSessions.map((s) => (
-              <label key={s.id} className="consolidation-session-option">
-                <input
-                  type="checkbox"
-                  checked={formData.assessment_session_ids.includes(s.id)}
-                  onChange={() => toggleSession(s.id)}
-                />
-                <span className="session-option-name">{s.name}</span>
-                <span className="session-option-coach">
-                  {s.coach_profile?.full_name}
-                </span>
-              </label>
-            ))}
+            <div className="session-picker-header">
+              <span className="session-picker-count">
+                {formData.assessment_session_ids.length} of {eligibleSessions.length} selected
+              </span>
+              <span className="session-picker-actions">
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      assessment_session_ids: eligibleSessions.map((s) => s.id),
+                    }))
+                  }
+                  disabled={formData.assessment_session_ids.length === eligibleSessions.length}
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  className="link-button"
+                  onClick={() =>
+                    setFormData((prev) => ({ ...prev, assessment_session_ids: [] }))
+                  }
+                  disabled={formData.assessment_session_ids.length === 0}
+                >
+                  Clear
+                </button>
+              </span>
+            </div>
+            <div
+              className="session-picker-list"
+              role="group"
+              aria-labelledby="consolidation-sessions-label"
+            >
+              {eligibleSessions.map((s) => {
+                const checked = formData.assessment_session_ids.includes(s.id);
+                return (
+                  <label
+                    key={s.id}
+                    className={
+                      checked
+                        ? "consolidation-session-option selected"
+                        : "consolidation-session-option"
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleSession(s.id)}
+                    />
+                    <span className="session-option-body">
+                      <span className="session-option-name">{s.name}</span>
+                      <span className="session-option-meta">
+                        <span>{formatSessionDate(s.scheduled_on)}</span>
+                        <span className="session-option-sep" aria-hidden="true">·</span>
+                        <span>{s.coach_profile?.full_name}</span>
+                        <span className="session-option-sep" aria-hidden="true">·</span>
+                        <span>{s.ranking?.ranking?.length ?? 0} ranked</span>
+                        {s.status === "published" ? null : (
+                          <>
+                            <span className="session-option-sep" aria-hidden="true">·</span>
+                            {/* Names the blocker rather than hiding the session: a
+                                draft may be consolidated, it just cannot publish yet. */}
+                            <span className="session-option-draft">
+                              Draft — holds publishing back
+                            </span>
+                          </>
+                        )}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
         )}
+        <p className="field-hint">
+          Each session is merged as one coach&apos;s view. A player absent from a
+          session is reported, never scored as zero.
+        </p>
       </div>
 
       <div className="admin-field">
@@ -245,13 +325,13 @@ export default function RankingConsolidations() {
     <div className="page ranking-consolidations-page">
       <PageHeader
         title="Ranking consolidations"
-        description="Club-level rankings merged from several coaches' published sessions. Each consolidation is a permanent snapshot."
+        description="Club-level rankings merged from several coaches' sessions. Each one is a draft until you publish it, and a permanent snapshot thereafter."
       >
         <button
           type="button"
           className="admin-btn admin-btn-add"
           onClick={handleStartCreate}
-          disabled={publishedSessions.length === 0}
+          disabled={consolidatableSessions.length === 0}
         >
           <Plus size={16} />
           New consolidation
@@ -262,9 +342,9 @@ export default function RankingConsolidations() {
         <EmptyState
           title="No ranking consolidations yet"
           description={
-            publishedSessions.length === 0
-              ? "Publish at least one assessment session first — a consolidation merges published sessions only."
-              : "Merge several coaches' published sessions into one club ranking."
+            consolidatableSessions.length === 0
+              ? "Create at least one assessment session first — a consolidation merges sessions into one club ranking."
+              : "Merge several coaches' sessions into one club ranking."
           }
         />
       ) : (
@@ -278,6 +358,25 @@ export default function RankingConsolidations() {
               <span className="consolidation-name">{c.name}</span>
               <span className="consolidation-definition">
                 {c.assessment_definition?.name}
+              </span>
+              {/* The status is the headline: a draft is not yet the club's
+                  official ranking, and a withdrawn one no longer is at all. */}
+              <span
+                className={
+                  c.status === "published"
+                    ? "consolidation-stat consolidation-status published"
+                    : c.status === "withdrawn"
+                      ? "consolidation-stat consolidation-status withdrawn"
+                      : "consolidation-stat consolidation-status draft"
+                }
+              >
+                {c.status === "published"
+                  ? "Published"
+                  : c.status === "withdrawn"
+                    ? "Withdrawn"
+                    : `Draft — ${c.unpublished_session_count} session${
+                        c.unpublished_session_count === 1 ? "" : "s"
+                      } unpublished`}
               </span>
               <span className="consolidation-stat">
                 {c.session_count} session{c.session_count === 1 ? "" : "s"}

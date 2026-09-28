@@ -251,23 +251,41 @@ export default function Groups() {
           role="group"
           aria-labelledby="group-members-label"
         >
-          {players.length === 0 ? (
-            <p className="candidate-empty">No players available yet.</p>
-          ) : (
-            players.map((player) => (
-              <label key={player.id} className="consolidation-session-option">
-                <input
-                  type="checkbox"
-                  checked={memberIds.includes(player.id)}
-                  onChange={() => toggleMember(player.id)}
-                />
-                <span className="session-option-name">{player.full_name}</span>
-                <span className="session-option-coach">
-                  {player.preferred_position ?? player.level ?? ""}
-                </span>
-              </label>
-            ))
-          )}
+          {/* No role/label of its own: the wrapper above already names the group,
+              and a second identically-labelled group would be ambiguous. */}
+          <div className="session-picker-list">
+            {players.length === 0 ? (
+              <p className="candidate-empty">No players available yet.</p>
+            ) : (
+              players.map((player) => {
+                const checked = memberIds.includes(player.id);
+                return (
+                  <label
+                    key={player.id}
+                    className={
+                      checked
+                        ? "consolidation-session-option selected"
+                        : "consolidation-session-option"
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleMember(player.id)}
+                    />
+                    <span className="session-option-body">
+                      <span className="session-option-name">
+                        {player.full_name}
+                      </span>
+                      <span className="session-option-meta">
+                        {player.preferred_position ?? player.level ?? "—"}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 
@@ -378,7 +396,7 @@ export default function Groups() {
                 </button>
                 <button
                   type="button"
-                  className="admin-btn admin-btn-delete"
+                  className="admin-btn admin-btn-remove"
                   onClick={() => void handleDelete(group)}
                 >
                   <Trash2 size={14} />

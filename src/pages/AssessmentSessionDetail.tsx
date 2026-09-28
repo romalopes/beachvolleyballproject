@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, AlertCircle, Calendar, User } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  AlertCircle,
+  Calendar,
+  Trash2,
+  Undo2,
+  User,
+} from "lucide-react";
 import {
   api,
   type AssessmentSession,
@@ -9,6 +16,7 @@ import {
   type Player,
 } from "../api";
 import EmptyState from "../components/EmptyState";
+import { useAuth } from "../auth/AuthContext";
 import PageHeader from "../components/PageHeader";
 import Tag from "../components/Tag";
 import AssessmentSessionRoster from "../components/assessments/AssessmentSessionRoster";
@@ -25,6 +33,8 @@ const tabs: Array<{ id: SessionTab; label: string }> = [
 
 export default function AssessmentSessionDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const sessionId = Number(id);
 
   const [session, setSession] = useState<AssessmentSession | null>(null);
@@ -32,6 +42,13 @@ export default function AssessmentSessionDetail() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  // Impersonation is excluded on purpose: an admin browsing as somebody else must
+  // not be offered the restore and permanent-delete controls.
+  const isAdmin =
+    !!user?.roles?.includes("admin") && !(user as { real_admin?: unknown }).real_admin;
 
   // `loading` is derived from the id on screen instead of being synced by an
   // effect — an effect that called `setLoading` would cascade a second render on
@@ -115,6 +132,83 @@ export default function AssessmentSessionDetail() {
     }
   };
 
+  /**
+   * Discard this draft and return to the list.
+   *
+   * The confirmation says what is actually lost — the roster and the unscored
+   * grid — because "are you sure?" alone would let a coach delete a session they
+   * spent an hour filling in. Only drafts reach here: the button is not rendered
+   * otherwise, and the server refuses a published one regardless.
+   */
+  const handleDelete = async () => {
+    if (!session) return;
+    // The wording follows the state: a draft is scratch, whereas a published or
+    // withdrawn session holds results about named players and may be removed only
+    // by an admin, so the stakes are named rather than softened.
+    const prompt =
+      session.status === "draft"
+        ? `Delete draft "${session.name}"? Its roster and any unscored grid are discarded. This cannot be undone.`
+        : `Permanently delete "${session.name}"? Its published results about named players are destroyed, along with any ranking that still points at it. This cannot be undone — withdrawing is reversible.`;
+
+    if (!window.confirm(prompt)) {
+      return;
+    }
+
+    setDeleting(true);
+    setActionError(null);
+    try {
+      await api.deleteAssessmentSession(session.id);
+      navigate("/assessment-sessions");
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to delete the session.",
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  /** Retract a published session. Reversible: only an admin can restore it. */
+  const handleWithdraw = async () => {
+    if (!session) return;
+    if (
+      !window.confirm(
+        `Withdraw "${session.name}"? Its results stop counting as a current assessment, and only an admin can restore it.`,
+      )
+    ) {
+      return;
+    }
+    setWithdrawing(true);
+    setActionError(null);
+    try {
+      const res = await api.withdrawAssessmentSession(session.id);
+      setSession(res.assessment_session);
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to withdraw the session.",
+      );
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
+  /** Admin only. Restoring to published re-runs the full publish checks. */
+  const handleRestore = async (to: "draft" | "published") => {
+    if (!session) return;
+    setRestoring(true);
+    setActionError(null);
+    try {
+      const res = await api.restoreAssessmentSession(session.id, to);
+      setSession(res.assessment_session);
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to restore the session.",
+      );
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   const formatDate = (value: string) => {
     const date = new Date(`${value}T00:00:00`);
     return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
@@ -149,6 +243,11 @@ export default function AssessmentSessionDetail() {
   }
 
   const isDraft = session.status === "draft";
+  const isWithdrawn = session.status === "withdrawn";
+  // A draft is discarded by anyone who may edit it. A published or withdrawn one
+  // is admin-only, matching the server: a withdrawal must not be reversible by its
+  // own author, and destroying published results is the narrowest power here.
+  const canDelete = isDraft || isAdmin;
   const categories = [...(session.assessment_definition?.assessment_categories || [])].sort(
     (a, b) => a.position - b.position,
   );
@@ -188,9 +287,75 @@ export default function AssessmentSessionDetail() {
             >
               {publishing ? "Publishing..." : "Publish"}
             </button>
+            <button
+              type="button"
+              className="admin-btn admin-btn-remove"
+              onClick={() => void handleDelete()}
+              disabled={deleting || publishing}
+            >
+              <Trash2 size={14} />
+              {deleting ? "Deleting..." : "Delete draft"}
+            </button>
+          </div>
+        )}
+        {/* Withdrawing is the ordinary, reversible retraction of a published
+            session, so it sits beside Publish rather than in the danger zone. */}
+        {session.status === "published" && (
+          <div className="admin-form-actions session-actions">
+            <button
+              type="button"
+              className="admin-btn"
+              onClick={() => void handleWithdraw()}
+              disabled={withdrawing}
+            >
+              {withdrawing ? "Withdrawing..." : "Withdraw"}
+            </button>
+          </div>
+        )}
+        {/* A withdrawn session is inert. Only an admin brings it back, and
+            restoring to published re-runs the full publish checks. */}
+        {isWithdrawn && isAdmin && (
+          <div className="admin-form-actions session-actions">
+            <button
+              type="button"
+              className="admin-btn admin-btn-add"
+              onClick={() => void handleRestore("published")}
+              disabled={restoring}
+            >
+              <Undo2 size={14} />
+              {restoring ? "Restoring..." : "Restore to published"}
+            </button>
+            <button
+              type="button"
+              className="admin-btn"
+              onClick={() => void handleRestore("draft")}
+              disabled={restoring}
+            >
+              Restore to draft
+            </button>
           </div>
         )}
       </PageHeader>
+
+      {/* The irreversible action is set apart from the reversible ones, because it
+          is the only control here that cannot be taken back. */}
+      {canDelete && !isDraft && (
+        <div className="admin-form-actions session-actions consolidation-danger-zone">
+          <button
+            type="button"
+            className="admin-btn admin-btn-remove"
+            onClick={() => void handleDelete()}
+            disabled={deleting || withdrawing || restoring}
+          >
+            <Trash2 size={14} />
+            {deleting ? "Deleting..." : "Delete permanently"}
+          </button>
+          <p className="field-hint">
+            Removes this session and its published results for good. Withdrawing is
+            the reversible option.
+          </p>
+        </div>
+      )}
 
       {actionError && (
         <div className="admin-error" role="alert">

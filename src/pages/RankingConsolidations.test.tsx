@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -48,6 +48,17 @@ const consolidation = (
   id: 3,
   name: "Autumn club ranking",
   notes: null,
+  status: "published",
+  status_label: "Published",
+  published_at: "2026-09-27T09:46:00Z",
+  unpublished_session_count: 0,
+  withdrawn_session_count: 0,
+  stale_withdrawn_session_count: 0,
+  excluded_withdrawn_session_count: 0,
+  computed_at: "2026-09-27T09:46:00Z",
+  recalculated_at: null,
+  recalculable: false,
+  can_recalculate: false,
   assessment_definition: { id: 5, name: "Balanced rubric" },
   session_count: 2,
   player_count: 2,
@@ -101,7 +112,7 @@ describe("RankingConsolidations", () => {
 
     expect(await screen.findByText("API Error: 500")).toBeInTheDocument();
   });
-  it("offers only published sessions of the chosen rubric", async () => {
+  it("offers only sessions of the chosen rubric, and marks drafts", async () => {
     mockedApi.assessmentSessions.mockResolvedValue({
       assessment_sessions: [
         session({ id: 1, name: "Published one" }),
@@ -123,10 +134,76 @@ describe("RankingConsolidations", () => {
     await userEvent.click(
       await screen.findByRole("button", { name: /new consolidation/i }),
     );
-    // The draft and the foreign rubric are never offered as choices.
+    // A draft is offered — it just cannot be published yet — while a session of
+    // another rubric is never a valid choice at all.
     expect(await screen.findByText("Published one")).toBeInTheDocument();
-    expect(screen.queryByText("Draft one")).not.toBeInTheDocument();
+    expect(screen.getByText("Draft one")).toBeInTheDocument();
+    expect(screen.getByText("Draft — holds publishing back")).toBeInTheDocument();
     expect(screen.queryByText("Other rubric")).not.toBeInTheDocument();
+  });
+
+  it("shows each session's date, coach and ranked count so sessions are distinguishable", async () => {
+    mockedApi.assessmentSessions.mockResolvedValue({
+      assessment_sessions: [session({ id: 1, name: "September Combine" })],
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /new consolidation/i }),
+    );
+
+    const picker = await screen.findByRole("group", { name: /^sessions$/i });
+    // Name on the first line, then the facts that tell two similarly named
+    // sessions apart.
+    expect(picker).toHaveTextContent("September Combine");
+    expect(picker).toHaveTextContent("Coach Ana");
+    // jsdom renders the formatted date in the runtime's locale, so match the
+    // year rather than pinning a locale-specific string.
+    expect(picker).toHaveTextContent(/2026/);
+  });
+
+  it("reports how many sessions are selected and offers select-all / clear", async () => {
+    const user = userEvent.setup();
+    mockedApi.assessmentSessions.mockResolvedValue({
+      assessment_sessions: [
+        session({ id: 1, name: "First screening" }),
+        session({ id: 2, name: "Second screening" }),
+      ],
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /new consolidation/i }));
+    expect(await screen.findByText("0 of 2 selected")).toBeInTheDocument();
+    // Nothing chosen yet, so clearing is a no-op and stays disabled.
+    expect(screen.getByRole("button", { name: /clear/i })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: /select all/i }));
+    expect(await screen.findByText("2 of 2 selected")).toBeInTheDocument();
+    // Already everything, so select-all is now the no-op.
+    expect(screen.getByRole("button", { name: /select all/i })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: /clear/i }));
+    expect(await screen.findByText("0 of 2 selected")).toBeInTheDocument();
+  });
+
+  it("marks a chosen session on the row, not only on the checkbox", async () => {
+    const user = userEvent.setup();
+    mockedApi.assessmentSessions.mockResolvedValue({
+      assessment_sessions: [session({ id: 1, name: "First screening" })],
+    });
+    renderPage();
+
+    await user.click(await screen.findByRole("button", { name: /new consolidation/i }));
+    const picker = await screen.findByRole("group", { name: /^sessions$/i });
+
+    const row = picker.querySelector(".consolidation-session-option") as HTMLElement;
+    expect(row).not.toHaveClass("selected");
+
+    await user.click(within(picker).getByText("First screening"));
+
+    expect(
+      picker.querySelector(".consolidation-session-option.selected"),
+    ).not.toBeNull();
   });
 
   it("refuses to submit without a name or a session", async () => {
