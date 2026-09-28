@@ -5902,6 +5902,9 @@
   margin: 1.5rem 0 1rem;
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.5rem;
+  /* Wraps rather than overflowing once a fourth tab was added, so the row degrades
+     gracefully on narrow screens instead of pushing the last tab out of reach. */
+  flex-wrap: wrap;
 }
 
 .session-tab {
@@ -5924,6 +5927,67 @@
   background: var(--charcoal);
   border-color: var(--charcoal);
   color: var(--white);
+}
+
+/* ---------- Session: ranking consolidations this session feeds ---------- */
+.session-consolidations {
+  margin-top: 1rem;
+}
+
+.session-consolidations-intro {
+  margin: 0 0 1rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  max-width: 70ch;
+}
+
+.session-consolidations-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.session-consolidations-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  padding: 0.875rem 1rem;
+}
+
+.session-consolidations-main {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+
+.session-consolidations-link {
+  font-weight: 600;
+  color: var(--charcoal);
+  text-decoration: none;
+}
+
+.session-consolidations-link:hover {
+  text-decoration: underline;
+}
+
+/* The "attached but not counted" note. Deliberately amber rather than neutral: a
+   coach reading this needs to know the session is not actually in the numbers. */
+.session-consolidations-excluded {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--amber-700, #92400e);
+}
+
+.session-consolidations-excluded svg {
+  flex-shrink: 0;
+  margin-top: 0.125rem;
 }
 
 /* ---------- Ranking consolidation (Phase 4) ---------- */

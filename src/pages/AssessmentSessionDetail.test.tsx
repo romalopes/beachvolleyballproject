@@ -394,7 +394,84 @@ describe("AssessmentSessionDetail", () => {
     await user.click(await screen.findByRole("tab", { name: /scores/i }));
     expect(screen.getByLabelText("Ana Silva Attack")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("tab", { name: /ranking/i }));
+    // Anchored, because "Ranking Consolidated" also matches a loose /ranking/i.
+    await user.click(screen.getByRole("tab", { name: /^ranking$/i }));
     expect(screen.getByText(/No players on the session roster yet/i)).toBeInTheDocument();
+  });
+
+  it("opens the Ranking Consolidated tab and lists the rankings this session feeds", async () => {
+    const user = userEvent.setup();
+    mockedApi.assessmentSession.mockResolvedValue({
+      assessment_session: session({
+        consolidations: [
+          {
+            id: 5,
+            name: "Autumn club ranking",
+            status: "published",
+            status_label: "Published",
+            published_at: "2026-09-27T09:46:00Z",
+            included_in_ranking: true,
+          },
+        ],
+      }),
+    });
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("tab", { name: /ranking consolidated/i }),
+    );
+
+    const link = await screen.findByRole("link", { name: /Autumn club ranking/i });
+    expect(link).toHaveAttribute("href", "/ranking-consolidations/5");
+    expect(screen.getByText("Published")).toBeInTheDocument();
+    // Contributed, so no caveat is shown.
+    expect(
+      screen.queryByText(/not included in this ranking/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("flags a ranking this session is attached to but not counted in", async () => {
+    // The consequence a coach needs before retracting: this session is still listed
+    // as a source, but its scores are not in that ranking's numbers.
+    const user = userEvent.setup();
+    mockedApi.assessmentSession.mockResolvedValue({
+      assessment_session: session({
+        consolidations: [
+          {
+            id: 5,
+            name: "Autumn club ranking",
+            status: "published",
+            status_label: "Published",
+            published_at: "2026-09-27T09:46:00Z",
+            included_in_ranking: false,
+          },
+        ],
+      }),
+    });
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("tab", { name: /ranking consolidated/i }),
+    );
+
+    expect(
+      await screen.findByText(/not included in this ranking/i),
+    ).toBeInTheDocument();
+  });
+
+  it("explains an empty list rather than showing a blank tab", async () => {
+    const user = userEvent.setup();
+    mockedApi.assessmentSession.mockResolvedValue({
+      assessment_session: session({ consolidations: [] }),
+    });
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("tab", { name: /ranking consolidated/i }),
+    );
+
+    expect(
+      await screen.findByText(/not been merged into any ranking/i),
+    ).toBeInTheDocument();
   });
 });

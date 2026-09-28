@@ -22,13 +22,15 @@ import Tag from "../components/Tag";
 import AssessmentSessionRoster from "../components/assessments/AssessmentSessionRoster";
 import SpreadsheetScoreGrid from "../components/assessments/SpreadsheetScoreGrid";
 import SessionRankingTable from "../components/assessments/SessionRankingTable";
+import SessionConsolidations from "../components/assessments/SessionConsolidations";
 
-type SessionTab = "roster" | "scores" | "ranking";
+type SessionTab = "roster" | "scores" | "ranking" | "consolidated";
 
 const tabs: Array<{ id: SessionTab; label: string }> = [
   { id: "roster", label: "Roster" },
   { id: "scores", label: "Scores" },
   { id: "ranking", label: "Ranking" },
+  { id: "consolidated", label: "Ranking Consolidated" },
 ];
 
 export default function AssessmentSessionDetail() {
@@ -48,7 +50,8 @@ export default function AssessmentSessionDetail() {
   // Impersonation is excluded on purpose: an admin browsing as somebody else must
   // not be offered the restore and permanent-delete controls.
   const isAdmin =
-    !!user?.roles?.includes("admin") && !(user as { real_admin?: unknown }).real_admin;
+    !!user?.roles?.includes("admin") &&
+    !(user as { real_admin?: unknown }).real_admin;
 
   // `loading` is derived from the id on screen instead of being synced by an
   // effect — an effect that called `setLoading` would cascade a second render on
@@ -85,7 +88,9 @@ export default function AssessmentSessionDetail() {
       .catch((err: unknown) => {
         if (cancelled) return;
         setError(
-          err instanceof Error ? err.message : "Failed to load assessment session.",
+          err instanceof Error
+            ? err.message
+            : "Failed to load assessment session.",
         );
       })
       .finally(() => {
@@ -106,7 +111,10 @@ export default function AssessmentSessionDetail() {
   const handleRemovePlayers = async (playerProfileIds: number[]) => {
     if (!session) return;
     setActionError(null);
-    const res = await api.removeAssessmentSessionPlayers(session.id, playerProfileIds);
+    const res = await api.removeAssessmentSessionPlayers(
+      session.id,
+      playerProfileIds,
+    );
     setSession(res.assessment_session);
   };
 
@@ -126,7 +134,9 @@ export default function AssessmentSessionDetail() {
       setSession(res.assessment_session);
       setActiveTab("ranking");
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to publish session.");
+      setActionError(
+        err instanceof Error ? err.message : "Failed to publish session.",
+      );
     } finally {
       setPublishing(false);
     }
@@ -230,7 +240,8 @@ export default function AssessmentSessionDetail() {
           description={
             invalidId
               ? "Invalid assessment session id."
-              : error ?? "This session does not exist or you do not have access to it."
+              : (error ??
+                "This session does not exist or you do not have access to it.")
           }
         />
         <p>
@@ -248,9 +259,9 @@ export default function AssessmentSessionDetail() {
   // is admin-only, matching the server: a withdrawal must not be reversible by its
   // own author, and destroying published results is the narrowest power here.
   const canDelete = isDraft || isAdmin;
-  const categories = [...(session.assessment_definition?.assessment_categories || [])].sort(
-    (a, b) => a.position - b.position,
-  );
+  const categories = [
+    ...(session.assessment_definition?.assessment_categories || []),
+  ].sort((a, b) => a.position - b.position);
 
   return (
     <div className="page assessment-session-detail-page">
@@ -304,7 +315,7 @@ export default function AssessmentSessionDetail() {
           <div className="admin-form-actions session-actions">
             <button
               type="button"
-              className="admin-btn"
+              className="admin-btn admin-btn-remove"
               onClick={() => void handleWithdraw()}
               disabled={withdrawing}
             >
@@ -327,7 +338,7 @@ export default function AssessmentSessionDetail() {
             </button>
             <button
               type="button"
-              className="admin-btn"
+              className="admin-btn admin-btn-remove"
               onClick={() => void handleRestore("draft")}
               disabled={restoring}
             >
@@ -351,8 +362,8 @@ export default function AssessmentSessionDetail() {
             {deleting ? "Deleting..." : "Delete permanently"}
           </button>
           <p className="field-hint">
-            Removes this session and its published results for good. Withdrawing is
-            the reversible option.
+            Removes this session and its published results for good. Withdrawing
+            is the reversible option.
           </p>
         </div>
       )}
@@ -364,14 +375,20 @@ export default function AssessmentSessionDetail() {
         </div>
       )}
 
-      <div className="session-tabs" role="tablist" aria-label="Session sections">
+      <div
+        className="session-tabs"
+        role="tablist"
+        aria-label="Session sections"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             role="tab"
             aria-selected={activeTab === tab.id}
-            className={activeTab === tab.id ? "session-tab active" : "session-tab"}
+            className={
+              activeTab === tab.id ? "session-tab active" : "session-tab"
+            }
             onClick={() => setActiveTab(tab.id)}
           >
             {tab.label}
@@ -399,7 +416,14 @@ export default function AssessmentSessionDetail() {
       )}
 
       {activeTab === "ranking" && (
-        <SessionRankingTable categories={categories} rankingPayload={session.ranking} />
+        <SessionRankingTable
+          categories={categories}
+          rankingPayload={session.ranking}
+        />
+      )}
+
+      {activeTab === "consolidated" && (
+        <SessionConsolidations consolidations={session.consolidations || []} />
       )}
     </div>
   );

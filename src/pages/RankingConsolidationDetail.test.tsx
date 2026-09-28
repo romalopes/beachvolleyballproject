@@ -67,6 +67,7 @@ const consolidation = (
   withdrawn_session_count: 0,
   stale_withdrawn_session_count: 0,
   excluded_withdrawn_session_count: 0,
+  restored_session_count: 0,
   computed_at: "2026-09-27T09:46:00Z",
   recalculated_at: null,
   recalculable: false,
@@ -797,6 +798,165 @@ describe("RankingConsolidationDetail", () => {
         await screen.findByText(/scores are still counted in it/i),
       ).toBeInTheDocument();
       confirmSpy.mockRestore();
+    });
+  });
+
+  describe("a source restored to published", () => {
+    // The mirror of a late withdrawal: the ranking is frozen *without* scores it
+    // should have. This is the case that was silently wrong — the API claimed the
+    // session was included while contributing nothing.
+    const curator = {
+      id: 3,
+      email: "cur@example.com",
+      roles: ["curator"],
+    } as unknown as AuthContextValue["user"];
+
+    const withRestoredSource = (overrides: Partial<RankingConsolidation> = {}) =>
+      consolidation({
+        published_at: "2026-09-27T09:46:00Z",
+        computed_at: "2026-09-27T09:46:00Z",
+        restored_session_count: 1,
+        recalculable: true,
+        can_recalculate: true,
+        created_by_id: 7,
+        assessment_sessions: [
+          source(1, "First screening", "Coach Ana"),
+          // Published again, yet its scores are not in the figures.
+          source(2, "Retracted, then restored", "Coach Bo", [], "published", false),
+        ],
+        rows: [
+          {
+            player_profile_id: 1,
+            player_name: "John Silva",
+            // Only January ranked him: the shortfall is real.
+            coach_scores: { "1": 80 },
+            coverage: 1,
+            average_score: 80,
+            rank: 1,
+          },
+        ],
+        ...overrides,
+      });
+
+    // The same ranking after the correction: both sessions rank him.
+    const corrected = () =>
+      withRestoredSource({
+        restored_session_count: 0,
+        recalculable: false,
+        can_recalculate: false,
+        recalculated_at: "2026-09-29T08:00:00Z",
+        assessment_sessions: [
+          source(1, "First screening", "Coach Ana"),
+          source(2, "Retracted, then restored", "Coach Bo", [], "published", true),
+        ],
+        rows: [
+          {
+            player_profile_id: 1,
+            player_name: "John Silva",
+            coach_scores: { "1": 80, "2": 60 },
+            coverage: 2,
+            average_score: 70,
+            rank: 1,
+          },
+        ],
+      });
+
+    it("reports the missing scores rather than claiming the session is included", async () => {
+      mockedApi.rankingConsolidation.mockResolvedValue({
+        ranking_consolidation: withRestoredSource(),
+      });
+      renderPage(authValue({ user: curator }));
+
+      const notice = await screen.findByText(
+        /restored to published after this ranking was computed/i,
+      );
+      const banner = notice.closest(".consolidation-withdrawn-banner");
+      expect(banner).toHaveTextContent("Retracted, then restored");
+      expect(banner).toHaveTextContent("scores are missing from it");
+      // It must not be described as withdrawn, and not as an older-but-fine result:
+      // this is a genuine shortfall, which is why it needs its own wording.
+      expect(banner).not.toHaveTextContent(/withdrawn/i);
+      expect(banner).toHaveTextContent("lower than they should be");
+    });
+
+    it("offers an action worded for adding them back, not removing them", async () => {
+      mockedApi.rankingConsolidation.mockResolvedValue({
+        ranking_consolidation: withRestoredSource(),
+      });
+      renderPage(authValue({ user: curator }));
+
+      // The direction matters: "without them" here would ask to drop a session the
+      // coach has just put back.
+      expect(
+        await screen.findByRole("button", { name: /recalculate to include them/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /recalculate without them/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("hides the action once the ranking has been corrected", async () => {
+      mockedApi.recalculateRankingConsolidation.mockResolvedValue({
+        ranking_consolidation: corrected(),
+      });
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      mockedApi.rankingConsolidation.mockResolvedValue({
+        ranking_consolidation: withRestoredSource(),
+      });
+      renderPage(authValue({ user: curator }));
+
+      await userEvent.click(
+        await screen.findByRole("button", { name: /recalculate to include them/i }),
+      );
+
+      // The action is spent: no button, and the notice that offered it is gone. The
+      // restored session is now genuinely part of the figures (coverage 2, average 70).
+      expect(await screen.findByText("70")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /recalculate/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/restored to published after this ranking was computed/i),
+      ).not.toBeInTheDocument();
+      confirmSpy.mockRestore();
+    });
+
+    it("confirms that the scores will be added, not removed", async () => {
+      mockedApi.recalculateRankingConsolidation.mockResolvedValue({
+        ranking_consolidation: corrected(),
+      });
+      const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+      mockedApi.rankingConsolidation.mockResolvedValue({
+        ranking_consolidation: withRestoredSource(),
+      });
+      renderPage(authValue({ user: curator }));
+
+      await userEvent.click(
+        await screen.findByRole("button", { name: /recalculate to include them/i }),
+      );
+
+      expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining("will be added"));
+      expect(confirmSpy).toHaveBeenCalledWith(
+        expect.stringContaining("original publication date is kept"),
+      );
+      confirmSpy.mockRestore();
+    });
+
+    it("tells a plain coach the ranking is short rather than offering the fix", async () => {
+      mockedApi.rankingConsolidation.mockResolvedValue({
+        ranking_consolidation: withRestoredSource({ can_recalculate: false }),
+      });
+      renderPage();
+
+      const notice = await screen.findByText(
+        /restored to published after this ranking was computed/i,
+      );
+      expect(
+        screen.queryByRole("button", { name: /recalculate/i }),
+      ).not.toBeInTheDocument();
+      expect(notice.closest(".consolidation-withdrawn-banner")).toHaveTextContent(
+        /curator or admin can recalculate/i,
+      );
     });
   });
 

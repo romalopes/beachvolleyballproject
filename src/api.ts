@@ -625,6 +625,21 @@ export interface AssessmentSessionParticipant {
   result?: AssessmentSessionRankingRow;
 }
 
+/**
+ * A club ranking this session was merged into. `included_in_ranking` is the
+ * snapshot's own record of whether this session's scores are in the numbers: a
+ * withdrawn source stays attached to its ranking without contributing to it, so
+ * the two must never be inferred from one another.
+ */
+export interface AssessmentSessionConsolidation {
+  id: number;
+  name: string | null;
+  status: RankingConsolidationStatus;
+  status_label: string;
+  published_at: string | null;
+  included_in_ranking: boolean;
+}
+
 export interface AssessmentSession {
   id: number;
   name: string;
@@ -644,6 +659,8 @@ export interface AssessmentSession {
   assessment_definition: AssessmentSessionDefinition;
   ranking: AssessmentSessionRankingPayload;
   participants: AssessmentSessionParticipant[];
+  /** The club rankings this session feeds. Empty when it has not been merged yet. */
+  consolidations?: AssessmentSessionConsolidation[];
 }
 
 export interface AssessmentSessionInput {
@@ -794,6 +811,12 @@ export interface RankingConsolidation {
    * before the ranking was computed and the merge skipped them.
    */
   excluded_withdrawn_session_count: number;
+  /**
+   * Sources the merge skipped that have since been restored to published. They are
+   * scoring again, but the frozen ranking is not using them, so it under-reports
+   * until it is recalculated. The mirror of `stale_withdrawn_session_count`.
+   */
+  restored_session_count: number;
   /**
    * When these figures were computed: the original publication, or a later
    * recalculation. Compare against a source's `withdrawn_at` to tell a retracted

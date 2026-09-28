@@ -1,7 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, AlertCircle, Trophy, Info, Trash2, Undo2, RefreshCw } from "lucide-react";
-import { api, type RankingConsolidation } from "../api";
+import {
+  ArrowLeft,
+  AlertCircle,
+  Trophy,
+  Info,
+  Trash2,
+  Undo2,
+  RefreshCw,
+} from "lucide-react";
+import {
+  api,
+  type RankingConsolidation,
+  type RankingConsolidationSource,
+} from "../api";
 import { useAuth } from "../auth/AuthContext";
 import PageHeader from "../components/PageHeader";
 
@@ -22,9 +34,11 @@ export default function RankingConsolidationDetail() {
   // Impersonation is excluded on purpose: an admin viewing the app as somebody
   // else must not be offered the destructive and restore controls.
   const isAdmin =
-    !!user?.roles?.includes("admin") && !(user as { real_admin?: unknown }).real_admin;
+    !!user?.roles?.includes("admin") &&
+    !(user as { real_admin?: unknown }).real_admin;
 
-  const [consolidation, setConsolidation] = useState<RankingConsolidation | null>(null);
+  const [consolidation, setConsolidation] =
+    useState<RankingConsolidation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
@@ -49,7 +63,9 @@ export default function RankingConsolidationDetail() {
       .catch((err: unknown) => {
         if (cancelled) return;
         setError(
-          err instanceof Error ? err.message : "Failed to load ranking consolidation.",
+          err instanceof Error
+            ? err.message
+            : "Failed to load ranking consolidation.",
         );
       })
       .finally(() => {
@@ -61,7 +77,12 @@ export default function RankingConsolidationDetail() {
     };
   }, [consolidationId]);
 
-  if (loading) return <div className="page"><p className="loading">Loading...</p></div>;
+  if (loading)
+    return (
+      <div className="page">
+        <p className="loading">Loading...</p>
+      </div>
+    );
 
   if (invalidId || error || !consolidation) {
     return (
@@ -104,6 +125,12 @@ export default function RankingConsolidationDetail() {
   const staleSessions = sessions.filter(
     (s) => s.status === "withdrawn" && s.included_in_ranking,
   );
+  // Published sources the merge skipped and that have since been restored. They score
+  // again, but the frozen ranking is not using them — the mirror of a stale
+  // withdrawal, and the case where the ranking under-reports without saying so.
+  const restoredSessions = sessions.filter(
+    (s) => s.status === "published" && !s.included_in_ranking,
+  );
   // A player ranked by fewer sessions than contributed gets an explicit coverage
   // badge — never a zero for the sessions they missed (D21).
   const partialRows = rows.filter((r) => r.coverage < sessionCount);
@@ -133,7 +160,9 @@ export default function RankingConsolidationDetail() {
       setConsolidation(res.ranking_consolidation);
     } catch (err) {
       setActionError(
-        err instanceof Error ? err.message : "The action could not be completed.",
+        err instanceof Error
+          ? err.message
+          : "The action could not be completed.",
       );
     } finally {
       setBusyAction(null);
@@ -141,7 +170,9 @@ export default function RankingConsolidationDetail() {
   };
 
   const handlePublish = () =>
-    runAction("publish", () => api.publishRankingConsolidation(consolidation.id));
+    runAction("publish", () =>
+      api.publishRankingConsolidation(consolidation.id),
+    );
 
   // Withdrawing is reversible, so it does not need a typed confirmation the way a
   // hard delete does — but it is a retraction of a claim about named players, so
@@ -154,22 +185,36 @@ export default function RankingConsolidationDetail() {
     ) {
       return;
     }
-    await runAction("withdraw", () => api.withdrawRankingConsolidation(consolidation.id));
+    await runAction("withdraw", () =>
+      api.withdrawRankingConsolidation(consolidation.id),
+    );
   };
 
   const handleRestore = (to: "draft" | "published") =>
-    runAction("restore", () => api.restoreRankingConsolidation(consolidation.id, to));
+    runAction("restore", () =>
+      api.restoreRankingConsolidation(consolidation.id, to),
+    );
 
   // Recalculating rewrites a published result people may already have acted on, so
-  // unlike withdrawing it is confirmed and names what will change. It is curator/admin
-  // work — the author's own withdrawal cannot quietly rewrite the ranking.
+  // unlike withdrawing it is confirmed, and it says what will change in both
+  // directions: stale sources drop out, restored ones come back in.
   const handleRecalculate = async () => {
-    const names = staleSessions
-      .map((s) => s.name || `Session #${s.assessment_session_id}`)
-      .join(", ");
+    const label = (s: RankingConsolidationSource) =>
+      s.name || `Session #${s.assessment_session_id}`;
+    const changes: string[] = [];
+    if (staleSessions.length > 0) {
+      changes.push(
+        `the scores from ${staleSessions.map(label).join(", ")} will be removed`,
+      );
+    }
+    if (restoredSessions.length > 0) {
+      changes.push(
+        `the scores from ${restoredSessions.map(label).join(", ")} will be added`,
+      );
+    }
     if (
       !window.confirm(
-        `Recalculate this ranking? The scores from ${names} will be removed and every result recomputed. The original publication date is kept, and the correction is recorded.`,
+        `Recalculate this ranking? ${changes.join(", and ")}, and every result recomputed. The original publication date is kept, and the correction is recorded.`,
       )
     ) {
       return;
@@ -178,6 +223,42 @@ export default function RankingConsolidationDetail() {
       api.recalculateRankingConsolidation(consolidation.id),
     );
   };
+
+  // The action, worded for the direction it will actually move the ranking in. Shown
+  // once, inside whichever notice is outstanding, and driven by `can_recalculate` so a
+  // coach is never offered a correction they may not make. It disappears when the
+  // server reports nothing left to correct.
+  const recalculateControl = () =>
+    consolidation.can_recalculate ? (
+      <>
+        <div className="admin-form-actions session-actions">
+          <button
+            type="button"
+            className="admin-btn admin-btn-add"
+            onClick={() => void handleRecalculate()}
+            disabled={busyAction !== null}
+          >
+            <RefreshCw size={14} />
+            {busyAction === "recalculate"
+              ? "Recalculating..."
+              : restoredSessions.length > 0 && staleSessions.length === 0
+                ? "Recalculate to include them"
+                : staleSessions.length > 0 && restoredSessions.length === 0
+                  ? "Recalculate without them"
+                  : "Recalculate"}
+          </button>
+        </div>
+        <p className="field-hint">
+          Recalculating rebuilds every result from the sessions as they are now.
+          The original publication date is kept and the correction is recorded
+          against your name.
+        </p>
+      </>
+    ) : consolidation.recalculable ? (
+      <p className="field-hint">
+        A curator or admin can recalculate this ranking to bring it up to date.
+      </p>
+    ) : null;
 
   // Deleting is the one irreversible action, so it names what is destroyed.
   const handleDelete = async () => {
@@ -195,7 +276,9 @@ export default function RankingConsolidationDetail() {
       navigate("/ranking-consolidations");
     } catch (err) {
       setActionError(
-        err instanceof Error ? err.message : "The ranking could not be deleted.",
+        err instanceof Error
+          ? err.message
+          : "The ranking could not be deleted.",
       );
       setBusyAction(null);
     }
@@ -210,7 +293,8 @@ export default function RankingConsolidationDetail() {
   // is not counted, which is exactly the kind of thing that should not be left for
   // someone to notice by comparing two rankings.
   const isOversight = isAdmin || !!user?.roles?.includes("curator");
-  const canSeeWithdrawnNotice = isOversight || consolidation.created_by_id === user?.id;
+  const canSeeWithdrawnNotice =
+    isOversight || consolidation.created_by_id === user?.id;
 
   return (
     <div className="page ranking-consolidation-detail-page">
@@ -266,11 +350,13 @@ export default function RankingConsolidationDetail() {
           <div className="admin-form-actions session-actions">
             <button
               type="button"
-              className="admin-btn"
+              className="admin-btn admin-btn-remove"
               onClick={() => void handleWithdraw()}
               disabled={busyAction !== null}
             >
-              {busyAction === "withdraw" ? "Withdrawing..." : "Withdraw ranking"}
+              {busyAction === "withdraw"
+                ? "Withdrawing..."
+                : "Withdraw ranking"}
             </button>
           </div>
         )}
@@ -285,11 +371,13 @@ export default function RankingConsolidationDetail() {
               disabled={busyAction !== null}
             >
               <Undo2 size={14} />
-              {busyAction === "restore" ? "Restoring..." : "Restore to published"}
+              {busyAction === "restore"
+                ? "Restoring..."
+                : "Restore to published"}
             </button>
             <button
               type="button"
-              className="admin-btn"
+              className="admin-btn admin-btn-remove"
               onClick={() => void handleRestore("draft")}
               disabled={busyAction !== null}
             >
@@ -330,23 +418,23 @@ export default function RankingConsolidationDetail() {
           <span>
             {pendingSessions.length > 0 ? (
               <>
-                This ranking is a draft. Publishing is blocked until every source
-                session is published —{" "}
+                This ranking is a draft. Publishing is blocked until every
+                source session is published —{" "}
                 <strong>
                   {pendingSessions
                     .map((s) => s.name || `Session #${s.assessment_session_id}`)
                     .join(", ")}
                 </strong>{" "}
-                {pendingSessions.length === 1 ? "is" : "are"} still unfinished. The
-                numbers shown are rebuilt from the sessions at the moment you
-                publish, so they will reflect their final scores.
+                {pendingSessions.length === 1 ? "is" : "are"} still unfinished.
+                The numbers shown are rebuilt from the sessions at the moment
+                you publish, so they will reflect their final scores.
               </>
             ) : (
               <>
-                Every source session is published, so this ranking can be frozen as
-                the club&apos;s official result. The numbers shown are rebuilt from the
-                sessions at the moment you publish, so they will reflect their final
-                scores.
+                Every source session is published, so this ranking can be frozen
+                as the club&apos;s official result. The numbers shown are
+                rebuilt from the sessions at the moment you publish, so they
+                will reflect their final scores.
               </>
             )}
           </span>
@@ -357,10 +445,11 @@ export default function RankingConsolidationDetail() {
         <div className="consolidation-immutable-note">
           <Info size={16} />
           <span>
-            This ranking was withdrawn and is no longer the club&apos;s result. Its
-            rows are kept, so the record that it was once published survives. Only an
-            admin can restore it — to draft, or back to published, which re-derives
-            the ranking from the sessions as they are now.
+            This ranking was withdrawn and is no longer the club&apos;s result.
+            Its rows are kept, so the record that it was once published
+            survives. Only an admin can restore it — to draft, or back to
+            published, which re-derives the ranking from the sessions as they
+            are now.
           </span>
         </div>
       )}
@@ -369,8 +458,8 @@ export default function RankingConsolidationDetail() {
         <div className="consolidation-immutable-note">
           <Info size={16} />
           <span>
-            This is a permanent snapshot frozen at publication. Later changes to the
-            source sessions — including withdrawing one — do not alter it.
+            This is a permanent snapshot frozen at publication. Later changes to
+            the source sessions — including withdrawing one — do not alter it.
           </span>
         </div>
       )}
@@ -381,27 +470,33 @@ export default function RankingConsolidationDetail() {
           <div className="consolidation-warning-body">
             <strong>
               {excludedSessions.length} source session
-              {excludedSessions.length === 1 ? " was" : "s were"} withdrawn before this
-              ranking was computed, so {excludedSessions.length === 1 ? "its" : "their"}{" "}
-              scores {excludedSessions.length === 1 ? "is" : "are"} already excluded.
+              {excludedSessions.length === 1 ? " was" : "s were"} withdrawn
+              before this ranking was computed, so{" "}
+              {excludedSessions.length === 1 ? "its" : "their"} scores{" "}
+              {excludedSessions.length === 1 ? "is" : "are"} already excluded.
             </strong>
             <ul className="consolidation-warning-list">
               {excludedSessions.map((s) => (
                 <li key={s.assessment_session_id}>
                   <span className="consolidation-warning-session">
-                    <Link to={`/assessment-sessions/${s.assessment_session_id}`}>
+                    <Link
+                      to={`/assessment-sessions/${s.assessment_session_id}`}
+                    >
                       {s.name || `Session #${s.assessment_session_id}`}
                     </Link>
                   </span>
                   <span className="consolidation-warning-detail">
-                    {s.coach_name ? `Withdrawn by ${s.coach_name}` : "Withdrawn"}
+                    {s.coach_name
+                      ? `Withdrawn by ${s.coach_name}`
+                      : "Withdrawn"}
                   </span>
                 </li>
               ))}
             </ul>
             <p className="consolidation-warning-note">
-              The session is still listed as a source, but its scores are excluded
-              entirely rather than counted as zero. It does not hold up publication.
+              The session is still listed as a source, but its scores are
+              excluded entirely rather than counted as zero. It does not hold up
+              publication.
             </p>
           </div>
         </div>
@@ -413,20 +508,25 @@ export default function RankingConsolidationDetail() {
           <div className="consolidation-warning-body">
             <strong>
               {staleSessions.length} source session
-              {staleSessions.length === 1 ? " was" : "s were"} withdrawn after this
-              ranking was published, and {staleSessions.length === 1 ? "its" : "their"}{" "}
-              scores are still counted in it.
+              {staleSessions.length === 1 ? " was" : "s were"} withdrawn after
+              this ranking was published, and{" "}
+              {staleSessions.length === 1 ? "its" : "their"} scores are still
+              counted in it.
             </strong>
             <ul className="consolidation-warning-list">
               {staleSessions.map((s) => (
                 <li key={s.assessment_session_id}>
                   <span className="consolidation-warning-session">
-                    <Link to={`/assessment-sessions/${s.assessment_session_id}`}>
+                    <Link
+                      to={`/assessment-sessions/${s.assessment_session_id}`}
+                    >
                       {s.name || `Session #${s.assessment_session_id}`}
                     </Link>
                   </span>
                   <span className="consolidation-warning-detail">
-                    {s.coach_name ? `Withdrawn by ${s.coach_name}` : "Withdrawn"}
+                    {s.coach_name
+                      ? `Withdrawn by ${s.coach_name}`
+                      : "Withdrawn"}
                     {s.withdrawn_at
                       ? ` · ${formatDateTime(s.withdrawn_at)}`
                       : ""}
@@ -435,40 +535,52 @@ export default function RankingConsolidationDetail() {
               ))}
             </ul>
             <p className="consolidation-warning-note">
-              Publishing does not cascade, so this ranking kept the numbers it was
-              frozen with — the results below still include{" "}
-              {staleSessions.length === 1 ? "that session" : "those sessions"}. The
-              ranking is not wrong; it is simply older than the withdrawal.
+              Publishing does not cascade, so this ranking kept the numbers it
+              was frozen with — the results below still include{" "}
+              {staleSessions.length === 1 ? "that session" : "those sessions"}.
+              The ranking is not wrong; it is simply older than the withdrawal.
             </p>
-            {consolidation.can_recalculate && (
-              <>
-                <div className="admin-form-actions session-actions">
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn-add"
-                    onClick={() => void handleRecalculate()}
-                    disabled={busyAction !== null}
-                  >
-                    <RefreshCw size={14} />
-                    {busyAction === "recalculate"
-                      ? "Recalculating..."
-                      : "Recalculate without them"}
-                  </button>
-                </div>
-                <p className="field-hint">
-                  Recalculating rebuilds every result from the sessions that remain. The
-                  original publication date is kept and the correction is recorded
-                  against your name.
-                </p>
-              </>
-            )}
-            {consolidation.recalculable && !consolidation.can_recalculate && (
-              <p className="field-hint">
-                A curator or admin can recalculate this ranking to leave{" "}
-                {staleSessions.length === 1 ? "that session" : "those sessions"} out of
-                it.
-              </p>
-            )}
+            {recalculateControl()}
+          </div>
+        </div>
+      )}
+
+      {restoredSessions.length > 0 && (
+        <div className="consolidation-withdrawn-banner" role="status">
+          <AlertCircle size={16} />
+          <div className="consolidation-warning-body">
+            <strong>
+              {restoredSessions.length} source session
+              {restoredSessions.length === 1 ? " was" : "s were"} restored to
+              published after this ranking was computed, and{" "}
+              {restoredSessions.length === 1 ? "its" : "their"} scores are
+              missing from it.
+            </strong>
+            <ul className="consolidation-warning-list">
+              {restoredSessions.map((s) => (
+                <li key={s.assessment_session_id}>
+                  <span className="consolidation-warning-session">
+                    <Link
+                      to={`/assessment-sessions/${s.assessment_session_id}`}
+                    >
+                      {s.name || `Session #${s.assessment_session_id}`}
+                    </Link>
+                  </span>
+                  <span className="consolidation-warning-detail">
+                    {s.coach_name
+                      ? `Scored by ${s.coach_name}`
+                      : "Published again"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="consolidation-warning-note">
+              The session is scoring again, but this ranking was frozen without
+              it, so the results below are lower than they should be. Unlike a
+              stale withdrawal this is a genuine shortfall, not merely an older
+              result.
+            </p>
+            {recalculateControl()}
           </div>
         </div>
       )}
@@ -487,15 +599,16 @@ export default function RankingConsolidationDetail() {
                     {s.name || `Session #${s.assessment_session_id}`}
                   </span>
                   <span className="consolidation-warning-detail">
-                    {s.incomplete_count} incomplete: {s.incomplete_players.join(", ")}
+                    {s.incomplete_count} incomplete:{" "}
+                    {s.incomplete_players.join(", ")}
                   </span>
                 </li>
               ))}
             </ul>
             <p className="consolidation-warning-note">
-              Incomplete players are absent from those sessions' scores rather than
-              counted as zero, so their average is over fewer sessions than the
-              coverage badge shows.
+              Incomplete players are absent from those sessions' scores rather
+              than counted as zero, so their average is over fewer sessions than
+              the coverage badge shows.
             </p>
           </div>
         </div>
@@ -517,7 +630,9 @@ export default function RankingConsolidationDetail() {
                       {s.name || `Session #${s.assessment_session_id}`}
                     </span>
                     {s.coach_name && (
-                      <span className="consolidation-coach-name">{s.coach_name}</span>
+                      <span className="consolidation-coach-name">
+                        {s.coach_name}
+                      </span>
                     )}
                   </th>
                 ))}
@@ -528,7 +643,9 @@ export default function RankingConsolidationDetail() {
               {rows.map((row) => (
                 <tr key={row.player_profile_id} className="ranking-row">
                   <td className="cell-rank">
-                    <span className={`rank-badge rank-${row.rank}`}>#{row.rank}</span>
+                    <span className={`rank-badge rank-${row.rank}`}>
+                      #{row.rank}
+                    </span>
                   </td>
                   <td className="cell-player">
                     <span className="player-name">{row.player_name}</span>
@@ -539,15 +656,20 @@ export default function RankingConsolidationDetail() {
                     )}
                   </td>
                   {sessions.map((s) => {
-                    const score = row.coach_scores?.[String(s.assessment_session_id)];
+                    const score =
+                      row.coach_scores?.[String(s.assessment_session_id)];
                     return (
                       <td key={s.assessment_session_id} className="cell-score">
-                        {score ?? <span className="consolidation-not-ranked">—</span>}
+                        {score ?? (
+                          <span className="consolidation-not-ranked">—</span>
+                        )}
                       </td>
                     );
                   })}
                   <td className="cell-score">
-                    <span className="overall-score-badge">{row.average_score}</span>
+                    <span className="overall-score-badge">
+                      {row.average_score}
+                    </span>
                   </td>
                 </tr>
               ))}
@@ -563,12 +685,15 @@ export default function RankingConsolidationDetail() {
           </div>
           <p className="ranking-section-desc">
             These players were absent from some source sessions. Their average
-            covers only the sessions that ranked them — they were not scored zero
-            for the others.
+            covers only the sessions that ranked them — they were not scored
+            zero for the others.
           </p>
           <ul className="incomplete-player-list">
             {partialRows.map((row) => (
-              <li key={row.player_profile_id} className="incomplete-player-item">
+              <li
+                key={row.player_profile_id}
+                className="incomplete-player-item"
+              >
                 <span className="player-name">{row.player_name}</span>
                 <span className="incomplete-categories-badge">
                   Ranked by {row.coverage} of {sessionCount}
@@ -585,7 +710,10 @@ export default function RankingConsolidationDetail() {
         </div>
         <ul className="consolidation-source-list">
           {sessions.map((s) => (
-            <li key={s.assessment_session_id} className="consolidation-source-item">
+            <li
+              key={s.assessment_session_id}
+              className="consolidation-source-item"
+            >
               <Link to={`/assessment-sessions/${s.assessment_session_id}`}>
                 {s.name || `Session #${s.assessment_session_id}`}
               </Link>

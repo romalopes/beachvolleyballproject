@@ -55,6 +55,7 @@ const consolidation = (
   withdrawn_session_count: 0,
   stale_withdrawn_session_count: 0,
   excluded_withdrawn_session_count: 0,
+  restored_session_count: 0,
   computed_at: "2026-09-27T09:46:00Z",
   recalculated_at: null,
   recalculable: false,
