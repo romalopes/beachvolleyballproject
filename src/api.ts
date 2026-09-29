@@ -659,11 +659,57 @@ export type OrganisationType =
   | "association"
   | "other";
 
+/**
+ * One person's membership of one organisation.
+ *
+ * The `status` is a lifecycle, not a mood: `pending` means an invitation nobody has
+ * accepted, which is the only state that can be withdrawn outright. Ending a real
+ * member's membership is `ended` and the row survives, because a historical
+ * assessment has to remain explicable by the membership that existed at the time.
+ */
+export interface OrganisationMembership {
+  id: number;
+  organisation_id: number;
+  person_id: number;
+  person_name: string | null;
+  role: OrganisationMembershipRole;
+  role_label: string;
+  status: "pending" | "active" | "suspended" | "ended";
+  status_label: string;
+  joined_at: string | null;
+  left_at: string | null;
+  /** Whether this person may run the organisation's roster. */
+  manages: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type OrganisationMembershipRole = "owner" | "administrator" | "coach" | "member";
+
+export interface OrganisationMembershipList {
+  organisation: { id: number; name: string };
+  data: OrganisationMembership[];
+}
+
+/** Outcome of leaving or withdrawing: the row survives only for a real departure. */
+export interface OrganisationMembershipEnded {
+  removed: boolean;
+  person_id?: number;
+  membership?: OrganisationMembership;
+  message?: string;
+}
+
 export interface Organisation {
   id: number;
   name: string;
   slug: string;
   description: string | null;
+  /**
+   * Short display form ("FIVB"), or null. Preferred over initials derived from the
+   * name: "Fédération Internationale de Volleyball" would otherwise fall back to
+   * "FÉ".
+   */
+  acronym: string | null;
   organisation_type: OrganisationType;
   status: "active" | "archived";
   status_label: string;
@@ -696,6 +742,8 @@ export interface Organisation {
 export interface OrganisationInput {
   name: string;
   description?: string | null;
+  /** Omit to leave unchanged on an edit; null or "" clears it. */
+  acronym?: string | null;
   organisation_type?: OrganisationType;
   parent_organisation_id?: number | null;
 }
@@ -1599,6 +1647,45 @@ export const api = {
    */
   deleteOrganisation: (id: number) =>
     postJSON<{ message: string; id: number }>(`/organisations/${id}`, {}, "DELETE"),
+
+  // ---------- Organisation membership -----------------------------------------
+  // Delegated to the organisation's own officers, not the site admin, so these
+  // read a roster that may be far narrower than the full list.
+
+  /** The roster. Managers see everyone; others see only their own row and history. */
+  organisationMembers: (id: number) =>
+    fetchAPI<OrganisationMembershipList>(`/organisations/${id}/members`),
+  /**
+   * Invite someone. Defaults to a `pending` invitation server-side — adding
+   * somebody to a roster is an invitation, not a grant.
+   */
+  addOrganisationMember: (
+    id: number,
+    personId: number,
+    data: { role?: OrganisationMembershipRole; status?: string } = {},
+  ) =>
+    postJSON<OrganisationMembership>(`/organisations/${id}/members`, {
+      membership: { person_id: personId, ...data },
+    }),
+  updateOrganisationMember: (
+    id: number,
+    personId: number,
+    data: { role?: OrganisationMembershipRole; status?: string },
+  ) =>
+    postJSON<OrganisationMembership>(`/organisations/${id}/members/${personId}`, {
+      membership: data,
+    },
+    "PATCH"),
+  /**
+   * Leave or withdraw. A real member's membership ends and the row survives; an
+   * unaccepted invitation is withdrawn and removed. `removed` says which happened.
+   */
+  endOrganisationMember: (id: number, personId: number) =>
+    postJSON<OrganisationMembershipEnded>(
+      `/organisations/${id}/members/${personId}`,
+      {},
+      "DELETE",
+    ),
   /**
    * Uploads or replaces a logo. Multipart, and on its own route so the JSON
    * `update` above keeps a single content-type contract. The server validates

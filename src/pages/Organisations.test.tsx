@@ -19,6 +19,7 @@ vi.mock("../api", async (importOriginal) => {
       restoreOrganisation: vi.fn(),
       uploadOrganisationLogo: vi.fn(),
       deleteOrganisation: vi.fn(),
+      updateOrganisation: vi.fn(),
     },
   };
 });
@@ -32,6 +33,7 @@ const organisation = (
   name: "FIVB",
   slug: "fivb",
   description: null,
+  acronym: null,
   organisation_type: "international_federation",
   status: "active",
   status_label: "Active",
@@ -242,6 +244,158 @@ describe("Organisations", () => {
     renderPage();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("API Error: 500");
+  });
+
+  // --- edit ------------------------------------------------------------------
+
+  it("opens an edit form on the row and saves the new name", async () => {
+    mockedApi.updateOrganisation.mockResolvedValue(
+      organisation({ name: "FIVB Renamed", can_edit: true }),
+    );
+    withEditableRows();
+    renderPage(authValue({ user: adminUser }));
+    await screen.findByText("FIVB");
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const nameInput = screen.getByDisplayValue("FIVB");
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "FIVB Renamed");
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(mockedApi.updateOrganisation).toHaveBeenCalledWith(1, {
+      name: "FIVB Renamed",
+      acronym: null,
+      description: null,
+      organisation_type: "international_federation",
+    });
+    expect(await screen.findByText("FIVB Renamed updated.")).toBeInTheDocument();
+  });
+
+  it("does not offer editing a row the server marked as not editable", async () => {
+    withEditableRows(); // every row can_edit: true
+    mockedApi.organisations.mockResolvedValue(
+      paginated([
+        organisation({ id: 1, name: "FIVB", can_edit: true }),
+        organisation({ id: 2, name: "Sydney Beach Club", can_edit: false }),
+      ]),
+    );
+    renderPage(authValue({ user: adminUser }));
+
+    await screen.findByText("FIVB");
+    // Exactly one Edit, on the editable row only.
+    expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(1);
+  });
+
+  it("refuses to save an empty name", async () => {
+    withEditableRows();
+    renderPage(authValue({ user: adminUser }));
+    await screen.findByText("FIVB");
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.clear(screen.getByDisplayValue("FIVB"));
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/give the organisation a name/i);
+    expect(mockedApi.updateOrganisation).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a rejection from the server when saving", async () => {
+    mockedApi.updateOrganisation.mockRejectedValue(
+      new Error("API Error: 422 Name has already been taken"),
+    );
+    withEditableRows();
+    renderPage(authValue({ user: adminUser }));
+    await screen.findByText("FIVB");
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const nameInput = screen.getByDisplayValue("FIVB");
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Taken Name");
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/already been taken/i);
+    // The form stays open so the edit is not lost.
+    expect(screen.getByRole("button", { name: /save changes/i })).toBeInTheDocument();
+  });
+
+  it("cancelling closes the form without saving", async () => {
+    withEditableRows();
+    renderPage(authValue({ user: adminUser }));
+    await screen.findByText("FIVB");
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+
+    expect(screen.queryByRole("button", { name: /save changes/i })).not.toBeInTheDocument();
+    expect(mockedApi.updateOrganisation).not.toHaveBeenCalled();
+  });
+
+  // --- acronym ---------------------------------------------------------------
+
+  it("prefers the acronym over initials taken from the name", async () => {
+    // "Fédération Internationale de Volleyball" sliced to two characters is "FÉ",
+    // which is worse than showing nothing.
+    mockedApi.organisations.mockResolvedValue(
+      paginated([
+        organisation({
+          name: "Fédération Internationale de Volleyball",
+          acronym: "FIVB",
+        }),
+      ]),
+    );
+    renderPage(authValue({ user: adminUser }));
+
+    await screen.findByText("Fédération Internationale de Volleyball");
+    expect(screen.getByText("FIVB")).toBeInTheDocument();
+    expect(screen.queryByText("FÉ")).not.toBeInTheDocument();
+  });
+
+  it("falls back to initials when there is no acronym", async () => {
+    // The existing behaviour, kept for the organisations that have no short form.
+    renderPage();
+
+    expect(await screen.findByText("FI")).toBeInTheDocument();
+  });
+
+  it("saves a changed acronym", async () => {
+    mockedApi.updateOrganisation.mockResolvedValue(organisation({ acronym: "FIVC" }));
+    mockedApi.organisations.mockResolvedValue(
+      paginated([organisation({ name: "Volleyball Australia", acronym: "VA", can_edit: true })]),
+    );
+    renderPage(authValue({ user: adminUser }));
+    await screen.findByText("Volleyball Australia");
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const acronymInput = screen.getByDisplayValue("VA");
+    await userEvent.clear(acronymInput);
+    await userEvent.type(acronymInput, "FIVC");
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    expect(mockedApi.updateOrganisation).toHaveBeenCalledWith(1, {
+      name: "Volleyball Australia",
+      acronym: "FIVC",
+      description: null,
+      organisation_type: "international_federation",
+    });
+  });
+
+  it("clears the acronym when the field is emptied", async () => {
+    mockedApi.updateOrganisation.mockResolvedValue(organisation({ acronym: null }));
+    mockedApi.organisations.mockResolvedValue(
+      paginated([organisation({ acronym: "VA", can_edit: true })]),
+    );
+    renderPage(authValue({ user: adminUser }));
+    await screen.findByText("FIVB");
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.clear(screen.getByDisplayValue("VA"));
+    await userEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    // null, not "" — otherwise a club that stops using a short form keeps showing it.
+    expect(mockedApi.updateOrganisation).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ name: "FIVB", acronym: null }),
+    );
   });
 
   // --- per-row permissions --------------------------------------------------
