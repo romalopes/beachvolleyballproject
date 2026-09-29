@@ -33,12 +33,20 @@ const LOGO_ACCEPT = "image/png,image/jpeg,image/gif,image/webp,image/svg+xml";
  * self-referencing tree rather than a table per level, so the depth is unbounded
  * and nothing here assumes a fixed number of tiers.
  *
- * Reading is open to any training manager; managing the tree is admin-only,
- * matching the server. The logo is optional and goes up on its own multipart
- * route, so this screen never has to reason about two content types at once.
+ * Reading is open to any training manager, matching the server. What a given user
+ * may *do* is per organisation rather than per role — a curator can edit all of
+ * them, a club's owner only their own — so the controls are driven by the
+ * `can_edit` and `can_delete` flags the API returns with each row. The role check
+ * that remains is for *creating* one, which is a site-level act and genuinely is
+ * admin-only.
+ *
+ * The logo is optional and goes up on its own multipart route, so this screen
+ * never has to reason about two content types at once.
  */
 export default function Organisations() {
   const { user } = useAuth();
+  // Creating a node asserts its place in the federation tree to every other club,
+  // so this one really is admin-only. Everything else is per record.
   const isAdmin =
     !!user?.roles?.includes("admin") &&
     !(user as { real_admin?: unknown }).real_admin;
@@ -87,6 +95,28 @@ export default function Organisations() {
       setNotice(message);
     } catch (err) {
       setError(err instanceof Error ? err.message : "The action could not be completed.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // --- hard delete ----------------------------------------------------------
+  //
+  // Deliberately separate from `run`: this one is irreversible and returns no
+  // record, so the row is removed from local state rather than replaced. The server
+  // refuses it for anything with children or members, and `can_delete` is what it
+  // said in advance — but a 409 here is still handled, because the state can change
+  // between the list being fetched and the button being pressed.
+  const destroy = async (organisation: Organisation) => {
+    setBusyId(organisation.id);
+    setError(null);
+    setNotice(null);
+    try {
+      await api.deleteOrganisation(organisation.id);
+      setOrganisations((current) => current.filter((o) => o.id !== organisation.id));
+      setNotice(`${organisation.name} deleted.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The organisation could not be deleted.");
     } finally {
       setBusyId(null);
     }
@@ -225,7 +255,7 @@ export default function Organisations() {
                 </span>
               </div>
 
-              {isAdmin && (
+              {organisation.can_edit && (
                 <div className="organisations-row-actions">
                   <label className="organisations-logo-upload">
                     <ImageUp size={14} />
@@ -279,6 +309,26 @@ export default function Organisations() {
                       }
                     >
                       Archive
+                    </button>
+                  )}
+                  {organisation.can_delete && (
+                    <button
+                      type="button"
+                      className="admin-btn admin-btn-danger"
+                      disabled={busyId === organisation.id}
+                      onClick={() => {
+                        // `confirm` rather than an inline toggle: the action cannot
+                        // be undone and there is no draft to discard first.
+                        if (
+                          window.confirm(
+                            `Delete ${organisation.name} permanently? This cannot be undone.`,
+                          )
+                        ) {
+                          void destroy(organisation);
+                        }
+                      }}
+                    >
+                      Delete
                     </button>
                   )}
                 </div>

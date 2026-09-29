@@ -1485,6 +1485,20 @@
   background: var(--amber-100);
 }
 
+/* The one irreversible action on this screen. Red rather than amber, because
+   amber here means "removes a row from this form" and this removes the record
+   itself — the weight of the colour is the warning, since the confirmation is a
+   single click away from being skipped. */
+.admin-btn-danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.admin-btn-danger:hover:not(:disabled) {
+  background: #fee2e2;
+}
+
 .admin-btn:disabled {
   opacity: 0.5;
   cursor: default;

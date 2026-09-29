@@ -19,6 +19,7 @@ import {
   Volleyball,
   Star,
   UsersRound,
+  Building2,
 } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useTestAccess } from "../auth/TestAccessContext";
@@ -41,6 +42,7 @@ const navItems = [
 const staffNavItems = [
   { path: "/players", label: "Players", icon: Users },
   { path: "/coaches", label: "Coaches", icon: Volleyball },
+  { path: "/organisations", label: "Organisations", icon: Building2 },
   { path: "/groups", label: "Groups", icon: UsersRound },
   { path: "/assessments", label: "Assessments", icon: Star },
   { path: "/assessment-sessions", label: "Assessment sessions", icon: CalendarDays },

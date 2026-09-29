@@ -18,6 +18,7 @@ vi.mock("../api", async (importOriginal) => {
       archiveOrganisation: vi.fn(),
       restoreOrganisation: vi.fn(),
       uploadOrganisationLogo: vi.fn(),
+      deleteOrganisation: vi.fn(),
     },
   };
 });
@@ -40,6 +41,8 @@ const organisation = (
   depth: 0,
   logo_url: null,
   logo_attached: false,
+  can_edit: false,
+  can_delete: false,
   created_by_person: null,
   created_at: "",
   updated_at: "",
@@ -65,6 +68,15 @@ const adminUser = {
   roles: ["admin"],
 } as unknown as AuthContextValue["user"];
 
+// A training manager who is not an admin. This is deliberately a separate user: a
+// club's owner can be a plain coach, and the point of these tests is that edit
+// rights are per organisation rather than per role.
+const coachUser = {
+  id: 2,
+  email: "coach@example.com",
+  roles: ["coach"],
+} as unknown as AuthContextValue["user"];
+
 const renderPage = (auth: AuthContextValue = authValue()) =>
   render(
     <AuthContext.Provider value={auth}>
@@ -75,6 +87,17 @@ const renderPage = (auth: AuthContextValue = authValue()) =>
   );
 
 const pngFile = () => new File(["x"], "logo.png", { type: "image/png" });
+
+/**
+ * Render the list as the server would return it to somebody who may edit it.
+ *
+ * The controls are driven by the per-row `can_edit` flag rather than by the user's
+ * role, because "may edit" genuinely varies per organisation — a club's owner can
+ * edit their own club and nothing else. A test that exercises those controls
+ * therefore has to set the flag, exactly as the real response carries it.
+ */
+const withEditableRows = () =>
+  mockedApi.organisations.mockResolvedValue(paginated([organisation({ can_edit: true })]));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -142,6 +165,7 @@ describe("Organisations", () => {
     mockedApi.uploadOrganisationLogo.mockResolvedValue(
       organisation({ logo_url: "http://example.test/logo.png", logo_attached: true }),
     );
+    withEditableRows();
     renderPage(authValue({ user: adminUser }));
     await screen.findByText("FIVB");
 
@@ -158,6 +182,7 @@ describe("Organisations", () => {
   });
 
   it("refuses an unsupported file before sending it", async () => {
+    withEditableRows();
     renderPage(authValue({ user: adminUser }));
     await screen.findByText("FIVB");
 
@@ -174,6 +199,7 @@ describe("Organisations", () => {
   });
 
   it("refuses an oversized file before sending it", async () => {
+    withEditableRows();
     renderPage(authValue({ user: adminUser }));
     await screen.findByText("FIVB");
 
@@ -191,6 +217,7 @@ describe("Organisations", () => {
     mockedApi.uploadOrganisationLogo.mockRejectedValue(
       new Error("Logo must be smaller than 10 MB"),
     );
+    withEditableRows();
     renderPage(authValue({ user: adminUser }));
     await screen.findByText("FIVB");
 
@@ -215,5 +242,102 @@ describe("Organisations", () => {
     renderPage();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("API Error: 500");
+  });
+
+  // --- per-row permissions --------------------------------------------------
+  //
+  // "May edit" is per organisation, not per role: a club's owner can correct their
+  // own club and nothing else. The server says which in `can_edit`, and these pin
+  // that the page obeys the flag rather than re-deriving it from the user's role.
+
+  it("shows edit controls only on the rows the server says are editable", async () => {
+    mockedApi.organisations.mockResolvedValue(
+      paginated([
+        organisation({ id: 1, name: "FIVB", can_edit: true }),
+        organisation({ id: 2, name: "Sydney Beach Club", can_edit: false }),
+      ]),
+    );
+    // A plain coach, not an admin: if the page still keyed off the role it would
+    // hide both rows, and if it keyed off nothing it would show both.
+    renderPage(authValue({ user: coachUser }));
+
+    expect(await screen.findByLabelText("Upload logo for FIVB")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Upload logo for Sydney Beach Club")).not.toBeInTheDocument();
+  });
+
+  it("still offers create only to an admin", async () => {
+    withEditableRows();
+    renderPage(authValue({ user: coachUser }));
+
+    await screen.findByText("FIVB");
+    // Creating a node is a site-level act, unlike editing one.
+    expect(
+      screen.queryByRole("button", { name: /new organisation/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  // --- delete ---------------------------------------------------------------
+
+  it("offers delete only where the server said it is possible", async () => {
+    mockedApi.organisations.mockResolvedValue(
+      paginated([
+        organisation({ id: 1, name: "FIVB", can_edit: true, can_delete: true }),
+        // A real club: editable, but never deletable.
+        organisation({ id: 2, name: "Sydney Beach Club", can_edit: true, can_delete: false }),
+      ]),
+    );
+    renderPage(authValue({ user: adminUser }));
+
+    const buttons = await screen.findAllByRole("button", { name: /^delete$/i });
+    expect(buttons).toHaveLength(1);
+  });
+
+  it("deletes after confirmation and drops the row", async () => {
+    mockedApi.deleteOrganisation.mockResolvedValue({ message: "Organisation deleted", id: 1 });
+    mockedApi.organisations.mockResolvedValue(
+      paginated([organisation({ id: 1, name: "Placeholder Club", can_edit: true, can_delete: true })]),
+    );
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderPage(authValue({ user: adminUser }));
+
+    await userEvent.click(await screen.findByRole("button", { name: /^delete$/i }));
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(await screen.findByText(/deleted/i)).toBeInTheDocument();
+    expect(mockedApi.deleteOrganisation).toHaveBeenCalledWith(1);
+    expect(screen.queryByText("Placeholder Club")).not.toBeInTheDocument();
+  });
+
+  it("does nothing when the confirmation is declined", async () => {
+    mockedApi.organisations.mockResolvedValue(
+      paginated([organisation({ can_edit: true, can_delete: true })]),
+    );
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderPage(authValue({ user: adminUser }));
+
+    await userEvent.click(await screen.findByRole("button", { name: /^delete$/i }));
+
+    // The point of confirming: a stray click must not destroy a record.
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(mockedApi.deleteOrganisation).not.toHaveBeenCalled();
+    expect(screen.getByText("FIVB")).toBeInTheDocument();
+  });
+
+  it("surfaces a refusal from the server instead of silently dropping the row", async () => {
+    // The list can go stale: children or members may have been added since it was
+    // fetched, and the server then answers 409.
+    mockedApi.organisations.mockResolvedValue(
+      paginated([organisation({ can_edit: true, can_delete: true })]),
+    );
+    mockedApi.deleteOrganisation.mockRejectedValue(
+      new Error("API Error: 409 This organisation cannot be deleted"),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderPage(authValue({ user: adminUser }));
+
+    await userEvent.click(await screen.findByRole("button", { name: /^delete$/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/cannot be deleted/i);
+    expect(screen.getByText("FIVB")).toBeInTheDocument();
   });
 });

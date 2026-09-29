@@ -676,6 +676,18 @@ export interface Organisation {
   /** Absolute URL, or null when no logo is attached. */
   logo_url: string | null;
   logo_attached: boolean;
+  /**
+   * Whether the signed-in user may change this record. Per organisation, not per
+   * role: a curator can edit all of them, a club's owner only their own. The server
+   * is the authority — this only decides which controls to render, and a stale
+   * `true` would simply earn a 403.
+   */
+  can_edit: boolean;
+  /**
+   * Whether a hard delete is possible at all: admin-only, and refused for anything
+   * with children or members. A real club is archived, never deleted.
+   */
+  can_delete: boolean;
   created_by_person: { id: number; name: string } | null;
   created_at: string;
   updated_at: string;
@@ -1578,6 +1590,15 @@ export const api = {
     postJSON<Organisation>(`/organisations/${id}/archive`, {}),
   restoreOrganisation: (id: number) =>
     postJSON<Organisation>(`/organisations/${id}/restore`, {}),
+  /**
+   * Hard delete, and unlike every archival action above it is not reversible.
+   *
+   * The server refuses it for an organisation with children or members, so a
+   * 409 here is a normal answer rather than an error: a real club is archived,
+   * and only a mistake is deleted.
+   */
+  deleteOrganisation: (id: number) =>
+    postJSON<{ message: string; id: number }>(`/organisations/${id}`, {}, "DELETE"),
   /**
    * Uploads or replaces a logo. Multipart, and on its own route so the JSON
    * `update` above keeps a single content-type contract. The server validates
