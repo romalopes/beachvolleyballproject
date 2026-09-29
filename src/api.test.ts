@@ -319,7 +319,9 @@ describe("people, players and coaches", () => {
     const fetchMock = mockFetchOnce({ ok: true, status: 200, body: [] });
     await api.people({ q: "pedro", email: "pedro@example.com" });
     const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("/api/v1/people?q=pedro&email=pedro%40example.com");
+    // The typeahead lives on its own endpoint: `/people` is the paginated
+    // management list, and the two have deliberately different response shapes.
+    expect(url).toBe("/api/v1/people/search?q=pedro&email=pedro%40example.com");
   });
 
   it("lists players with a search term", async () => {

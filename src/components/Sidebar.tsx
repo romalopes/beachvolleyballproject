@@ -42,6 +42,10 @@ const navItems = [
 const staffNavItems = [
   { path: "/players", label: "Players", icon: Users },
   { path: "/coaches", label: "Coaches", icon: Volleyball },
+  // People are the identity behind players and coaches, and are managed
+  // separately: a club records committee members and parents who have no profile
+  // at all, so a roster cannot be the only way a person comes into the system.
+  { path: "/people", label: "People", icon: UserCircle },
   { path: "/organisations", label: "Organisations", icon: Building2 },
   { path: "/groups", label: "Groups", icon: UsersRound },
   { path: "/assessments", label: "Assessments", icon: Star },

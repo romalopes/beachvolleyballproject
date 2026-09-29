@@ -6068,6 +6068,38 @@
   font-family: monospace;
 }
 
+/* The fold control. Sized like the logo and always present — a fixed slot, with a
+   transparent spacer for leaves — so folding a branch does not shift the rest of
+   the row sideways. */
+.organisations-fold,
+.organisations-fold-spacer {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+}
+
+.organisations-fold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  /* Rotation is done inline on the icon, so the transition belongs here. */
+  transition: background-color 0.15s ease;
+}
+
+.organisations-fold:hover {
+  background: var(--bg-tertiary);
+}
+
+.organisations-fold svg {
+  transition: transform 0.15s ease;
+}
+
 /* Square, so a wide crest is cropped rather than squashing the row. */
 .organisations-logo {
   width: 2.25rem;
@@ -6091,6 +6123,202 @@
   color: var(--teal-600);
   background: var(--teal-50);
   border-color: var(--teal-100);
+}
+
+/* ---------- People: the identity catalogue ---------- */
+.people-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.people-toolbar input {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.people-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.people-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.people-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.people-name {
+  font-weight: 600;
+  color: var(--charcoal);
+}
+
+.people-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.people-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+}
+
+.people-tag {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--border-light, #f1efe9);
+  color: var(--text-muted);
+}
+
+.people-tag-player {
+  background: var(--teal-50);
+  color: var(--teal-600);
+}
+
+.people-tag-coach {
+  background: var(--amber-50);
+  color: var(--amber-600);
+}
+
+.people-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.people-form {
+  margin: 0.5rem 0;
+}
+
+.organisations-roster {
+  flex-basis: 100%;
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle, #fbfaf7);
+}
+
+/* The edit form and the roster both live inside a row, which is a flex line, so
+   they need the full width or they would be squeezed beside the name. */
+.organisations-row {
+  flex-wrap: wrap;
+}
+
+.organisations-roster-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.organisations-roster-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.organisations-roster-group h4 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 0.75rem 0 0.25rem;
+}
+
+.organisations-roster-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.organisations-roster-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.organisations-roster-name {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.organisations-roster-tag {
+  font-size: 0.7rem;
+  padding: 0 0.35rem;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--amber-50);
+  color: var(--amber-600);
+}
+
+.organisations-roster-role {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.organisations-roster-empty {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0.15rem 0;
+}
+
+.organisations-roster-add {
+  margin-top: 0.5rem;
+}
+
+.organisations-add {
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+
+.organisations-add-results {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.organisations-add-results li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .organisations-row-body {

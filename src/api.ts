@@ -734,6 +734,12 @@ export interface Organisation {
    * with children or members. A real club is archived, never deleted.
    */
   can_delete: boolean;
+  /**
+   * Whether the caller may run this organisation's roster. Per organisation, not
+   * per role, and narrower than `can_edit`: a curator may correct any record but is
+   * not an officer of any club.
+   */
+  can_manage_members: boolean;
   created_by_person: { id: number; name: string } | null;
   created_at: string;
   updated_at: string;
@@ -1079,6 +1085,14 @@ export interface PersonIdentity {
    * evidence, but how a coach usually recognises someone.
    */
   aliases?: string[];
+}
+
+export interface PersonInput {
+  first_name: string;
+  last_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  date_of_birth?: string | null;
 }
 
 export interface ProfilePerson {
@@ -1473,13 +1487,48 @@ export const api = {
    * create-coach flow runs before recording a new person, so a coach can pick
    * an existing identity instead of duplicating it.
    */
+  /**
+   * The identity typeahead: a bare array, hard-capped server-side at 25. It is a
+   * different endpoint from the paginated management list, so this shape stays
+   * stable for the invite form and the create-player flow that already depend on
+   * it.
+   */
   people: (params?: { q?: string; email?: string }) => {
     const qs = new URLSearchParams();
     if (params?.q) qs.set("q", params.q);
     if (params?.email) qs.set("email", params.email);
     const query = qs.toString();
-    return fetchAPI<PersonIdentity[]>(`/people${query ? `?${query}` : ""}`);
+    return fetchAPI<PersonIdentity[]>(`/people/search${query ? `?${query}` : ""}`);
   },
+
+  // ---------- People (CRUD; delete and promote are admin-only) ----------
+  peopleList: (params?: { q?: string; page?: number; per_page?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.q) qs.set("q", params.q);
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.per_page) qs.set("per_page", String(params.per_page));
+    const query = qs.toString();
+    return fetchAPI<{ data: PersonIdentity[]; meta: PaginationMeta }>(
+      `/people${query ? `?${query}` : ""}`,
+    );
+  },
+  person: (id: number) => fetchAPI<PersonIdentity>(`/people/${id}`),
+  createPerson: (data: PersonInput) =>
+    postJSON<PersonIdentity>("/people", { person: data }),
+  updatePerson: (id: number, data: Partial<PersonInput>) =>
+    postJSON<PersonIdentity>(`/people/${id}`, { person: data }, "PATCH"),
+  deletePerson: (id: number) =>
+    postJSON<{ message: string; id: number }>(`/people/${id}`, {}, "DELETE"),
+  /**
+   * Attach a player or coach profile to an existing person. Admin-only server-side:
+   * a new player is a coach's ordinary work, but promoting an identity that may
+   * already sit on a roster is a broader act.
+   */
+  promotePerson: (id: number, role: "player" | "coach") =>
+    postJSON<PersonIdentity & { profile_id: number; profile_kind: string }>(
+      `/people/${id}/promote`,
+      { promotion: { role } },
+    ),
 
   // ---------- Players (read: training managers; create: coach/admin) ----------
   /**
@@ -1616,10 +1665,16 @@ export const api = {
       "DELETE",
     ),
   // ---- Organisations -------------------------------------------------------
-  organisations: (status?: string, type?: string) => {
+  /**
+   * `tree` asks for the whole hierarchy unpaginated, for the tree view. A page
+   * boundary is meaningless there: a child whose parent is on another page has
+   * nothing to be drawn under, and a client walking from the roots loses it.
+   */
+  organisations: (status?: string, type?: string, tree = false) => {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
     if (type) params.set("organisation_type", type);
+    if (tree) params.set("tree", "1");
     const query = params.toString();
     return fetchAPI<PaginatedResponse<Organisation>>(
       `/organisations${query ? `?${query}` : ""}`,

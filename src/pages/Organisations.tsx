@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { AlertCircle, ImageUp, Layers, Plus, UsersRound, X } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronRight,
+  ImageUp,
+  Layers,
+  Plus,
+  UsersRound,
+  X,
+} from "lucide-react";
 import {
   api,
   type Organisation,
@@ -29,7 +37,6 @@ const ORGANISATION_TYPES: Array<{ value: OrganisationType; label: string }> = [
 // sent. The server stays the authority: this is a courtesy, not a check.
 const MAX_LOGO_BYTES = 10 * 1024 * 1024;
 const LOGO_ACCEPT = "image/png,image/jpeg,image/gif,image/webp,image/svg+xml";
-
 
 /**
  * Organisations are the hierarchical context a club or federation sits in — one
@@ -67,19 +74,27 @@ export default function Organisations() {
   const [rosterId, setRosterId] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
+  // Which nodes are folded. A set of ids rather than a map: folding is a property
+  // of the node, and every node starts unfolded, so an absent id means "open".
+  const [collapsed, setCollapsed] = useState<Set<number>>(() => new Set());
 
   const load = useCallback(() => {
     // Every setState here is inside a promise callback, never synchronously in the
     // effect body — a synchronous one cascades an extra render on every load. Same
     // shape as Groups.
     return api
-      .organisations(showArchived ? "archived" : "active")
+      // `tree`: the whole hierarchy in one response. This page only ever draws a
+      // tree, so a page boundary here would strand children under parents that are
+      // not in the response.
+      .organisations(showArchived ? "archived" : "active", undefined, true)
       .then((page) => {
         setOrganisations(page.data);
         setError(null);
       })
       .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : "Failed to load organisations."),
+        setError(
+          err instanceof Error ? err.message : "Failed to load organisations.",
+        ),
       );
   }, [showArchived]);
 
@@ -88,7 +103,10 @@ export default function Organisations() {
   }, [load]);
 
   const replace = (saved: Organisation) => {
-    setOrganisations((current) => [saved, ...current.filter((o) => o.id !== saved.id)]);
+    setOrganisations((current) => [
+      saved,
+      ...current.filter((o) => o.id !== saved.id),
+    ]);
   };
 
   const run = async (
@@ -103,7 +121,11 @@ export default function Organisations() {
       replace(await fn());
       setNotice(message);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The action could not be completed.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "The action could not be completed.",
+      );
     } finally {
       setBusyId(null);
     }
@@ -122,10 +144,16 @@ export default function Organisations() {
     setNotice(null);
     try {
       await api.deleteOrganisation(organisation.id);
-      setOrganisations((current) => current.filter((o) => o.id !== organisation.id));
+      setOrganisations((current) =>
+        current.filter((o) => o.id !== organisation.id),
+      );
       setNotice(`${organisation.name} deleted.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The organisation could not be deleted.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "The organisation could not be deleted.",
+      );
     } finally {
       setBusyId(null);
     }
@@ -149,7 +177,9 @@ export default function Organisations() {
       replace(await api.uploadOrganisationLogo(organisation.id, file));
       setNotice(`Logo updated for ${organisation.name}.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The logo could not be uploaded.");
+      setError(
+        err instanceof Error ? err.message : "The logo could not be uploaded.",
+      );
     } finally {
       setUploadingId(null);
     }
@@ -158,8 +188,8 @@ export default function Organisations() {
   // --- tree ----------------------------------------------------------------
   //
   // Built from the flat list rather than fetched recursively: each row carries its
-  // parent, so the whole visible tree arrives in one request and no endpoint has to
-  // return an unbounded structure by default.
+  // parent, so the whole hierarchy arrives in one request and no endpoint has to
+  // return a nested structure by default.
   const tree = useMemo(() => {
     const byParent = new Map<number | null, Organisation[]>();
     organisations.forEach((organisation) => {
@@ -168,16 +198,52 @@ export default function Organisations() {
       byParent.set(organisation.parent_organisation_id, siblings);
     });
 
-    const rows: Array<{ organisation: Organisation; depth: number }> = [];
-    const walk = (parentId: number | null, depth: number) => {
-      (byParent.get(parentId) ?? []).forEach((organisation) => {
-        rows.push({ organisation, depth });
-        walk(organisation.id, depth + 1);
-      });
+    const rows: Array<{
+      organisation: Organisation;
+      depth: number;
+      childCount: number;
+    }> = [];
+    const emitted = new Set<number>();
+    const place = (organisation: Organisation, depth: number) => {
+      // Idempotent: the detached pass below walks organisations that a parent may
+      // already have emitted, and a second visit would duplicate the whole subtree.
+      if (emitted.has(organisation.id)) return;
+      emitted.add(organisation.id);
+      const children = byParent.get(organisation.id) ?? [];
+      rows.push({ organisation, depth, childCount: children.length });
+      // Folding hides the subtree but not the node itself, so the control stays
+      // reachable to unfold it again.
+      if (collapsed.has(organisation.id)) return;
+      children.forEach((child) => place(child, depth + 1));
     };
-    walk(null, 0);
+
+    (byParent.get(null) ?? []).forEach((root) => place(root, 0));
+
+    // A node is detached only when its parent id names something this response does
+    // not contain — an archived parent hidden by the status filter, say. Those are
+    // shown at the top level rather than dropped, because walking from the roots
+    // alone would make them vanish: a filter that hides rows rather than narrowing
+    // them. Everything else is placed by its own parent, so it is left alone here.
+    // Deliberately not "not yet emitted": folding hides a subtree, and a folded
+    // child is still attached.
+    const present = new Set(organisations.map((organisation) => organisation.id));
+    organisations
+      .filter(
+        (organisation) =>
+          organisation.parent_organisation_id !== null &&
+          !present.has(organisation.parent_organisation_id),
+      )
+      .forEach((organisation) => place(organisation, 0));
+
     return rows;
-  }, [organisations]);
+  }, [organisations, collapsed]);
+
+  const toggleCollapsed = (id: number) =>
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
 
   return (
     <div className="page organisations-page">
@@ -211,14 +277,34 @@ export default function Organisations() {
         <NewOrganisationForm
           organisations={organisations}
           onCancel={() => setShowNew(false)}
-          onCreated={(created) => {
+          onCreated={(created, logoError) => {
             replace(created);
             setShowNew(false);
-            setNotice(`${created.name} created.`);
+            if (logoError) {
+              // The organisation exists; only the crest failed. Saying so is
+              // better than a bare failure, which would read as "nothing happened".
+              setNotice(null);
+              setError(
+                `${created.name} was created, but the logo was not uploaded: ${logoError}`,
+              );
+            } else {
+              setNotice(`${created.name} created.`);
+            }
           }}
         />
       )}
-
+      {isAdmin && !showNew && (
+        <div className="admin-form-actions session-actions">
+          <button
+            type="button"
+            className="admin-btn admin-btn-add"
+            onClick={() => setShowNew(true)}
+          >
+            <Plus size={14} />
+            New organisation
+          </button>
+        </div>
+      )}
       {tree.length === 0 ? (
         <EmptyState
           title="No organisations yet"
@@ -226,12 +312,34 @@ export default function Organisations() {
         />
       ) : (
         <ul className="organisations-tree">
-          {tree.map(({ organisation, depth }) => (
+          {tree.map(({ organisation, depth, childCount }) => {
+            const isCollapsed = collapsed.has(organisation.id);
+            return (
             <li
               key={organisation.id}
               className="organisations-row"
               style={{ paddingLeft: `${depth * 1.5}rem` }}
             >
+              {/* Only nodes that actually have children get a fold control, so a
+                  leaf is not offered an action that would do nothing. The spacer
+                  keeps leaves aligned with the branches above them. */}
+              {childCount > 0 ? (
+                <button
+                  type="button"
+                  className="organisations-fold"
+                  aria-expanded={!isCollapsed}
+                  aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${organisation.name}`}
+                  onClick={() => toggleCollapsed(organisation.id)}
+                >
+                  <ChevronRight
+                    size={14}
+                    style={{ transform: isCollapsed ? "none" : "rotate(90deg)" }}
+                  />
+                </button>
+              ) : (
+                <span className="organisations-fold-spacer" aria-hidden="true" />
+              )}
+
               <span className="organisations-row-marker" aria-hidden="true">
                 {depth === 0 ? "" : "└"}
               </span>
@@ -254,17 +362,29 @@ export default function Organisations() {
                   {/* The acronym when there is one: slicing the name gives "FÉ" for
                       Fédération Internationale de Volleyball, which is worse than no
                       badge at all. */}
-                  {organisation.acronym ?? organisation.name.slice(0, 2).toUpperCase()}
+                  {organisation.acronym ??
+                    organisation.name.slice(0, 2).toUpperCase()}
                 </span>
               )}
 
               <div className="organisations-row-body">
-                <span className="organisations-row-name">{organisation.name}</span>
+                <span className="organisations-row-name">
+                  {organisation.name}
+                </span>
                 <span className="organisations-row-meta">
                   {organisation.organisation_type.replace(/_/g, " ")}
                   {" · "}
-                  {organisation.child_count} child
-                  {organisation.child_count === 1 ? "" : "ren"}
+                  {childCount} child
+                  {childCount === 1 ? "" : "ren"}
+                  {/* Named rather than left to the indentation: a parent is otherwise
+                      only inferable from position, which is exactly the thing that
+                      cannot be checked when a node looks misfiled. */}
+                  {organisation.parent_organisation && (
+                    <>
+                      {" · under "}
+                      {organisation.parent_organisation.name}
+                    </>
+                  )}
                 </span>
               </div>
 
@@ -331,19 +451,6 @@ export default function Organisations() {
                     onClick={() => {
                       setError(null);
                       setNotice(null);
-                      setRosterId(rosterId === organisation.id ? null : organisation.id);
-                    }}
-                  >
-                    <UsersRound size={14} />
-                    {rosterId === organisation.id ? "Close roster" : "Members"}
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-btn"
-                    disabled={busyId === organisation.id}
-                    onClick={() => {
-                      setError(null);
-                      setNotice(null);
                       setEditingId(
                         editingId === organisation.id ? null : organisation.id,
                       );
@@ -374,11 +481,35 @@ export default function Organisations() {
                 </div>
               )}
 
+              {/* The roster is *readable* by anyone who can see the organisation —
+                  the server narrows what each viewer sees — so this control is
+                  outside the `can_edit` block. Putting it inside would hide the
+                  roster from exactly the people who are meant to consult it. */}
+              <div className="organisations-row-actions">
+                <button
+                  type="button"
+                  className="admin-btn"
+                  disabled={busyId === organisation.id}
+                  onClick={() => {
+                    setError(null);
+                    setNotice(null);
+                    setRosterId(
+                      rosterId === organisation.id ? null : organisation.id,
+                    );
+                  }}
+                >
+                  <UsersRound size={14} />
+                  {rosterId === organisation.id ? "Close roster" : "Members"}
+                </button>
+              </div>
+
               {/* The form sits inside the row rather than in a panel at the top, so
                   the thing being edited stays in the place it lives in the tree. */}
               {editingId === organisation.id && (
                 <EditOrganisationForm
                   organisation={organisation}
+                  organisations={organisations}
+                  canSetParent={isAdmin}
                   onCancel={() => setEditingId(null)}
                   onSaved={(saved) => {
                     replace(saved);
@@ -394,53 +525,94 @@ export default function Organisations() {
               {rosterId === organisation.id && (
                 <OrganisationRoster
                   organisation={organisation}
-                  canManage={organisation.can_edit}
+                  canManage={organisation.can_manage_members}
                   onClose={() => setRosterId(null)}
                 />
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
-      )}
-
-      {isAdmin && !showNew && (
-        <div className="admin-form-actions session-actions">
-          <button
-            type="button"
-            className="admin-btn admin-btn-add"
-            onClick={() => setShowNew(true)}
-          >
-            <Plus size={14} />
-            New organisation
-          </button>
-        </div>
       )}
     </div>
   );
 }
 
 /**
- * Edit an existing organisation's own record: its name, type and description.
+ * The organisations that may be given as `id`'s parent: everything except `id`
+ * itself and its descendants.
  *
- * Deliberately no parent selector. Moving a node in the federation tree asserts its
- * place to every other club, so it stays admin-only on the server — offering the
- * control here would render a field the submit would silently drop.
+ * Each of those is a cycle — A under B while B sits under A — which the server
+ * rejects. Excluding them here means the selector never offers a choice that
+ * cannot be saved, rather than offering it and reporting the refusal afterwards.
+ * Walked from the flat list, which the tree view has already loaded.
+ */
+function parentCandidates(
+  organisations: Organisation[],
+  id: number,
+): Organisation[] {
+  const childrenOf = new Map<number, number[]>();
+  organisations.forEach((candidate) => {
+    if (candidate.parent_organisation_id === null) return;
+    const siblings = childrenOf.get(candidate.parent_organisation_id) ?? [];
+    siblings.push(candidate.id);
+    childrenOf.set(candidate.parent_organisation_id, siblings);
+  });
+
+  const forbidden = new Set<number>([id]);
+  const stack = [id];
+  while (stack.length > 0) {
+    const current = stack.pop() as number;
+    (childrenOf.get(current) ?? []).forEach((childId) => {
+      if (forbidden.has(childId)) return;
+      forbidden.add(childId);
+      stack.push(childId);
+    });
+  }
+
+  return organisations.filter((candidate) => !forbidden.has(candidate.id));
+}
+
+/**
+ * Edit an existing organisation's own record: its name, type and description, and —
+ * for an admin — the parent it sits under.
+ *
+ * The parent selector is admin-only because moving a node in the federation tree
+ * asserts its place to every other club, and the server drops the field for anyone
+ * else. Offering it to a non-admin would render a control whose value the submit
+ * discards, which reads as a broken form rather than a permission boundary.
  */
 function EditOrganisationForm({
   organisation,
+  organisations,
+  canSetParent,
   onCancel,
   onSaved,
 }: {
   organisation: Organisation;
+  organisations: Organisation[];
+  canSetParent: boolean;
   onCancel: () => void;
   onSaved: (saved: Organisation) => void;
 }) {
   const [name, setName] = useState(organisation.name);
   const [acronym, setAcronym] = useState(organisation.acronym ?? "");
-  const [type, setType] = useState<OrganisationType>(organisation.organisation_type);
-  const [description, setDescription] = useState(organisation.description ?? "");
+  const [type, setType] = useState<OrganisationType>(
+    organisation.organisation_type,
+  );
+  const [parentId, setParentId] = useState<number | "">(
+    organisation.parent_organisation_id ?? "",
+  );
+  const [description, setDescription] = useState(
+    organisation.description ?? "",
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // The node itself and everything beneath it are not offered as a parent: the
+  // server rejects a cycle with a clear message, but a choice that cannot be saved
+  // is better not offered.
+  const parentOptions = parentCandidates(organisations, organisation.id);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -459,11 +631,20 @@ function EditOrganisationForm({
           acronym: acronym.trim() || null,
           description: description.trim() || null,
           organisation_type: type,
+          // Sent only for an admin, and sent always rather than only on change: a
+          // parent cleared here has to reach the server as `null` to be detached.
+          // A non-admin never sends the key, so the field cannot be smuggled in
+          // past a control they were not shown.
+          ...(canSetParent
+            ? { parent_organisation_id: parentId === "" ? null : parentId }
+            : {}),
         }),
       );
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "The organisation could not be saved.",
+        err instanceof Error
+          ? err.message
+          : "The organisation could not be saved.",
       );
     } finally {
       setSaving(false);
@@ -506,6 +687,27 @@ function EditOrganisationForm({
         </select>
       </label>
 
+      {canSetParent && (
+        <label className="admin-field">
+          Parent organisation
+          <select
+            value={parentId}
+            onChange={(event) =>
+              setParentId(
+                event.target.value === "" ? "" : Number(event.target.value),
+              )
+            }
+          >
+            <option value="">None — this is a top-level organisation</option>
+            {parentOptions.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       <label className="admin-field">
         Description
         <textarea
@@ -516,7 +718,11 @@ function EditOrganisationForm({
       </label>
 
       <div className="admin-form-actions">
-        <button type="submit" className="admin-btn admin-btn-add" disabled={saving}>
+        <button
+          type="submit"
+          className="admin-btn admin-btn-add"
+          disabled={saving}
+        >
           {saving ? "Saving..." : "Save changes"}
         </button>
         <button type="button" className="admin-btn" onClick={onCancel}>
@@ -529,7 +735,8 @@ function EditOrganisationForm({
 }
 
 /**
- * The roster of one organisation: who belongs, who has been invited, who left.
+ * The roster of one organisation: who belongs, who has left, and who is recorded
+ * but not yet active.
  *
  * Membership is not editable by anyone who can *see* the organisation — the server
  * delegates the roster to the club's own officers. So `canManage` is passed in
@@ -548,51 +755,75 @@ function OrganisationRoster({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busyPerson, setBusyPerson] = useState<number | null>(null);
-  const [inviting, setInviting] = useState(false);
+  const [adding, setAdding] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      setMembers((await api.organisationMembers(organisation.id)).data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "The roster could not be loaded.");
-    }
-  }, [organisation.id]);
-
+  // Fetched in the effect with the assignment inside the promise callback rather
+  // than through a helper: calling setState synchronously in an effect body
+  // triggers a cascading render, which the lint rule catches and rightly so.
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    api
+      .organisationMembers(organisation.id)
+      .then((result) => {
+        if (!cancelled) setMembers(result.data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "The roster could not be loaded.",
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [organisation.id]);
 
   const changeRole = async (member: OrganisationMembership, role: string) => {
     setBusyPerson(member.person_id);
     setError(null);
     setNotice(null);
     try {
-      const updated = await api.updateOrganisationMember(organisation.id, member.person_id, {
-        role: role as OrganisationMembershipRole,
-      });
+      const updated = await api.updateOrganisationMember(
+        organisation.id,
+        member.person_id,
+        {
+          role: role as OrganisationMembershipRole,
+        },
+      );
       setMembers((current) =>
         (current ?? []).map((row) => (row.id === updated.id ? updated : row)),
       );
       setNotice(`${updated.person_name} is now ${updated.role_label}.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The role could not be changed.");
+      setError(
+        err instanceof Error ? err.message : "The role could not be changed.",
+      );
     } finally {
       setBusyPerson(null);
     }
   };
 
   // One call either way, because the server decides: a real member's row survives
-  // as `ended`, while an unaccepted invitation is removed outright.
+  // as `ended`, while somebody recorded but never activated is removed outright —
+  // there is no stint to preserve in that case.
   const endOrWithdraw = async (member: OrganisationMembership) => {
     const verb =
-      member.status === "pending" ? "Withdraw the invitation to" : "End the membership of";
+      member.status === "pending"
+        ? "Remove the not-yet-active record for"
+        : "End the membership of";
     if (!window.confirm(`${verb} ${member.person_name}?`)) return;
 
     setBusyPerson(member.person_id);
     setError(null);
     setNotice(null);
     try {
-      const result = await api.endOrganisationMember(organisation.id, member.person_id);
+      const result = await api.endOrganisationMember(
+        organisation.id,
+        member.person_id,
+      );
       setMembers((current) =>
         result.removed
           ? (current ?? []).filter((row) => row.person_id !== member.person_id)
@@ -602,17 +833,26 @@ function OrganisationRoster({
                 : row,
             ),
       );
-      setNotice(result.message ?? `${member.person_name} removed from the roster.`);
+      setNotice(
+        result.message ?? `${member.person_name} removed from the roster.`,
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "That could not be changed.");
+      setError(
+        err instanceof Error ? err.message : "That could not be changed.",
+      );
     } finally {
       setBusyPerson(null);
     }
   };
 
   const all = members ?? [];
-  const invitations = all.filter((m) => m.status === "pending");
-  const active = all.filter((m) => m.status === "active" || m.status === "suspended");
+  // Nobody produces this any more: adding somebody is immediate. It survives as an
+  // explicit choice meaning "recorded, but not yet active" — somebody an officer put
+  // on the roster ahead of time, before they actually start.
+  const notActive = all.filter((m) => m.status === "pending");
+  const active = all.filter(
+    (m) => m.status === "active" || m.status === "suspended",
+  );
   const former = all.filter((m) => m.status === "ended");
 
   return (
@@ -626,50 +866,60 @@ function OrganisationRoster({
         </button>
       </div>
 
-      {error && <div className="admin-error" role="alert">{error}</div>}
-      {notice && <p className="admin-success" role="status">{notice}</p>}
+      {error && (
+        <div className="admin-error" role="alert">
+          {error}
+        </div>
+      )}
+      {notice && (
+        <p className="admin-success" role="status">
+          {notice}
+        </p>
+      )}
 
       {members === null && !error && (
         <p className="organisations-roster-empty">Loading…</p>
       )}
 
       {canManage && (
-        <div className="organisations-roster-invite">
-          {inviting ? (
-            <InviteMemberForm
+        <div className="organisations-roster-add">
+          {adding ? (
+            <AddMemberForm
               organisationId={organisation.id}
               existingPersonIds={all.map((m) => m.person_id)}
-              onCancel={() => setInviting(false)}
-              onInvited={(membership) => {
+              onCancel={() => setAdding(false)}
+              onAdded={(membership) => {
                 setMembers([...all, membership]);
-                setInviting(false);
-                setNotice(`Invited ${membership.person_name}.`);
+                setAdding(false);
+                setNotice(`${membership.person_name} added to the roster.`);
               }}
             />
           ) : (
             <button
               type="button"
               className="admin-btn admin-btn-add"
-              onClick={() => setInviting(true)}
+              onClick={() => setAdding(true)}
             >
-              <Plus size={14} /> Invite someone
+              <Plus size={14} /> Add someone
             </button>
           )}
         </div>
       )}
 
       {members !== null && all.length === 0 && (
-        <p className="organisations-roster-empty">Nobody is recorded here yet.</p>
+        <p className="organisations-roster-empty">
+          Nobody is recorded here yet.
+        </p>
       )}
 
       <RosterGroup
-        title={`Invitations (${invitations.length})`}
-        rows={invitations}
+        title={`Not yet active (${notActive.length})`}
+        rows={notActive}
         canManage={canManage}
         busyPerson={busyPerson}
         onRole={changeRole}
         onEnd={endOrWithdraw}
-        emptyText="No outstanding invitations."
+        emptyText="Nobody is recorded but not yet active."
       />
       <RosterGroup
         title={`Members (${active.length})`}
@@ -693,12 +943,13 @@ function OrganisationRoster({
   );
 }
 
-const MEMBERSHIP_ROLES: { value: OrganisationMembershipRole; label: string }[] = [
-  { value: "member", label: "Member" },
-  { value: "coach", label: "Coach" },
-  { value: "administrator", label: "Administrator" },
-  { value: "owner", label: "Owner" },
-];
+const MEMBERSHIP_ROLES: { value: OrganisationMembershipRole; label: string }[] =
+  [
+    { value: "member", label: "Member" },
+    { value: "coach", label: "Coach" },
+    { value: "administrator", label: "Administrator" },
+    { value: "owner", label: "Owner" },
+  ];
 
 function RosterGroup({
   title,
@@ -721,9 +972,8 @@ function RosterGroup({
     <div className="organisations-roster-group">
       <h4>{title}</h4>
       {rows.length === 0 ? (
-        // Always rendered, never omitted: an absent invitation list and an empty
-        // roster look identical, and the difference is what makes the delete guard
-        // understandable.
+        // Always rendered, never omitted: an empty group and an absent one look
+        // identical, and that ambiguity is what made the delete guard unreadable.
         <p className="organisations-roster-empty">{emptyText}</p>
       ) : (
         <ul className="organisations-roster-list">
@@ -755,11 +1005,13 @@ function RosterGroup({
                     disabled={busyPerson === member.person_id}
                     onClick={() => onEnd(member)}
                   >
-                    {member.status === "pending" ? "Withdraw" : "Remove"}
+                    {member.status === "pending" ? "Remove" : "Remove"}
                   </button>
                 </>
               ) : (
-                <span className="organisations-roster-role">{member.role_label}</span>
+                <span className="organisations-roster-role">
+                  {member.role_label}
+                </span>
               )}
             </li>
           ))}
@@ -770,23 +1022,28 @@ function RosterGroup({
 }
 
 /**
- * Invite somebody by searching existing people.
+ * Add somebody to the roster by searching existing people.
+ *
+ * "Add", not "invite": the server makes a new membership active immediately,
+ * because nothing in this system can accept an invitation — there is no acceptance
+ * endpoint and no inbox, and for an accountless person no channel to respond
+ * through at all. Offering a verb the system cannot complete would be a lie.
  *
  * Search rather than a player picker: only 6 of 22 people in development have a
  * player profile, and membership is keyed on `Person` precisely so a coach or a
  * committee member can belong to a club. A picker over players would hide most of
  * the people a club actually needs to record.
  */
-function InviteMemberForm({
+function AddMemberForm({
   organisationId,
   existingPersonIds,
   onCancel,
-  onInvited,
+  onAdded,
 }: {
   organisationId: number;
   existingPersonIds: number[];
   onCancel: () => void;
-  onInvited: (membership: OrganisationMembership) => void;
+  onAdded: (membership: OrganisationMembership) => void;
 }) {
   const [term, setTerm] = useState("");
   const [results, setResults] = useState<PersonIdentity[]>([]);
@@ -795,10 +1052,8 @@ function InviteMemberForm({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (term.trim().length < 2) {
-      setResults([]);
-      return;
-    }
+    if (term.trim().length < 2) return;
+
     let cancelled = false;
     // Debounced so a typeahead is one request per pause, not one per keystroke.
     const timer = setTimeout(() => {
@@ -817,21 +1072,35 @@ function InviteMemberForm({
     };
   }, [term]);
 
-  const invite = async (person: PersonIdentity) => {
+  // Derived rather than cleared in the effect: emptying the field must hide the
+  // previous results, and doing that by setting state synchronously inside the
+  // effect is the cascading-render pattern the lint rule exists to catch. Stale
+  // results stay in state and are simply not rendered.
+  const visibleResults = term.trim().length < 2 ? [] : results;
+
+  const add = async (person: PersonIdentity) => {
     setSaving(true);
     setError(null);
     try {
-      onInvited(await api.addOrganisationMember(organisationId, person.id, { role }));
+      onAdded(
+        await api.addOrganisationMember(organisationId, person.id, { role }),
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The invitation could not be sent.");
+      setError(
+        err instanceof Error ? err.message : "That person could not be added.",
+      );
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="organisations-invite">
-      {error && <div className="admin-error" role="alert">{error}</div>}
+    <div className="organisations-add">
+      {error && (
+        <div className="admin-error" role="alert">
+          {error}
+        </div>
+      )}
       <label className="admin-field">
         Find a person
         <input
@@ -844,7 +1113,9 @@ function InviteMemberForm({
         Role
         <select
           value={role}
-          onChange={(event) => setRole(event.target.value as OrganisationMembershipRole)}
+          onChange={(event) =>
+            setRole(event.target.value as OrganisationMembershipRole)
+          }
         >
           {MEMBERSHIP_ROLES.map((option) => (
             <option key={option.value} value={option.value}>
@@ -853,8 +1124,8 @@ function InviteMemberForm({
           ))}
         </select>
       </label>
-      {results.length > 0 && (
-        <ul className="organisations-invite-results">
+      {visibleResults.length > 0 && (
+        <ul className="organisations-add-results">
           {results.map((person) => {
             const already = existingPersonIds.includes(person.id);
             return (
@@ -864,9 +1135,9 @@ function InviteMemberForm({
                   type="button"
                   className="admin-btn"
                   disabled={already || saving}
-                  onClick={() => invite(person)}
+                  onClick={() => add(person)}
                 >
-                  {already ? "Already on roster" : "Invite"}
+                  {already ? "Already on roster" : "Add"}
                 </button>
               </li>
             );
@@ -887,12 +1158,15 @@ function NewOrganisationForm({
 }: {
   organisations: Organisation[];
   onCancel: () => void;
-  onCreated: (created: Organisation) => void;
+  /** `logoError` is set when the organisation was created but its logo was not. */
+  onCreated: (created: Organisation, logoError?: string | null) => void;
 }) {
   const [name, setName] = useState("");
+  const [acronym, setAcronym] = useState("");
   const [type, setType] = useState<OrganisationType>("club");
   const [parentId, setParentId] = useState<number | "">("");
   const [description, setDescription] = useState("");
+  const [logo, setLogo] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -902,19 +1176,49 @@ function NewOrganisationForm({
       setError("Give the organisation a name.");
       return;
     }
+    // Checked *before* creating, not after. The logo is a second request, so a
+    // file the server would reject would otherwise leave an organisation created
+    // with no crest and an error the user reads as "nothing happened".
+    if (logo && !LOGO_ACCEPT.split(",").includes(logo.type)) {
+      setError("A logo must be a PNG, JPEG, GIF, WEBP or SVG.");
+      return;
+    }
+    if (logo && logo.size > MAX_LOGO_BYTES) {
+      setError("A logo must be smaller than 10 MB.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
       const payload: OrganisationInput = {
         name: name.trim(),
+        acronym: acronym.trim() || null,
         description: description.trim() || null,
         organisation_type: type,
         parent_organisation_id: parentId === "" ? null : parentId,
       };
-      onCreated(await api.createOrganisation(payload));
+
+      const created = await api.createOrganisation(payload);
+      let result = created;
+      // The logo is a separate multipart endpoint, so this is unavoidably two
+      // requests. If the upload fails the organisation still exists, so it is
+      // reported as a partial success rather than rolled back or hidden.
+      let logoError: string | null = null;
+      if (logo) {
+        try {
+          result = await api.uploadOrganisationLogo(created.id, logo);
+        } catch (err) {
+          logoError =
+            err instanceof Error ? err.message : "The logo could not be uploaded.";
+        }
+      }
+      onCreated(result, logoError);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "The organisation could not be created.",
+        err instanceof Error
+          ? err.message
+          : "The organisation could not be created.",
       );
     } finally {
       setSaving(false);
@@ -926,11 +1230,41 @@ function NewOrganisationForm({
       <h2>
         <Layers size={16} /> New organisation
       </h2>
-      {error && <div className="admin-error" role="alert">{error}</div>}
+      {error && (
+        <div className="admin-error" role="alert">
+          {error}
+        </div>
+      )}
 
       <label className="admin-field">
         Name
         <input value={name} onChange={(event) => setName(event.target.value)} />
+      </label>
+
+      <label className="admin-field">
+        Acronym
+        <input
+          value={acronym}
+          placeholder="e.g. FIVB"
+          onChange={(event) => setAcronym(event.target.value)}
+        />
+      </label>
+
+      <label className="admin-field">
+        Logo
+        {/* Optional here, and uploaded as a second request once the organisation
+            exists — the API takes the logo on its own multipart route so `create`
+            keeps a single content-type contract. */}
+        <input
+          type="file"
+          accept={LOGO_ACCEPT}
+          aria-label="Logo"
+          onChange={(event) => {
+            setLogo(event.target.files?.[0] ?? null);
+            // Cleared so re-picking the same file fires a change again.
+            event.target.value = "";
+          }}
+        />
       </label>
 
       <label className="admin-field">
@@ -952,7 +1286,9 @@ function NewOrganisationForm({
         <select
           value={parentId}
           onChange={(event) =>
-            setParentId(event.target.value === "" ? "" : Number(event.target.value))
+            setParentId(
+              event.target.value === "" ? "" : Number(event.target.value),
+            )
           }
         >
           {/* Blank is a legitimate choice: an independent root, which the spec
