@@ -586,21 +586,38 @@ export interface Group {
   visibility: GroupVisibility;
   /** Roster size, so a picker can label a squad without loading its members. */
   player_count: number;
+  /**
+   * The organisation this group belongs to — plan §10's "people who share an
+   * Organisation". `null` for a group placed before it was recorded, and until an
+   * administrator places it.
+   */
+  organisation: { id: number; name: string } | null;
+  /** Who runs it, from the membership rather than from `created_by`. */
+  owner: { id: number; name: string | null } | null;
   created_by: { id: number; name: string } | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface GroupMember {
-  /** The GroupMembership id (not the player id). */
+  /** The GroupMembership id (not the person id). */
   id: number;
-  player_profile_id: number;
-  player_name: string;
+  /** Keyed on Person (§2.2), so a member need not have a player profile. */
+  person_id: number;
+  name: string | null;
+  /**
+   * Present only when this person has registered as a player. A squad may hold a
+   * coach, a parent or a volunteer, and these are legitimately null for them.
+   */
+  player_profile_id: number | null;
   level: string | null;
   preferred_position: string | null;
   email: string | null;
-  status: string | null;
-  joined_at: string;
+  role: "owner" | "coach" | "member";
+  status: "active" | "ended";
+  joined_at: string | null;
+  /** Set only when the membership ended (§2.5). */
+  left_at: string | null;
 }
 
 /** `show` returns the summary plus the roster rows. */
@@ -613,6 +630,11 @@ export interface GroupInput {
   description?: string | null;
   visibility?: GroupVisibility;
   status?: GroupStatus;
+  /**
+   * The organisation the group belongs to. Optional, but the server refuses to
+   * create it for an organisation the caller is not an active member of.
+   */
+  organisation_id?: number | null;
 }
 
 export interface AssessmentSessionRankingRow {
@@ -1669,12 +1691,21 @@ export const api = {
    * `tree` asks for the whole hierarchy unpaginated, for the tree view. A page
    * boundary is meaningless there: a child whose parent is on another page has
    * nothing to be drawn under, and a client walking from the roots loses it.
+   *
+   * `mine` narrows to the organisations the caller actively belongs to — the
+   * choices worth offering somebody creating a group.
    */
-  organisations: (status?: string, type?: string, tree = false) => {
+  organisations: (
+    status?: string,
+    type?: string,
+    tree = false,
+    mine = false,
+  ) => {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
     if (type) params.set("organisation_type", type);
     if (tree) params.set("tree", "1");
+    if (mine) params.set("mine", "1");
     const query = params.toString();
     return fetchAPI<PaginatedResponse<Organisation>>(
       `/organisations${query ? `?${query}` : ""}`,
@@ -1855,34 +1886,51 @@ export const api = {
   /** Accepts an id or a slug; the API resolves both. */
   group: (id: number | string) =>
     fetchAPI<{ group: GroupDetail }>(`/groups/${id}`),
-  createGroup: (data: GroupInput, playerProfileIds: number[] = []) =>
+  createGroup: (data: GroupInput, personIds: number[] = []) =>
     postJSON<{ group: GroupDetail }>("/groups", {
       group: data,
-      player_profile_ids: playerProfileIds,
+      person_ids: personIds,
     }),
-  /** Omit `playerProfileIds` to leave the roster untouched; pass `[]` to clear it. */
-  updateGroup: (id: number, data: GroupInput, playerProfileIds?: number[]) =>
+  /** Omit `personIds` to leave the roster untouched; pass `[]` to clear it. */
+  updateGroup: (id: number, data: GroupInput, personIds?: number[]) =>
     postJSON<{ group: GroupDetail }>(
       `/groups/${id}`,
       {
         group: data,
-        ...(playerProfileIds ? { player_profile_ids: playerProfileIds } : {}),
+        ...(personIds ? { person_ids: personIds } : {}),
       },
       "PATCH",
     ),
   /** Refused with 422 when the group has already run sessions — archive instead. */
   deleteGroup: (id: number) =>
     postJSON<{ message: string; id: number }>(`/groups/${id}`, {}, "DELETE"),
-  addGroupMembers: (id: number, playerProfileIds: number[]) =>
+  /**
+   * Adds people to the roster by **person**, not by player profile: a squad can
+   * hold somebody who has never registered as one (§2.2). The server refuses
+   * anybody who is not an active member of the group's organisation.
+   */
+  addGroupMembers: (id: number, personIds: number[]) =>
     postJSON<{ group: GroupDetail; added: number }>(`/groups/${id}/members`, {
-      player_profile_ids: playerProfileIds,
+      person_ids: personIds,
     }),
-  removeGroupMember: (id: number, playerProfileId: number) =>
+  /**
+   * Ends the membership rather than deleting the row (§2.5). Refused with 422 for
+   * the group's owner, who cannot be walked away from.
+   */
+  removeGroupMember: (id: number, personId: number) =>
     postJSON<{ group: GroupDetail; removed: number }>(
-      `/groups/${id}/members/${playerProfileId}`,
+      `/groups/${id}/members/${personId}`,
       {},
       "DELETE",
     ),
+
+  /**
+   * Join an organisation yourself. Separate from `addOrganisationMember`, which an
+   * officer uses on somebody else: this writes your own row, so it cannot grant a
+   * role — you become a `member` whatever you send. 409 if you already belong.
+   */
+  joinOrganisation: (id: number) =>
+    postJSON<{ membership: OrganisationMembership }>(`/organisations/${id}/join`, {}),
 
   // ---------- Ranking consolidations (Phase 4) ----------
   // Archival records: there is no update or delete. A correction is a new

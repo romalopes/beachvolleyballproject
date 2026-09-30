@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, type Organisation } from "../api";
+import { api, type Organisation, type OrganisationMembership } from "../api";
 import { paginated } from "../test/paginated";
 import { AuthContext, type AuthContextValue } from "../auth/AuthContext";
 import Organisations from "./Organisations";

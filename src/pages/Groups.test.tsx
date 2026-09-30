@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, type Group as GroupRecord, type Player } from "../api";
+import { api, type Group as GroupRecord } from "../api";
 import Groups from "./Groups";
 
 vi.mock("../api", async (importOriginal) => {
@@ -13,7 +13,8 @@ vi.mock("../api", async (importOriginal) => {
       ...actual.api,
       groups: vi.fn(),
       group: vi.fn(),
-      players: vi.fn(),
+      organisations: vi.fn(),
+      organisationMembers: vi.fn(),
       createGroup: vi.fn(),
       updateGroup: vi.fn(),
       deleteGroup: vi.fn(),
@@ -32,25 +33,13 @@ const squad = (overrides: Partial<GroupRecord> = {}): GroupRecord => ({
   status_label: "Active",
   visibility: "shared",
   player_count: 2,
+  organisation: { id: 1, name: "Volleyball Club" },
+  owner: { id: 2, name: "Coach Ana" },
   created_by: { id: 2, name: "Coach Ana" },
   created_at: "2026-09-01T00:00:00Z",
   updated_at: "2026-09-01T00:00:00Z",
   ...overrides,
 });
-
-const player = (overrides: Partial<Player> = {}): Player =>
-  ({
-    id: 1,
-    person_id: 1,
-    full_name: "Ana Silva",
-    preferred_position: "setter",
-    level: "intermediate",
-    status: "active",
-    visibility: "shared",
-    created_at: "2026-09-01T00:00:00Z",
-    updated_at: "2026-09-01T00:00:00Z",
-    ...overrides,
-  }) as Player;
 
 const page = <T,>(data: T[]) => ({
   data,
@@ -68,25 +57,34 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(window, "confirm").mockReturnValue(true);
   mockedApi.groups.mockResolvedValue(page([squad()]) as never);
-  mockedApi.players.mockResolvedValue(
+  mockedApi.organisations.mockResolvedValue(
     page([
-      player(),
-      player({ id: 2, full_name: "Bruno Alves" }),
+      { id: 1, name: "Volleyball Club", slug: "volleyball-club", description: null, status: "active", status_label: "Active", organisation_type: "club", parent_organisation_id: null, child_count: 0, member_count: 2, created_at: "2026-09-01T00:00:00Z", updated_at: "2026-09-01T00:00:00Z" },
     ]) as never,
   );
+  mockedApi.organisationMembers.mockResolvedValue({
+    organisation: { id: 1, name: "Volleyball Club" },
+    data: [
+      { id: 1, organisation_id: 1, person_id: 1, person_name: "Ana Silva", role: "member", role_label: "Member", status: "active", status_label: "Active", joined_at: "2026-09-01T00:00:00Z", left_at: null },
+      { id: 2, organisation_id: 1, person_id: 2, person_name: "Bruno Alves", role: "member", role_label: "Member", status: "active", status_label: "Active", joined_at: "2026-09-01T00:00:00Z", left_at: null },
+    ],
+  } as never);
   mockedApi.group.mockResolvedValue({
     group: {
       ...squad(),
       members: [
         {
           id: 1,
+          person_id: 1,
+          person_name: "Ana Silva",
           player_profile_id: 1,
-          player_name: "Ana Silva",
           level: "intermediate",
           preferred_position: "setter",
           email: null,
+          role: "member",
           status: "active",
           joined_at: "2026-09-01T00:00:00Z",
+          left_at: null,
         },
       ],
     },
@@ -99,7 +97,7 @@ describe("Groups catalogue", () => {
     renderPage();
 
     expect(await screen.findByText("U19 squad")).toBeInTheDocument();
-    expect(screen.getByText("2 players")).toBeInTheDocument();
+    expect(await screen.findByText(/2 players?/i)).toBeInTheDocument();
     expect(screen.getByText("The under-19 training group")).toBeInTheDocument();
   });
 
@@ -161,13 +159,18 @@ describe("Groups editor", () => {
 
     await user.click(screen.getByRole("button", { name: /new group/i }));
     await user.type(screen.getByLabelText(/Name \*/i), "Monday squad");
+    // Select organisation first
+    await user.selectOptions(
+      screen.getByLabelText(/Organisation/i),
+      "Volleyball Club",
+    );
     const roster = await screen.findByRole("group", { name: /Roster \(0\)/i });
     await user.click(within(roster).getByText("Ana Silva"));
     await user.click(screen.getByRole("button", { name: /create group/i }));
 
     await waitFor(() => expect(mockedApi.createGroup).toHaveBeenCalled());
     expect(mockedApi.createGroup.mock.calls[0]).toEqual([
-      { name: "Monday squad", description: "", visibility: "shared" },
+      { name: "Monday squad", description: "", visibility: "shared", organisation_id: 1 },
       [1],
     ]);
   });

@@ -7,7 +7,8 @@ import {
   type GroupDetail,
   type GroupInput,
   type GroupVisibility,
-  type Player,
+  type Organisation,
+  type OrganisationMembership,
 } from "../api";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
@@ -36,9 +37,17 @@ export default function Groups() {
   // The editor holds either a brand new group or an existing one.
   const [editing, setEditing] = useState<GroupDetail | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [form, setForm] = useState<GroupInput>({ name: "", description: "" });
+  const [form, setForm] = useState<GroupInput>({
+    name: "",
+    description: "",
+    visibility: "shared",
+    organisation_id: null,
+  });
   const [memberIds, setMemberIds] = useState<number[]>([]);
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [myOrganisations, setMyOrganisations] = useState<Organisation[]>([]);
+  const [orgMembers, setOrgMembers] = useState<OrganisationMembership[]>([]);
+  const [loadingOrgs, setLoadingOrgs] = useState(false);
+  const [loadingOrgMembers, setLoadingOrgMembers] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -72,35 +81,68 @@ export default function Groups() {
     });
   }, [groups, search, showArchived]);
 
-  // The roster editor needs the whole players catalogue: a group may contain a
-  // player another coach recorded privately, and visibility never blocks
-  // scheduling.
-  const ensurePlayers = async () => {
-    if (players.length > 0) return;
+  
+
+  const loadMyOrganisations = async () => {
+    if (myOrganisations.length > 0) return;
+    setLoadingOrgs(true);
     try {
-      const res = await api.players({ include_private: true, per_page: 200 });
-      setPlayers(res.data);
+      const res = await api.organisations("active", undefined, false, true);
+      setMyOrganisations(res.data);
     } catch (err) {
       setFormError(
-        err instanceof Error ? err.message : "Failed to load players.",
+        err instanceof Error ? err.message : "Failed to load organisations.",
       );
+    } finally {
+      setLoadingOrgs(false);
+    }
+  };
+
+  const loadOrgMembers = async (organisationId: number) => {
+    setLoadingOrgMembers(true);
+    try {
+      const res = await api.organisationMembers(organisationId);
+      // res.data is OrganisationMembership[] (the data property of OrganisationMembershipList)
+      const activeMembers = res.data.filter((m) => m.status === "active");
+      setOrgMembers(activeMembers);
+    } catch (err) {
+      setFormError(
+        err instanceof Error ? err.message : "Failed to load organisation members.",
+      );
+    } finally {
+      setLoadingOrgMembers(false);
+    }
+  };
+
+  const handleOrganisationChange = async (organisationId: number | null) => {
+    setForm((prev) => ({ ...prev, organisation_id: organisationId }));
+    setMemberIds([]);
+    if (organisationId) {
+      await loadOrgMembers(organisationId);
+    } else {
+      setOrgMembers([]);
     }
   };
 
   const openCreate = async () => {
     setIsCreating(true);
     setEditing(null);
-    setForm({ name: "", description: "", visibility: "shared" });
+    setForm({
+      name: "",
+      description: "",
+      visibility: "shared",
+      organisation_id: null,
+    });
     setMemberIds([]);
     setFormError(null);
-    await ensurePlayers();
+    await loadMyOrganisations();
   };
 
   const openEdit = async (group: GroupRecord) => {
     setIsCreating(false);
     setFormError(null);
     try {
-      await ensurePlayers();
+      await loadMyOrganisations();
       const detail = await api.group(group.id);
       setEditing(detail.group);
       setForm({
@@ -108,8 +150,13 @@ export default function Groups() {
         description: detail.group.description ?? "",
         visibility: detail.group.visibility,
         status: detail.group.status,
+        organisation_id: detail.group.organisation?.id ?? null,
       });
-      setMemberIds(detail.group.members.map((m) => m.player_profile_id));
+      // memberIds are now person_ids (not player_profile_ids)
+      setMemberIds(detail.group.members.map((m) => m.person_id));
+      if (detail.group.organisation?.id) {
+        await loadOrgMembers(detail.group.organisation.id);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load group.");
     }
@@ -243,6 +290,33 @@ export default function Groups() {
       </div>
 
       <div className="admin-field">
+        <label htmlFor="group-organisation">Organisation</label>
+        <select
+          id="group-organisation"
+          value={form.organisation_id ?? ""}
+          onChange={(e) =>
+            handleOrganisationChange(e.target.value ? Number(e.target.value) : null)
+          }
+          disabled={loadingOrgs}
+        >
+          <option value="">— Select organisation —</option>
+          {loadingOrgs ? (
+            <option disabled>Loading…</option>
+          ) : (
+            myOrganisations.map((org) => (
+              <option key={org.id} value={org.id}>
+                {org.name}
+              </option>
+            ))
+          )}
+        </select>
+        <p className="field-hint">
+          A group belongs to one organisation. Only active members of that
+          organisation can be added to the roster.
+        </p>
+      </div>
+
+      <div className="admin-field">
         <span className="group-roster-label" id="group-members-label">
           Roster ({memberIds.length})
         </span>
@@ -254,14 +328,22 @@ export default function Groups() {
           {/* No role/label of its own: the wrapper above already names the group,
               and a second identically-labelled group would be ambiguous. */}
           <div className="session-picker-list">
-            {players.length === 0 ? (
-              <p className="candidate-empty">No players available yet.</p>
+            {!form.organisation_id ? (
+              <p className="candidate-empty">
+                Select an organisation to see its members.
+              </p>
+            ) : loadingOrgMembers ? (
+              <p className="candidate-empty">Loading members…</p>
+            ) : orgMembers.length === 0 ? (
+              <p className="candidate-empty">
+                No active members in this organisation.
+              </p>
             ) : (
-              players.map((player) => {
-                const checked = memberIds.includes(player.id);
+              orgMembers.map((member) => {
+                const checked = memberIds.includes(member.person_id);
                 return (
                   <label
-                    key={player.id}
+                    key={member.person_id}
                     className={
                       checked
                         ? "consolidation-session-option selected"
@@ -271,14 +353,14 @@ export default function Groups() {
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={() => toggleMember(player.id)}
+                      onChange={() => toggleMember(member.person_id)}
                     />
                     <span className="session-option-body">
                       <span className="session-option-name">
-                        {player.full_name}
+                        {member.person_name ?? "Unknown"}
                       </span>
                       <span className="session-option-meta">
-                        {player.preferred_position ?? player.level ?? "—"}
+                        {member.role_label}
                       </span>
                     </span>
                   </label>
@@ -374,6 +456,12 @@ export default function Groups() {
                 <span className="group-meta">
                   {group.player_count} player
                   {group.player_count === 1 ? "" : "s"}
+                  {group.organisation && (
+                    <>
+                      {" · "}
+                      <span className="group-org">{group.organisation.name}</span>
+                    </>
+                  )}
                 </span>
               </div>
               {group.description && (

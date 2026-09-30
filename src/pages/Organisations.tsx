@@ -6,6 +6,7 @@ import {
   ImageUp,
   Layers,
   Plus,
+  UserPlus,
   UsersRound,
   X,
 } from "lucide-react";
@@ -74,6 +75,9 @@ export default function Organisations() {
   const [rosterId, setRosterId] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [uploadingId, setUploadingId] = useState<number | null>(null);
+  // Organisations the current user is an active member of — used to show "Join"
+  // instead of "Joined" in the tree.
+  const [myOrgIds, setMyOrgIds] = useState<Set<number>>(new Set());
   // Which nodes are folded. A set of ids rather than a map: folding is a property
   // of the node, and every node starts unfolded, so an absent id means "open".
   const [collapsed, setCollapsed] = useState<Set<number>>(() => new Set());
@@ -98,9 +102,21 @@ export default function Organisations() {
       );
   }, [showArchived]);
 
+  // Load the organisations the user is an active member of, for the "Join" button.
+  const loadMyOrganisations = useCallback(async () => {
+    try {
+      const res = await api.organisations("active", undefined, false, true);
+      const ids = new Set(res.data.map((o) => o.id));
+      setMyOrgIds(ids);
+    } catch {
+      // If this fails we just won't show "Join" — not a critical error.
+    }
+  }, []);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadMyOrganisations();
+  }, [load, loadMyOrganisations]);
 
   const replace = (saved: Organisation) => {
     setOrganisations((current) => [
@@ -501,6 +517,45 @@ export default function Organisations() {
                   <UsersRound size={14} />
                   {rosterId === organisation.id ? "Close roster" : "Members"}
                 </button>
+                {/* Join button for organisations the user is not a member of */}
+                {!myOrgIds.has(organisation.id) && organisation.status === "active" && (
+                  <button
+                    type="button"
+                    className="admin-btn"
+                    disabled={busyId === organisation.id}
+                    onClick={async () => {
+                      setBusyId(organisation.id);
+                      setError(null);
+                      setNotice(null);
+                      try {
+                        await api.joinOrganisation(organisation.id);
+                        setNotice(`Joined ${organisation.name}.`);
+                        // Refresh my organisations
+                        const res = await api.organisations(
+                          "active",
+                          undefined,
+                          false,
+                          true,
+                        );
+                        setMyOrgIds(new Set(res.data.map((o) => o.id)));
+                      } catch (err) {
+                        setError(
+                          err instanceof Error
+                            ? err.message
+                            : "Failed to join organisation.",
+                        );
+                      } finally {
+                        setBusyId(null);
+                      }
+                    }}
+                  >
+                    <UserPlus size={14} />
+                    Join
+                  </button>
+                )}
+                {myOrgIds.has(organisation.id) && (
+                  <span className="organisations-joined-badge">Joined</span>
+                )}
               </div>
 
               {/* The form sits inside the row rather than in a panel at the top, so
