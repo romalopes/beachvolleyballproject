@@ -128,6 +128,83 @@
   stroke-width: 2;
 }
 
+/* Collapsible sidebar groups */
+.sidebar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.sidebar-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.sidebar-group-toggle:hover {
+  background: var(--sand-100);
+  color: var(--charcoal);
+}
+
+/* Marks the group that holds the page being viewed, so a folded group still
+   says where the user is. */
+.sidebar-group-toggle.active {
+  color: var(--amber-600);
+}
+
+.sidebar-group-toggle:focus-visible {
+  outline: 2px solid var(--amber-500);
+  outline-offset: 2px;
+}
+
+.sidebar-group-toggle svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+  flex: 0 0 auto;
+}
+
+.sidebar-group-label {
+  flex: 1;
+}
+
+.sidebar-group-chevron {
+  transition: transform var(--transition);
+}
+
+.sidebar-group-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+
+.sidebar-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-left: 0.85rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--border);
+}
+
+/* The flex display above would otherwise beat the browser's own
+   `[hidden] { display: none }`. */
+.sidebar-group-items[hidden] {
+  display: none;
+}
+
 .sidebar-footer {
   margin-top: auto;
   padding-top: 0.9rem;

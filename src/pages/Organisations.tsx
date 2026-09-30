@@ -103,15 +103,19 @@ export default function Organisations() {
   }, [showArchived]);
 
   // Load the organisations the user is an active member of, for the "Join" button.
-  const loadMyOrganisations = useCallback(async () => {
-    try {
-      const res = await api.organisations("active", undefined, false, true);
-      const ids = new Set(res.data.map((o) => o.id));
-      setMyOrgIds(ids);
-    } catch {
-      // If this fails we just won't show "Join" — not a critical error.
-    }
-  }, []);
+  const loadMyOrganisations = useCallback(
+    () =>
+      // Same shape as `load`: the setState sits in a promise callback rather than
+      // in the effect body, so it cannot cascade an extra render.
+      api
+        .organisations("active", undefined, false, true)
+        .then((page) => {
+          setMyOrgIds(new Set(page.data.map((organisation) => organisation.id)));
+        })
+        // Failing here only costs the "Join" affordance, so it stays quiet.
+        .catch(() => undefined),
+    [],
+  );
 
   useEffect(() => {
     void load();
