@@ -16,6 +16,12 @@ vi.mock("../api", async (importOriginal) => {
       coach: vi.fn(),
       updatePlayer: vi.fn(),
       updateCoach: vi.fn(),
+      organisations: vi
+        .fn()
+        .mockResolvedValue({
+          data: [],
+          meta: { page: 1, per_page: 20, total: 0, total_pages: 1 },
+        }),
     },
   };
 });
@@ -139,6 +145,7 @@ describe("PersonProfileEditPage", () => {
         last_name: null,
         email: "pedro@example.com",
         phone: "+61400000001",
+        organisation_memberships_attributes: [],
       },
       player_profile: {
         preferred_position: "setter",
@@ -223,6 +230,7 @@ describe("PersonProfileEditPage", () => {
         last_name: "Santos",
         email: "pedro@example.com",
         phone: "+61400000001",
+        organisation_memberships_attributes: [],
       },
       player_profile: {
         preferred_position: "setter",
@@ -274,6 +282,7 @@ describe("PersonProfileEditPage", () => {
         last_name: "Coach",
         email: "ana@example.com",
         phone: null,
+        organisation_memberships_attributes: [],
       },
       coach_profile: {
         coaching_level: null,

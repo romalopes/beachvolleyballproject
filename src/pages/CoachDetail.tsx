@@ -4,6 +4,7 @@ import { Archive, ArchiveRestore, ArrowLeft, Pencil } from "lucide-react";
 import { api, type Coach } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import AssessmentList from "../components/people/AssessmentList";
+import CoachingRelationships from "../components/people/CoachingRelationships";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
@@ -190,6 +191,58 @@ export default function CoachDetail() {
           {coach.created_by ? ` · recorded by ${coach.created_by.name}` : ""}
         </p>
       </section>
+
+      {coach.person.organisation_memberships?.length ? (
+        <section className="detail-section">
+          <h2>Organisation memberships</h2>
+          <ul className="people-list">
+            {coach.person.organisation_memberships.map((m) => (
+              <li key={m.id} className="people-row">
+                <div className="people-identity">
+                  <span className="people-name">
+                    {m.organisation?.name ?? `Organisation #${m.organisation_id}`}
+                  </span>
+                  <span className="people-contact">
+                    {m.role} · {m.status}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {coach.person.organisation_memberships?.length ? (
+        <section className="detail-section">
+          <h2>Organisation memberships</h2>
+          <ul className="people-list">
+            {coach.person.organisation_memberships.map((m) => (
+              <li key={m.id} className="people-row">
+                <div className="people-identity">
+                  <span className="people-name">
+                    {m.organisation?.name ?? `Organisation #${m.organisation_id}`}
+                  </span>
+                  <span className="people-contact">
+                    {m.role} · {m.status}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <CoachingRelationships
+        side="coach"
+        profileId={coach.coach_profile_id!}
+        canManage={
+          canEdit &&
+          (Boolean(user?.roles.includes("admin")) ||
+            (Boolean(user?.coach_profile_id) &&
+              user?.coach_profile_id === coach.coach_profile_id))
+        }
+        isAdmin={Boolean(user?.roles.includes("admin"))}
+      />
 
       <section className="detail-section assessment-section">
         <h2>Recorded assessments</h2>

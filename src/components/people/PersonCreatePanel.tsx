@@ -4,6 +4,7 @@ import {
   api,
   ApiValidationError,
   type PersonIdentity,
+  type Organisation,
 } from "../../api";
 import { personName } from "../../utils/training";
 import PersonIdentityList from "./PersonIdentityList";
@@ -37,6 +38,7 @@ export default function PersonCreatePanel({
   onClose,
 }: PersonCreatePanelProps) {
   const [query, setQuery] = useState("");
+  const [organisations, setOrganisations] = useState<Organisation[]>([]);
   // The results are bound to the exact term they were fetched for, so clearing
   // the box hides them without a state write inside the effect (and a stale
   // response can never show results for a different query).
@@ -44,6 +46,22 @@ export default function PersonCreatePanel({
     term: string;
     people: PersonIdentity[];
   }>({ term: "", people: [] });
+
+  // Fetch organisations for membership selector
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .organisations("active")
+      .then((resp) => {
+        if (!cancelled) setOrganisations(resp.data ?? []);
+      })
+      .catch((err) => {
+        if (!cancelled) console.error(err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [selectedPerson, setSelectedPerson] = useState<PersonIdentity | null>(
     null,
   );
@@ -156,6 +174,7 @@ export default function PersonCreatePanel({
         kind={kind}
         hidePersonFields={Boolean(selectedPerson)}
         personFieldsLegend="New person (no account)"
+        organisations={organisations}
         submitting={submitting}
         errors={errors}
         submitLabel={`Add ${kind}`}

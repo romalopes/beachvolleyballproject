@@ -6344,11 +6344,39 @@
   font-size: 0.85rem;
 }
 
+/* The app-wide `select { width: 100%; padding: .875rem 1.125rem }` would make
+   the role dropdown claim the whole row and push the name aside. Inside the
+   roster it only has to fit the longest option ("Administrator"), so it keeps
+   its intrinsic width and the name keeps the space. */
+.organisations-roster-row select {
+  width: auto;
+  flex: 0 1 auto;
+  min-width: 7.5rem;
+  max-width: 10rem;
+  padding: 0.3rem 0.5rem;
+  font-size: 0.8rem;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.organisations-roster-row .admin-btn {
+  flex: 0 0 auto;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+/* The name used to flex:1, which stretched it across the row and pushed the
+   role dropdown and Remove to the far edge. It now only takes its own width,
+   so the controls sit right next to it (the row's 0.5rem gap does the rest),
+   and a long name ellipsizes instead of shoving them out of the row. */
 .organisations-roster-name {
-  flex: 1;
+  flex: 0 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .organisations-roster-tag {

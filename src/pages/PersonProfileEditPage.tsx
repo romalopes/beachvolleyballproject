@@ -7,6 +7,7 @@ import {
   type PersonIdentity,
   type ProfileOwner,
   type ProfilePerson,
+  type Organisation,
 } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
@@ -65,6 +66,23 @@ export default function PersonProfileEditPage({
   const [errors, setErrors] = useState<string[]>([]);
   const [duplicates, setDuplicates] = useState<PersonIdentity[]>([]);
   const [savedName, setSavedName] = useState<string | null>(null);
+  const [organisations, setOrganisations] = useState<Organisation[]>([]);
+
+  // Fetch organisations for membership selector
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .organisations("active")
+      .then((resp) => {
+        if (!cancelled) setOrganisations(resp.data ?? []);
+      })
+      .catch((err) => {
+        if (!cancelled) console.error(err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (invalidId) return;
@@ -94,6 +112,7 @@ export default function PersonProfileEditPage({
             qualifications:
               "qualifications" in record ? record.qualifications : null,
             visibility: record.visibility,
+            organisation_memberships: record.person.organisation_memberships ?? [],
           },
         });
         setLoading(false);
@@ -184,6 +203,7 @@ export default function PersonProfileEditPage({
         <PersonProfileForm
           kind={kind}
           initialValues={loaded.initialValues}
+          organisations={organisations}
           personFieldsLegend="Person"
           visibilityEditable={visibilityEditable}
           submitting={submitting}

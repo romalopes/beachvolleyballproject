@@ -1107,6 +1107,7 @@ export interface PersonIdentity {
    * evidence, but how a coach usually recognises someone.
    */
   aliases?: string[];
+  organisation_memberships?: OrganisationMembership[];
 }
 
 export interface PersonInput {
@@ -1115,6 +1116,60 @@ export interface PersonInput {
   email?: string | null;
   phone?: string | null;
   date_of_birth?: string | null;
+  organisation_memberships_attributes?: OrganisationMembershipInput[];
+}
+
+/** Nested attributes for organisation memberships (mirrors Rails convention). */
+export interface OrganisationMembershipInput {
+  id?: number;
+  organisation_id: number;
+  role: OrganisationMembershipRole;
+  status: "pending" | "active" | "suspended" | "ended";
+  _destroy?: boolean;
+}
+
+/** Serialized organisation membership as returned by the API. */
+export interface OrganisationMembership {
+  id: number;
+  organisation_id: number;
+  role: OrganisationMembershipRole;
+  status: "pending" | "active" | "suspended" | "ended";
+  organisation?: { id: number; name: string };
+}
+
+/**
+ * One period of coaching: a coach coaching a player (plan Phase 5).
+ *
+ * The period *is* the lifecycle — `end_date` null means "still coaching" and a
+ * non-null value is a historical period that is kept forever (an ended
+ * relationship explains a past assessment, so it is never deleted). `current` is
+ * derived from `end_date` by the server rather than stored, so a client can
+ * never be told a relationship is running when its dates say otherwise.
+ */
+export interface PlayerCoach {
+  id: number;
+  player_profile_id: number;
+  coach_profile_id: number;
+  player_name: string | null;
+  coach_name: string | null;
+  /** `YYYY-MM-DD` (a Rails `date`, not a timestamp). */
+  start_date: string;
+  end_date: string | null;
+  current: boolean;
+  /** Length of an ended period, in days. Nil while the relationship is open. */
+  duration_in_days: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Create payload. Only one side is sent: the page names its own profile and the
+ * picker supplies the other. `start_date` defaults to today server-side.
+ */
+export interface PlayerCoachInput {
+  player_profile_id?: number;
+  coach_profile_id?: number;
+  start_date?: string;
 }
 
 export interface ProfilePerson {
@@ -1125,6 +1180,7 @@ export interface ProfilePerson {
   phone: string | null;
   date_of_birth: string | null;
   creation_source: CreationSource | string;
+  organisation_memberships?: OrganisationMembership[];
 }
 
 export interface Player {
@@ -1686,6 +1742,50 @@ export const api = {
       {},
       "DELETE",
     ),
+  // ---- Coaching relationships (PlayerCoach, plan Phase 5) ------------------
+  /**
+   * The periods of coaching for one side of the relationship. `status` narrows
+   * to `current` (end_date NULL) or `historical`; the default returns both, so a
+   * detail page can render the running relationship above its own history in one
+   * request. Not paginated: a person has a handful of coaches or players.
+   */
+  playerCoaches: async (params: {
+    player_profile_id?: number;
+    coach_profile_id?: number;
+    status?: "current" | "historical" | "all";
+  }) => {
+    const qs = new URLSearchParams();
+    if (params.player_profile_id) qs.set("player_profile_id", String(params.player_profile_id));
+    if (params.coach_profile_id) qs.set("coach_profile_id", String(params.coach_profile_id));
+    if (params.status) qs.set("status", params.status);
+    const query = qs.toString();
+    const response = await fetchAPI<{ data: PlayerCoach[] }>(
+      `/player_coaches${query ? `?${query}` : ""}`,
+    );
+    return response.data ?? [];
+  },
+  /**
+   * Open a new period. The server refuses a second open period for the same
+   * pair with 409 and a coach may only record their own coaching (admin may
+   * record any) — those come back as an error, never as a silent second row.
+   */
+  createPlayerCoach: (data: PlayerCoachInput) =>
+    postJSON<PlayerCoach>("/player_coaches", { player_coach: data }),
+  /** Correct the dates of a period. Re-pointing it is a new relationship. */
+  updatePlayerCoach: (id: number, data: Partial<PlayerCoachInput>) =>
+    postJSON<PlayerCoach>(`/player_coaches/${id}`, { player_coach: data }, "PATCH"),
+  /**
+   * End the period. Deliberately `POST /end_relationship`, not DELETE: an ended
+   * relationship is the context that makes a past assessment explicable, so the
+   * row survives with an end date. Resuming later is a *new* period.
+   */
+  endPlayerCoach: (id: number, endDate?: string) =>
+    postJSON<PlayerCoach>(
+      `/player_coaches/${id}/end_relationship`,
+      { player_coach: endDate ? { end_date: endDate } : {} },
+      "POST",
+    ),
+
   // ---- Organisations -------------------------------------------------------
   /**
    * `tree` asks for the whole hierarchy unpaginated, for the tree view. A page

@@ -1,6 +1,11 @@
 import { useState } from "react";
-import { UserPlus } from "lucide-react";
-import type { ProfileVisibility } from "../../api";
+import { UserPlus, Plus, Trash2 } from "lucide-react";
+import type {
+  ProfileVisibility,
+  OrganisationMembership,
+  OrganisationMembershipInput,
+  Organisation,
+} from "../../api";
 
 export type ProfileKind = "player" | "coach";
 
@@ -11,6 +16,7 @@ export interface PersonProfileValues {
     last_name: string | null;
     email: string | null;
     phone: string | null;
+    organisation_memberships_attributes?: OrganisationMembershipInput[];
   };
   profile: {
     preferred_position?: string | null;
@@ -31,11 +37,15 @@ export interface PersonProfileInitialValues {
   coaching_level?: string | null;
   qualifications?: string | null;
   visibility?: ProfileVisibility | null;
+  /** Existing organisation memberships (when editing). */
+  organisation_memberships?: OrganisationMembership[];
 }
 
 interface PersonProfileFormProps {
   kind: ProfileKind;
   initialValues?: PersonProfileInitialValues;
+  /** List of organisations to choose from for memberships. */
+  organisations?: Organisation[];
   /**
    * True when an existing person was chosen: the contact fields are hidden
    * because those details already belong to that identity.
@@ -70,6 +80,7 @@ const blank = (value: string | null | undefined) => value ?? "";
 export default function PersonProfileForm({
   kind,
   initialValues,
+  organisations = [],
   hidePersonFields = false,
   personFieldsLegend = "New person (no account)",
   visibilityEditable = true,
@@ -97,7 +108,60 @@ export default function PersonProfileForm({
   const [visibility, setVisibility] = useState<ProfileVisibility>(
     initialValues?.visibility ?? "shared",
   );
+
+  // Organisation memberships form state
+  const [memberships, setMemberships] = useState<
+    (OrganisationMembershipInput & { _destroy?: boolean })[]
+  >(() => {
+    if (initialValues?.organisation_memberships?.length) {
+      return initialValues.organisation_memberships.map((m) => ({
+        id: m.id,
+        organisation_id: m.organisation_id,
+        role: m.role,
+        status: m.status,
+      }));
+    }
+    return [];
+  });
   const [localErrors, setLocalErrors] = useState<string[]>([]);
+
+  // Membership helpers
+  const addMembership = () => {
+    setMemberships((prev) => [
+      ...prev,
+      {
+        organisation_id: organisations[0]?.id ?? 0,
+        role: "member",
+        status: "pending",
+      },
+    ]);
+  };
+
+  const removeMembership = (index: number) => {
+    setMemberships((prev) => {
+      const next = [...prev];
+      const item = next[index];
+      if (item.id) {
+        // mark for destruction
+        next[index] = { ...item, _destroy: true };
+      } else {
+        next.splice(index, 1);
+      }
+      return next;
+    });
+  };
+
+  const updateMembership = (
+    index: number,
+    field: "organisation_id" | "role" | "status",
+    value: number | string,
+  ) => {
+    setMemberships((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -107,12 +171,21 @@ export default function PersonProfileForm({
     }
     setLocalErrors([]);
 
+    const membershipAttrs = memberships.map((m) => ({
+      id: m.id,
+      organisation_id: m.organisation_id,
+      role: m.role,
+      status: m.status,
+      _destroy: m._destroy,
+    }));
+
     onSubmit({
       person: {
         first_name: firstName.trim(),
         last_name: lastName.trim() || null,
         email: email.trim() || null,
         phone: phone.trim() || null,
+        organisation_memberships_attributes: membershipAttrs,
       },
       profile:
         kind === "player"
@@ -252,6 +325,66 @@ export default function PersonProfileForm({
           </span>
         )}
       </div>
+
+      {organisations.length > 0 && (
+        <fieldset className="person-memberships-field">
+          <legend>Organisation memberships</legend>
+          {memberships.map((m, idx) => (
+            <div key={idx} className="membership-row" style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+              <select
+                value={m.organisation_id ? String(m.organisation_id) : ""}
+                onChange={(e) => updateMembership(idx, "organisation_id", Number(e.target.value) || 0)}
+                disabled={submitting}
+                style={{ flex: 2 }}
+              >
+                <option value="">— Select organisation —</option>
+                {organisations.map((org) => (
+                  <option key={org.id} value={org.id}>{org.name}</option>
+                ))}
+              </select>
+              <select
+                value={m.role}
+                onChange={(e) => updateMembership(idx, "role", e.target.value)}
+                disabled={submitting}
+                style={{ flex: 1 }}
+              >
+                <option value="member">Member</option>
+                <option value="coach">Coach</option>
+                <option value="administrator">Administrator</option>
+                <option value="owner">Owner</option>
+              </select>
+              <select
+                value={m.status}
+                onChange={(e) => updateMembership(idx, "status", e.target.value)}
+                disabled={submitting}
+                style={{ flex: 1 }}
+              >
+                <option value="pending">Pending</option>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+                <option value="ended">Ended</option>
+              </select>
+              <button
+                type="button"
+                className="admin-btn"
+                onClick={() => removeMembership(idx)}
+                disabled={submitting}
+                aria-label="Remove membership"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="admin-btn admin-btn-add"
+            onClick={addMembership}
+            disabled={submitting}
+          >
+            <Plus size={14} /> Add membership
+          </button>
+        </fieldset>
+      )}
 
       {messages.length > 0 && (
         <div className="admin-error">
