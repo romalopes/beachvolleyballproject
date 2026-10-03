@@ -1188,7 +1188,8 @@ export interface ProfilePerson {
 
 export interface Player {
   id: number;
-  person_id: number;
+  person_id: number | null;
+  display_name?: string | null;
   preferred_position: string | null;
   level: string | null;
   status: ProfileStatus;
@@ -1204,7 +1205,7 @@ export interface Player {
   training_session_count?: number;
   assessment_count?: number;
   assessments?: Assessment[];
-  person: ProfilePerson;
+  person: ProfilePerson | null;
   /** Only on show: the sessions this player is attached to. */
   training_session_participants?: {
     id: number;
@@ -1239,11 +1240,23 @@ export interface PlayerInput {
     date_of_birth?: string | null;
   };
   player_profile?: {
+    /** Required when recording a player before their Person is known. */
+    display_name?: string;
     preferred_position?: string | null;
     level?: string | null;
     status?: ProfileStatus;
     visibility?: ProfileVisibility;
   };
+}
+
+export interface PlayerClaim {
+  id: number;
+  player_profile_id: number;
+  person_id: number;
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  created_at: string;
+  reviewed_at: string | null;
+  player_name?: string;
 }
 
 export interface Coach {
@@ -1652,6 +1665,17 @@ export const api = {
    */
   updatePlayer: (id: number, data: PlayerInput) =>
     postJSON<PlayerCreateResponse>(`/players/${id}`, { player: data }, "PATCH"),
+
+  // ---------- Player claims (self-service request; coach/admin review) ----------
+  playerClaims: () => fetchAPI<PlayerClaim[]>("/player_claims"),
+  requestPlayerClaim: (playerProfileId: number) =>
+    postJSON<PlayerClaim>("/player_claims", { player_profile_id: playerProfileId }),
+  approvePlayerClaim: (id: number) =>
+    postJSON<PlayerClaim>(`/player_claims/${id}/approve`, {}),
+  rejectPlayerClaim: (id: number, rejectionReason: string) =>
+    postJSON<PlayerClaim>(`/player_claims/${id}/reject`, { rejection_reason: rejectionReason }),
+  cancelPlayerClaim: (id: number) =>
+    postJSON<PlayerClaim>(`/player_claims/${id}/cancel`, {}),
 
   // ---------- Coaches (read: training managers; create: coach/admin) ----------
   /** Paginated catalogue — see `players`. */

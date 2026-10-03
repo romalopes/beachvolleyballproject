@@ -19,6 +19,9 @@ import {
 /** Page size for the player catalogue (the API's own default). */
 const PER_PAGE = 20;
 
+const playerName = (player: Player) =>
+  player.full_name?.trim() || player.person?.first_name || player.display_name || "Unnamed player";
+
 /**
  * Player catalogue: everyone the club can schedule.
  *
@@ -220,11 +223,9 @@ export default function Players() {
 
       {confirmingArchive && (
         <DeleteConfirm
-          entityName={
-            confirmingArchive.full_name ?? confirmingArchive.person.first_name
-          }
+          entityName={playerName(confirmingArchive)}
           title={`Archive “${
-            confirmingArchive.full_name ?? confirmingArchive.person.first_name
+            playerName(confirmingArchive)
           }”?`}
           warning="The player leaves the catalogue and cannot be added to new trainings. Their training history is kept, and this can be undone."
           confirmLabel="Archive"
@@ -268,10 +269,10 @@ export default function Players() {
             <li key={player.id} className="people-row">
               <div className="people-identity">
                 <Link to={`/players/${player.id}`} className="people-name">
-                  {player.full_name ?? `${player.person.first_name} ${player.person.last_name ?? ""}`}
+                  {playerName(player)}
                 </Link>
                 <span className="people-contact">
-                  {[player.person.email, player.person.phone]
+                  {[player.person?.email, player.person?.phone]
                     .filter(Boolean)
                     .join(" · ") || "No contact details"}
                 </span>
@@ -288,13 +289,11 @@ export default function Players() {
               </Tag>
               {isArchived(player) && <Tag>Archived</Tag>}
               {player.visibility === "private" && <Tag>Private</Tag>}
-              {canRecord && (
+              {canRecord && player.person && (
                 <Link
                   to={`/players/${player.id}/edit`}
                   className="admin-btn"
-                  aria-label={`Edit ${
-                    player.full_name ?? player.person.first_name
-                  }`}
+                  aria-label={`Edit ${playerName(player)}`}
                 >
                   <Pencil size={14} />
                   Edit
@@ -306,9 +305,7 @@ export default function Players() {
                     type="button"
                     className="admin-btn"
                     disabled={working}
-                    aria-label={`Restore ${
-                      player.full_name ?? player.person.first_name
-                    }`}
+                    aria-label={`Restore ${playerName(player)}`}
                     onClick={() => handleRestore(player)}
                   >
                     <ArchiveRestore size={14} />
@@ -319,9 +316,7 @@ export default function Players() {
                     type="button"
                     className="admin-btn admin-btn-remove"
                     disabled={working}
-                    aria-label={`Archive ${
-                      player.full_name ?? player.person.first_name
-                    }`}
+                    aria-label={`Archive ${playerName(player)}`}
                     onClick={() => {
                       setActionError(null);
                       setConfirmingArchive(player);

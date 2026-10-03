@@ -58,7 +58,7 @@ function formatDate(iso: string | null | undefined): string {
 }
 
 function displayName(
-  person: { full_name?: string; person?: { first_name: string; last_name: string | null } },
+  person: { full_name?: string; person?: { first_name: string; last_name: string | null } | null },
 ): string {
   return (
     person.full_name?.trim() ||
@@ -377,5 +377,4 @@ export default function CoachingRelationships({
     </section>
   );
 }
-
 

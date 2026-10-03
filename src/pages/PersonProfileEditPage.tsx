@@ -93,6 +93,9 @@ export default function PersonProfileEditPage({
     request
       .then((record) => {
         if (cancelled) return;
+        if (!record.person) {
+          throw new Error("This player profile is not linked to a Person yet.");
+        }
         setLoaded({
           id: record.id,
           name:
