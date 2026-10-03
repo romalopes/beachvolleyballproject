@@ -1102,6 +1102,9 @@ export interface PersonIdentity {
   /** Set when the person is already a player / coach — no second profile needed. */
   player_profile_id: number | null;
   coach_profile_id: number | null;
+  /** Complete profile lists; singular keys remain during client migration. */
+  player_profile_ids?: number[];
+  coach_profile_ids?: number[];
   /**
    * Alternate names (nicknames, previous names after a rename). Not identity
    * evidence, but how a coach usually recognises someone.
