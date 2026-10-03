@@ -121,3 +121,74 @@ export function includesPlayer(
     (participant) => participant.player_profile_id === playerProfileId,
   );
 }
+
+/** Check if a person is already in the participant list (by person_id). */
+export function includesPerson(
+  participants: ParticipantDraft[],
+  personId: number,
+): boolean {
+  return participants.some((participant) => {
+    // For new participants created from group members without player profile
+    // They have person object but without id (since it's a new person)
+    // We check if this is the same person by comparing the inline person data
+    // Actually, for new persons we can't reliably check by person_id since they don't have one yet
+    // So we only check against existing participants that have player_profile with person
+    const pp = participant as ParticipantDraft & {
+      player_profile?: { person?: { id: number } };
+    };
+    return pp.player_profile?.person?.id === personId;
+  });
+}
+
+/**
+ * Create a ParticipantDraft from a GroupMember.
+ * A GroupMember may have a player_profile_id (if registered) or just a person_id.
+ */
+export function participantFromGroupMember(
+  member: {
+    person_id: number;
+    player_profile_id: number | null;
+    name: string | null;
+    level: string | null;
+    preferred_position: string | null;
+    email: string | null;
+    role: string;
+  },
+  status: ParticipantStatus = "invited",
+): ParticipantDraft {
+  // Use personName utility to construct display name from person data
+  const displayName = member.name?.trim() || `Player #${member.person_id}`;
+
+  // Build person object for inline submission if no player profile
+  const personData = {
+    first_name: member.name?.split(" ")[0] || "",
+    last_name: member.name?.split(" ").slice(1).join(" ") || "",
+    email: member.email,
+    phone: null,
+    date_of_birth: null,
+  };
+
+  if (member.player_profile_id) {
+    return createParticipantDraft(
+      { player_profile_id: member.player_profile_id, status },
+      {
+        name: displayName,
+        subtitle:
+          member.level || member.preferred_position
+            ? `${member.preferred_position || ""} ${member.level || ""}`.trim()
+            : `Group member (${member.role})`,
+        isNewPerson: false,
+      },
+    );
+  }
+
+  // No player profile yet — submit person inline
+  return createParticipantDraft(
+    { person: personData, status },
+    {
+      name: displayName,
+      subtitle: `Group member (${member.role}) — no account yet`,
+      isNewPerson: true,
+    },
+  );
+}

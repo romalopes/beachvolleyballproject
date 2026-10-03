@@ -22,6 +22,7 @@ vi.mock("../api", async (importOriginal) => {
       people: vi.fn(),
       createPlayer: vi.fn(),
       updatePlayer: vi.fn(),
+      organisations: vi.fn(),
     },
   };
 });
@@ -87,6 +88,7 @@ beforeEach(() => {
   mockedApi.me.mockResolvedValue(coachUser);
   mockedApi.players.mockResolvedValue(paginated([]));
   mockedApi.people.mockResolvedValue([]);
+  mockedApi.organisations.mockResolvedValue(paginated([]));
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -333,6 +335,7 @@ describe("Players", () => {
         last_name: "Santos",
         email: null,
         phone: null,
+        organisation_memberships_attributes: [],
       },
       player_profile: {
         preferred_position: null,

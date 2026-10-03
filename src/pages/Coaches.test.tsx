@@ -17,6 +17,7 @@ vi.mock("../api", async (importOriginal) => {
       people: vi.fn(),
       createCoach: vi.fn(),
       updateCoach: vi.fn(),
+      organisations: vi.fn(),
     },
   };
 });
@@ -66,6 +67,7 @@ beforeEach(() => {
   mockedApi.me.mockResolvedValue(coachUser);
   mockedApi.coaches.mockResolvedValue(paginated([]));
   mockedApi.people.mockResolvedValue([]);
+  mockedApi.organisations.mockResolvedValue(paginated([]));
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -200,6 +202,7 @@ describe("Coaches", () => {
         last_name: null,
         email: null,
         phone: null,
+        organisation_memberships_attributes: [],
       },
       coach_profile: {
         coaching_level: "national",

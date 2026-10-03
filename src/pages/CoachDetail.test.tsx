@@ -14,6 +14,7 @@ vi.mock("../api", async (importOriginal) => {
       me: vi.fn(),
       coach: vi.fn(),
       updateCoach: vi.fn(),
+      playerCoaches: vi.fn(),
     },
   };
 });
@@ -74,6 +75,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockedApi.me.mockResolvedValue(coachUser);
   mockedApi.coach.mockResolvedValue(coach());
+  mockedApi.playerCoaches.mockResolvedValue([]);
 });
 
 afterEach(() => vi.clearAllMocks());

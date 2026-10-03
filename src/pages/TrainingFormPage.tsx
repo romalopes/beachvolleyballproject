@@ -5,6 +5,7 @@ import {
   ApiValidationError,
   type Category,
   type Drill,
+  type Group as GroupRecord,
   type Player,
   type Skill,
   type TrainingSession,
@@ -25,6 +26,9 @@ import DrillSelector, {
 import ParticipantSelector from "../components/training/ParticipantSelector";
 import {
   participantDraftsFromSession,
+  participantFromGroupMember,
+  includesPlayer,
+  includesPerson,
   type ParticipantDraft,
 } from "../components/training/participantDraft";
 import SkillFocusSelector from "../components/training/SkillFocusSelector";
@@ -79,6 +83,9 @@ export default function TrainingFormPage() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [drills, setDrills] = useState<Drill[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [groups, setGroups] = useState<GroupRecord[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [loadingGroup, setLoadingGroup] = useState(false);
   const [referenceError, setReferenceError] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
@@ -126,13 +133,17 @@ export default function TrainingFormPage() {
       api.skills(),
       api.drills(),
       api.players({ include_private: true, per_page: 100 }),
+      // A group is optional and only seeds the roster, so a failure here must
+      // not stop the form from opening: it falls back to no group.
+      api.groups({ include_private: true }).catch(() => null),
     ])
-      .then(([cats, sks, drs, pageOfPlayers]) => {
+      .then(([cats, sks, drs, pageOfPlayers, groupsRes]) => {
         if (cancelled) return;
         setCategories(cats);
         setSkills(sks);
         setDrills(drs);
         setPlayers(pageOfPlayers.data);
+        setGroups(groupsRes?.data || []);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -145,6 +156,67 @@ export default function TrainingFormPage() {
       cancelled = true;
     };
   }, []);
+
+  /** Load a group and append its members to the participant roster. */
+  const handleGroupSelect = async (groupId: number | null) => {
+    if (!groupId) {
+      setSelectedGroupId(null);
+      return;
+    }
+    setLoadingGroup(true);
+    try {
+      const response = await api.group(groupId);
+      const groupDetail = response?.group;
+      if (!groupDetail?.members) return;
+
+      // Filter to active members only
+      const activeMembers = groupDetail.members.filter(
+        (m: { status: string }) => m.status === "active",
+      );
+
+      // Convert each member to a ParticipantDraft, skipping duplicates
+      const newParticipants = activeMembers
+        .filter((member: { player_profile_id: number | null; person_id: number }) => {
+          if (member.player_profile_id) {
+            return !includesPlayer(participants, member.player_profile_id);
+          }
+          return !includesPerson(participants, member.person_id);
+        })
+        .map((member: {
+          person_id: number;
+          player_profile_id: number | null;
+          name: string | null;
+          level: string | null;
+          preferred_position: string | null;
+          email: string | null;
+          role: string;
+        }) =>
+          participantFromGroupMember(
+            {
+              person_id: member.person_id,
+              player_profile_id: member.player_profile_id,
+              name: member.name,
+              level: member.level,
+              preferred_position: member.preferred_position,
+              email: member.email,
+              role: member.role,
+            },
+            "invited",
+          ),
+        );
+
+      if (newParticipants.length > 0) {
+        setParticipants((prev) => [...prev, ...newParticipants]);
+      }
+    } catch (err) {
+      console.error("Failed to load group:", err);
+      // Silently fail - group loading is optional
+    } finally {
+      setLoadingGroup(false);
+      // Clear the selector after use (it's a one-time selection aid)
+      setSelectedGroupId(null);
+    }
+  };
 
   useEffect(() => {
     if (isNew || invalidId || sessionId == null) return;
@@ -601,6 +673,42 @@ export default function TrainingFormPage() {
           selected={selectedDrills}
           onChange={setSelectedDrills}
         />
+
+        {/* Group selector to seed roster from a group */}
+        <div className="training-editor-section" role="group" aria-label="Group roster">
+          <h3>Players</h3>
+          <p className="related-item-meta">
+            Seed the roster from a group, then add or remove players as needed.
+          </p>
+          {groups.length > 0 && (
+            <div className="admin-field">
+              <label htmlFor="training-group-seed">Group (optional)</label>
+              <select
+                id="training-group-seed"
+                value={selectedGroupId ?? 0}
+                onChange={(e) => handleGroupSelect(Number(e.target.value) || null)}
+                disabled={loadingGroup}
+              >
+                <option value={0}>Select a group to add its members…</option>
+                {groups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name} ({group.player_count ?? 0} members)
+                  </option>
+                ))}
+              </select>
+              {loadingGroup && (
+                <span className="field-hint" style={{ color: "var(--muted)" }}>
+                  Loading group members…
+                </span>
+              )}
+              <p className="field-hint">
+                Picking a group adds its active members to the roster. Membership
+                is not attendance — you can still remove anyone who did not show
+                up.
+              </p>
+            </div>
+          )}
+        </div>
 
         <ParticipantSelector
           players={players}

@@ -24,6 +24,7 @@ vi.mock("../api", async (importOriginal) => {
       skills: vi.fn(),
       drills: vi.fn(),
       players: vi.fn(),
+      groups: vi.fn(),
       createTrainingSession: vi.fn(),
       updateTrainingSession: vi.fn(),
       trainingSession: vi.fn(),
@@ -142,6 +143,7 @@ beforeEach(() => {
   mockedApi.skills.mockResolvedValue(skills);
   mockedApi.drills.mockResolvedValue(drills);
   mockedApi.players.mockResolvedValue(paginated([]));
+  mockedApi.groups.mockResolvedValue(paginated([]));
   mockedApi.createTrainingSession.mockResolvedValue({ id: 99 } as never);
 });
 

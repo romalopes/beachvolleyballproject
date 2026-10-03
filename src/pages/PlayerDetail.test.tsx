@@ -15,6 +15,7 @@ vi.mock("../api", async (importOriginal) => {
       player: vi.fn(),
       updatePlayer: vi.fn(),
       coaches: vi.fn(),
+      playerCoaches: vi.fn(),
       skills: vi.fn().mockResolvedValue([]),
     },
   };
@@ -98,6 +99,7 @@ beforeEach(() => {
   mockedApi.me.mockResolvedValue(coachUser);
   mockedApi.player.mockResolvedValue(player());
   mockedApi.coaches.mockResolvedValue({ data: [], meta: { page: 1, per_page: 100, total: 0, total_pages: 1 } });
+  mockedApi.playerCoaches.mockResolvedValue([]);
 });
 
 afterEach(() => vi.clearAllMocks());
