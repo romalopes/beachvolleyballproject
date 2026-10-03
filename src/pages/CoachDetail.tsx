@@ -238,8 +238,10 @@ export default function CoachDetail() {
         canManage={
           canEdit &&
           (Boolean(user?.roles.includes("admin")) ||
-            (Boolean(user?.coach_profile_id) &&
-              user?.coach_profile_id === coach.coach_profile_id))
+            Boolean(
+              user?.coach_profile_ids?.includes(coach.coach_profile_id!) ||
+              user?.coach_profile_id === coach.coach_profile_id,
+            ))
         }
         isAdmin={Boolean(user?.roles.includes("admin"))}
       />
@@ -271,4 +273,3 @@ export default function CoachDetail() {
     </div>
   );
 }
-

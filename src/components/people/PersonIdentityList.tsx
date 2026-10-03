@@ -30,7 +30,9 @@ export default function PersonIdentityList({
   }
 
   const existingProfileId = (person: PersonIdentity) =>
-    profileKind === "coach" ? person.coach_profile_id : person.player_profile_id;
+    profileKind === "coach"
+      ? (person.coach_profile_ids?.[0] ?? person.coach_profile_id)
+      : (person.player_profile_ids?.[0] ?? person.player_profile_id);
 
   return (
     <ul className="person-identity-list">
@@ -56,16 +58,20 @@ export default function PersonIdentityList({
                 : "Profile only"}
             </Tag>
             {profileId != null && profileKind && (
-              <Tag>Already a {profileKind}</Tag>
+              <Tag>
+                {profileKind === "coach" && (person.coach_profile_ids?.length ?? 0) > 1
+                  ? `${person.coach_profile_ids!.length} coach profiles`
+                  : `Already a ${profileKind}`}
+              </Tag>
             )}
             {onSelect && (
               <button
                 type="button"
                 className="admin-btn"
-                disabled={profileId != null}
+                disabled={profileId != null && profileKind !== "coach"}
                 onClick={() => onSelect(person)}
               >
-                Use this person
+                {profileId != null && profileKind === "coach" ? "Add another coach profile" : "Use this person"}
               </button>
             )}
           </li>

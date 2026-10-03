@@ -224,14 +224,14 @@ export default function People() {
                         <UserCheck size={14} /> Make player
                       </button>
                     )}
-                    {isAdmin && !person.coach_profile_id && (
+                    {isAdmin && (
                       <button
                         type="button"
                         className="admin-btn"
                         disabled={busyId === person.id}
                         onClick={() => void promote(person, "coach")}
                       >
-                        <UserCheck size={14} /> Make coach
+                        <UserCheck size={14} /> {person.coach_profile_id ? "Add coach profile" : "Make coach"}
                       </button>
                     )}
                     <button

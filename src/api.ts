@@ -1342,7 +1342,17 @@ export interface User {
   /** Present for the signed-in user; used to default assessment attribution. */
   person_id?: number | null;
   coach_profile_id?: number | null;
+  /** All coaching records for the authenticated Person; the singular ID is a legacy default. */
+  coach_profile_ids?: number[];
+  coach_profiles?: CoachContext[];
   player_profile_id?: number | null;
+}
+
+export interface CoachContext {
+  id: number;
+  coaching_level: string | null;
+  qualifications: string | null;
+  status: "active" | "archived";
 }
 
 export interface UserWithToken extends User {

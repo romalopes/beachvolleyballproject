@@ -55,6 +55,7 @@ beforeEach(() => {
 describe("AuthContext impersonation", () => {
   it("starts impersonation: effective user becomes target, banner state active", async () => {
     const user = userEvent.setup();
+    mockedApi.me.mockResolvedValueOnce(adminWithoutImpersonation).mockResolvedValueOnce(player);
     mockedApi.startImpersonation.mockResolvedValue({
       impersonating: true,
       effective_user: player,
@@ -78,6 +79,10 @@ describe("AuthContext impersonation", () => {
 
   it("stops impersonation and restores the admin", async () => {
     const user = userEvent.setup();
+    mockedApi.me
+      .mockResolvedValueOnce(adminWithoutImpersonation)
+      .mockResolvedValueOnce(player)
+      .mockResolvedValueOnce(adminUser);
     mockedApi.startImpersonation.mockResolvedValue({
       impersonating: true,
       effective_user: player,

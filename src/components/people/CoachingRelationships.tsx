@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
-import { api, type Coach, type Player, type PlayerCoach } from "../../api";
+import { api, type Coach, type CoachContext, type Player, type PlayerCoach } from "../../api";
 import DeleteConfirm from "../settings/DeleteConfirm";
 import EmptyState from "../EmptyState";
 import Tag from "../Tag";
@@ -33,6 +33,8 @@ interface CoachingRelationshipsProps {
    * own* coaching, so no coach picker is shown and this is the coach.
    */
   viewerCoachProfileId?: number | null;
+  /** The signed-in Person's profiles, used to pick an attribution context. */
+  viewerCoachProfiles?: CoachContext[];
   /** Admins may attribute a relationship to any coach; a coach only to themselves. */
   isAdmin: boolean;
 }
@@ -72,6 +74,7 @@ export default function CoachingRelationships({
   profileId,
   canManage,
   viewerCoachProfileId,
+  viewerCoachProfiles = [],
   isAdmin,
 }: CoachingRelationshipsProps) {
   const [rows, setRows] = useState<PlayerCoach[]>([]);
@@ -88,16 +91,22 @@ export default function CoachingRelationships({
   const [players, setPlayers] = useState<Player[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [otherId, setOtherId] = useState<number | "">("");
+  const activeViewerProfiles = viewerCoachProfiles.filter((profile) => profile.status === "active");
+  const [selectedViewerCoachId, setSelectedViewerCoachId] = useState<number | null>(
+    viewerCoachProfileId ?? activeViewerProfiles[0]?.id ?? null,
+  );
 
   /**
    * On a player page a plain coach records themselves, so there is nothing to
    * choose and no reason to load a coach list. A picker only appears for an
    * admin (any coach) or on the coach side (any player).
    */
-  const fixedCoachId =
-    side === "player" && !isAdmin ? (viewerCoachProfileId ?? null) : null;
+  const needsOwnCoachPicker = side === "player" && !isAdmin && activeViewerProfiles.length > 1;
+  const fixedCoachId = side === "player" && !isAdmin
+    ? (needsOwnCoachPicker ? selectedViewerCoachId : (activeViewerProfiles[0]?.id ?? viewerCoachProfileId ?? null))
+    : null;
   const showForm =
-    canManage && (side === "coach" || isAdmin || Boolean(viewerCoachProfileId));
+    canManage && (side === "coach" || isAdmin || activeViewerProfiles.length > 0 || Boolean(viewerCoachProfileId));
   const needsPlayerPicker = showForm && side === "coach";
   const needsCoachPicker = showForm && side === "player" && isAdmin;
   const chosenOtherId: number | null =
@@ -256,6 +265,22 @@ export default function CoachingRelationships({
 
       {showForm && (
         <form className="coaching-add" onSubmit={handleStart}>
+          {needsOwnCoachPicker && (
+            <label>
+              Coach profile
+              <select
+                aria-label="Coach profile"
+                value={selectedViewerCoachId ?? ""}
+                onChange={(event) => setSelectedViewerCoachId(Number(event.target.value))}
+              >
+                {activeViewerProfiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.coaching_level ? `${profile.coaching_level} · ` : ""}Profile #{profile.id}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           {needsPlayerPicker ? (
             <label>
               Player
@@ -377,4 +402,3 @@ export default function CoachingRelationships({
     </section>
   );
 }
-

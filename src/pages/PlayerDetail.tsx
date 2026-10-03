@@ -238,9 +238,10 @@ export default function PlayerDetail() {
         profileId={player.id}
         canManage={
           canEdit &&
-          (Boolean(user?.roles.includes("admin")) || Boolean(user?.coach_profile_id))
+          (Boolean(user?.roles.includes("admin")) || Boolean(user?.coach_profile_ids?.length ?? user?.coach_profile_id))
         }
         viewerCoachProfileId={user?.coach_profile_id ?? null}
+        viewerCoachProfiles={user?.coach_profiles}
         isAdmin={Boolean(user?.roles.includes("admin"))}
       />
 

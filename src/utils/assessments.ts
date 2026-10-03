@@ -34,7 +34,8 @@ export function isAssessmentOversight(user: User | null | undefined): boolean {
 }
 
 export function canEditAssessment(assessment: Assessment, user: User | null | undefined): boolean {
+  const ownCoachProfileIds = user?.coach_profile_ids ??
+    (user?.coach_profile_id ? [user.coach_profile_id] : []);
   return isAssessmentOversight(user) ||
-    Boolean(user && (assessment.created_by?.id === user.id || assessment.coach_profile_id === user.coach_profile_id));
+    Boolean(user && (assessment.created_by?.id === user.id || ownCoachProfileIds.includes(assessment.coach_profile_id)));
 }
-
