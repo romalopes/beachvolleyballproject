@@ -331,6 +331,20 @@ describe("people, players and coaches", () => {
     expect(url).toBe("/api/v1/players?q=pedro");
   });
 
+  it("searches player profile candidates through the claim endpoint", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      body: [{ id: 7, player_profile_id: 7, display_name: "John Smith", match_type: "exact_name", result_type: "candidate" }],
+    });
+
+    const candidates = await api.playerProfileCandidates();
+
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/player_claims/candidates");
+    expect(candidates[0].result_type).toBe("candidate");
+    expect(candidates[0].match_type).toBe("exact_name");
+  });
+
   it("unwraps the paginated player catalogue", async () => {
     const fetchMock = mockFetchOnce({
       ok: true,

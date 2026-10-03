@@ -1259,6 +1259,15 @@ export interface PlayerClaim {
   player_name?: string;
 }
 
+/** Safe, unconfirmed suggestion returned by player profile candidate search. */
+export interface PlayerProfileCandidate {
+  id: number;
+  player_profile_id: number;
+  display_name: string;
+  match_type: "exact_name" | "partial_name";
+  result_type: "candidate";
+}
+
 export interface Coach {
   id: number;
   person_id: number;
@@ -1667,6 +1676,8 @@ export const api = {
     postJSON<PlayerCreateResponse>(`/players/${id}`, { player: data }, "PATCH"),
 
   // ---------- Player claims (self-service request; coach/admin review) ----------
+  playerProfileCandidates: () =>
+    fetchAPI<PlayerProfileCandidate[]>("/player_claims/candidates"),
   playerClaims: () => fetchAPI<PlayerClaim[]>("/player_claims"),
   requestPlayerClaim: (playerProfileId: number) =>
     postJSON<PlayerClaim>("/player_claims", { player_profile_id: playerProfileId }),
