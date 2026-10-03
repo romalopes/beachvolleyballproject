@@ -1268,6 +1268,22 @@ export interface PlayerProfileCandidate {
   result_type: "candidate";
 }
 
+export interface PlayerClaimInvitation {
+  id: number;
+  player_profile_id: number;
+  status: "active" | "used" | "revoked" | "expired";
+  expires_at: string;
+  used_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+export interface CreatedPlayerClaimInvitation {
+  invitation: PlayerClaimInvitation;
+  /** Returned only when the invitation is created. Keep it out of persistent client storage. */
+  token: string;
+}
+
 export interface Coach {
   id: number;
   person_id: number;
@@ -1687,6 +1703,16 @@ export const api = {
     postJSON<PlayerClaim>(`/player_claims/${id}/reject`, { rejection_reason: rejectionReason }),
   cancelPlayerClaim: (id: number) =>
     postJSON<PlayerClaim>(`/player_claims/${id}/cancel`, {}),
+
+  // ---------- One-time player claim invitations ----------
+  playerClaimInvitations: (playerProfileId: number) =>
+    fetchAPI<PlayerClaimInvitation[]>(`/player_claim_invitations?player_profile_id=${playerProfileId}`),
+  createPlayerClaimInvitation: (playerProfileId: number) =>
+    postJSON<CreatedPlayerClaimInvitation>("/player_claim_invitations", { player_profile_id: playerProfileId }),
+  redeemPlayerClaimInvitation: (token: string) =>
+    postJSON<{ claim: PlayerClaim }>("/player_claim_invitations/redeem", { token }),
+  revokePlayerClaimInvitation: (id: number) =>
+    postJSON<PlayerClaimInvitation>(`/player_claim_invitations/${id}/revoke`, {}),
 
   // ---------- Coaches (read: training managers; create: coach/admin) ----------
   /** Paginated catalogue — see `players`. */
