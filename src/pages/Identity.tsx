@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { api, type MembershipConflictResolution, type PersonConsolidationConflict, type PersonIdentity, type PlayerClaim, type PlayerProfileCandidate } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
@@ -10,7 +10,8 @@ type ResolutionChoice = { keep_record_id: number; reason: string };
 export default function IdentityPage() {
   const { user } = useAuth();
   const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [candidates, setCandidates] = useState<PlayerProfileCandidate[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
   const [claims, setClaims] = useState<PlayerClaim[]>([]);
@@ -19,7 +20,10 @@ export default function IdentityPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [token, setToken] = useState(searchParams.get("claim_token") ?? "");
+  const [token, setToken] = useState(() => {
+    const fragmentToken = new URLSearchParams(location.hash.replace(/^#/, "")).get("claim_token");
+    return fragmentToken ?? searchParams.get("claim_token") ?? "";
+  });
   const [rejectReason, setRejectReason] = useState("");
 
   const isReviewer = Boolean(user?.roles.some((role) => role === "admin" || role === "coach"));
@@ -57,7 +61,7 @@ export default function IdentityPage() {
       setToken("");
       const next = new URLSearchParams(searchParams);
       next.delete("claim_token");
-      setSearchParams(next, { replace: true });
+      navigate({ pathname: location.pathname, search: next.toString() ? `?${next}` : "", hash: "" }, { replace: true });
       await reloadClaims();
     } catch (err) { setError(err instanceof Error ? err.message : "Invitation could not be redeemed."); }
     finally { setBusy(false); }
@@ -91,7 +95,7 @@ export default function IdentityPage() {
     finally { setBusy(false); }
   };
 
-  if (!user) return <div className="page"><EmptyState title="Sign in to view your identity" description="Sign in to review your identity context or redeem a player claim invitation." /><Link className="auth-submit" to="/login" state={{ from: `${location.pathname}${location.search}` }}>Sign in</Link></div>;
+  if (!user) return <div className="page"><EmptyState title="Sign in to view your identity" description="Sign in to review your identity context or redeem a player claim invitation." /><Link className="auth-submit" to="/login" state={{ from: `${location.pathname}${location.search}${location.hash}` }}>Sign in</Link></div>;
   if (loading) return <div className="loading">Loading identity…</div>;
 
   return <div className="page identity-page">

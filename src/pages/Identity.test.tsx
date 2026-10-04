@@ -48,7 +48,7 @@ describe("Identity", () => {
 
   it("redeems a signed-in invitation and clears its token from the URL", async () => {
     mockedApi.redeemPlayerClaimInvitation.mockResolvedValue({ claim: { id: 8, player_profile_id: 21, person_id: 4, status: "pending", created_at: "2026-01-01", reviewed_at: null } });
-    renderPage("/identity?claim_token=one-time-secret");
+    renderPage("/identity#claim_token=one-time-secret");
     expect(await screen.findByLabelText("Invitation token")).toHaveValue("one-time-secret");
     await userEvent.click(screen.getByRole("button", { name: "Submit claim request" }));
     await waitFor(() => expect(mockedApi.redeemPlayerClaimInvitation).toHaveBeenCalledWith("one-time-secret"));
@@ -56,9 +56,15 @@ describe("Identity", () => {
   });
 
   it("preserves an invitation link through the sign-in route", async () => {
-    renderPage("/identity?claim_token=keep-me", null as never);
+    renderPage("/identity#claim_token=keep-me", null as never);
     expect(await screen.findByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
     expect(screen.getByText(/redeem a player claim invitation/i)).toBeInTheDocument();
+  });
+
+  it("continues to accept a legacy query-token invitation", async () => {
+    mockedApi.redeemPlayerClaimInvitation.mockResolvedValue({ claim: { id: 10, player_profile_id: 22, person_id: 4, status: "pending", created_at: "2026-01-01", reviewed_at: null } });
+    renderPage("/identity?claim_token=legacy-token");
+    expect(await screen.findByLabelText("Invitation token")).toHaveValue("legacy-token");
   });
 
   it("shows load errors and blocks consolidation on an account conflict", async () => {
