@@ -149,9 +149,9 @@ export default function AssessmentSessions() {
   const selectedDef = definitions.find((d) => d.id === formData.assessment_definition_id);
 
   const coachLabel = (coach: Coach) =>
-    coach.full_name ||
-    [coach.person?.first_name, coach.person?.last_name].filter(Boolean).join(" ") ||
-    `Coach #${coach.id}`;
+    `${coach.full_name ||
+      [coach.person?.first_name, coach.person?.last_name].filter(Boolean).join(" ") ||
+      "Coach"} · profile #${coach.id}`;
 
   return (
     <div className="page assessment-sessions-page">

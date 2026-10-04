@@ -125,6 +125,11 @@ const accountLink: SidebarLink = {
   label: "Account",
   icon: UserCircle,
 };
+const identityLink: SidebarLink = {
+  path: "/identity",
+  label: "Identity",
+  icon: UsersRound,
+};
 
 /**
  * Remembers which groups were folded away. Storage can be unavailable (private
@@ -262,6 +267,7 @@ export default function Sidebar() {
           );
         })}
         {isAdmin && <SidebarNavLink link={settingsLink} />}
+        {user && <SidebarNavLink link={identityLink} />}
         {user && <SidebarNavLink link={accountLink} />}
       </nav>
       <div className="sidebar-footer">

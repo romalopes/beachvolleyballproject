@@ -43,6 +43,7 @@ export default function PlayerDetail() {
   const [confirmingArchive, setConfirmingArchive] = useState(false);
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [invitationToken, setInvitationToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (invalidId) return;
@@ -104,6 +105,19 @@ export default function PlayerDetail() {
     return <EmptyState title="Player not found" description={error ?? undefined} />;
 
   const playerName = player.full_name?.trim() || player.person?.first_name || player.display_name || "Unnamed player";
+  const canInvite = !player.person && user && (user.roles.includes("admin") || (user.roles.includes("coach") && player.created_by?.id === user.id));
+  const createInvitation = async () => {
+    setWorking(true);
+    setActionError(null);
+    try {
+      const invitation = await api.createPlayerClaimInvitation(player.id);
+      setInvitationToken(invitation.token);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Could not create an invitation.");
+    } finally {
+      setWorking(false);
+    }
+  };
 
   const history = [...(player.training_session_participants ?? [])].sort(
     (a, b) =>
@@ -209,7 +223,12 @@ export default function PlayerDetail() {
             </p>
           </>
         ) : (
-          <p className="related-item-meta">This player profile has not been linked to a Person yet.</p>
+          <>
+            <p className="related-item-meta">This player profile has not been linked to a Person yet. A claim invitation lets the player request a link to their signed-in account.</p>
+            {canInvite && <div className="identity-invitation">
+              {!invitationToken ? <button className="admin-btn admin-btn-add" disabled={working} onClick={() => void createInvitation()}>{working ? "Creating invitation…" : "Create claim invitation"}</button> : <div role="status"><p>Copy this one-time link and share it with the player. The token is shown only now.</p><input aria-label="Claim invitation link" readOnly value={`${window.location.origin}/identity?claim_token=${encodeURIComponent(invitationToken)}`} onFocus={(event) => event.currentTarget.select()} /><button className="admin-btn" onClick={() => { void navigator.clipboard?.writeText(`${window.location.origin}/identity?claim_token=${encodeURIComponent(invitationToken)}`); }}>Copy link</button><button className="admin-btn" onClick={() => setInvitationToken(null)}>Hide token</button></div>}
+            </div>}
+          </>
         )}
       </section>
 
