@@ -702,6 +702,7 @@ export interface OrganisationMembership {
   left_at: string | null;
   /** Whether this person may run the organisation's roster. */
   manages: boolean;
+  organisation?: { id: number; name: string };
   created_at: string;
   updated_at: string;
 }
@@ -1131,13 +1132,19 @@ export interface OrganisationMembershipInput {
   _destroy?: boolean;
 }
 
-/** Serialized organisation membership as returned by the API. */
-export interface OrganisationMembership {
+export interface UserGroupMembership {
   id: number;
-  organisation_id: number;
-  role: OrganisationMembershipRole;
-  status: "pending" | "active" | "suspended" | "ended";
-  organisation?: { id: number; name: string };
+  group_id: number;
+  role: "owner" | "coach" | "member";
+  status: "active" | "ended";
+  joined_at: string | null;
+  left_at: string | null;
+  group: {
+    id: number;
+    name: string;
+    status: GroupStatus;
+    organisation: { id: number; name: string } | null;
+  };
 }
 
 /**
@@ -1278,6 +1285,39 @@ export interface PlayerClaimInvitation {
   created_at: string;
 }
 
+export interface PersonConsolidationConflict {
+  type: "account_conflict" | "organisation_membership_conflict" | "group_membership_conflict" | string;
+  container_id?: number;
+  source_record_id: number;
+  canonical_record_id: number;
+  source_membership?: Record<string, unknown>;
+  canonical_membership?: Record<string, unknown>;
+}
+
+export interface PersonConsolidationPreview {
+  source_person: { id: number; full_name: string; status: string };
+  canonical_person: { id: number; full_name: string; status: string };
+  conflicts: PersonConsolidationConflict[];
+  ready: boolean;
+  records_to_reassign: Record<string, number>;
+}
+
+export interface MembershipConflictResolution {
+  type: "organisation_membership_conflict" | "group_membership_conflict";
+  container_id: number;
+  keep_record_id: number;
+  reason: string;
+}
+
+export interface PersonConsolidationAudit {
+  id: number;
+  source_person: { id: number; full_name: string };
+  canonical_person: { id: number; full_name: string };
+  performed_by_id: number;
+  completed_at: string;
+  result: Record<string, unknown>;
+}
+
 export interface CreatedPlayerClaimInvitation {
   invitation: PlayerClaimInvitation;
   /** Returned only when the invitation is created. Keep it out of persistent client storage. */
@@ -1346,6 +1386,12 @@ export interface User {
   coach_profile_ids?: number[];
   coach_profiles?: CoachContext[];
   player_profile_id?: number | null;
+  /** Complete caller-owned profile and membership context from GET /me. */
+  account_id?: number | null;
+  player_profile_ids?: number[];
+  player_profiles?: PlayerContext[];
+  organisation_memberships?: OrganisationMembership[];
+  group_memberships?: UserGroupMembership[];
 }
 
 export interface CoachContext {
@@ -1353,6 +1399,15 @@ export interface CoachContext {
   coaching_level: string | null;
   qualifications: string | null;
   status: "active" | "archived";
+}
+
+export interface PlayerContext {
+  id: number;
+  display_name: string | null;
+  preferred_position: string | null;
+  level: string | null;
+  status: ProfileStatus;
+  visibility: ProfileVisibility;
 }
 
 export interface UserWithToken extends User {
@@ -1659,6 +1714,36 @@ export const api = {
       { promotion: { role } },
     ),
 
+  // ---------- Person consolidation (admin; identity phases 7–8) ----------
+  personConsolidationPreview: (sourcePersonId: number, canonicalPersonId: number) =>
+    postJSON<PersonConsolidationPreview>("/person_consolidations/preview", {
+      person_consolidation: {
+        source_person_id: sourcePersonId,
+        canonical_person_id: canonicalPersonId,
+      },
+    }),
+  consolidatePeople: (sourcePersonId: number, canonicalPersonId: number) =>
+    postJSON<PersonConsolidationAudit>("/person_consolidations", {
+      person_consolidation: {
+        source_person_id: sourcePersonId,
+        canonical_person_id: canonicalPersonId,
+      },
+    }),
+  resolvePersonConsolidation: (
+    sourcePersonId: number,
+    canonicalPersonId: number,
+    membershipResolutions: MembershipConflictResolution[],
+  ) =>
+    postJSON<PersonConsolidationAudit>("/person_consolidations/resolve", {
+      person_consolidation: {
+        source_person_id: sourcePersonId,
+        canonical_person_id: canonicalPersonId,
+      },
+      membership_resolutions: membershipResolutions,
+    }),
+  personConsolidation: (id: number) =>
+    fetchAPI<PersonConsolidationAudit>(`/person_consolidations/${id}`),
+
   // ---------- Players (read: training managers; create: coach/admin) ----------
   /**
    * Paginated catalogue (`{ data, meta }`, 20 per page by default).
@@ -1717,6 +1802,8 @@ export const api = {
   // ---------- One-time player claim invitations ----------
   playerClaimInvitations: (playerProfileId: number) =>
     fetchAPI<PlayerClaimInvitation[]>(`/player_claim_invitations?player_profile_id=${playerProfileId}`),
+  playerClaimInvitation: (id: number) =>
+    fetchAPI<PlayerClaimInvitation>(`/player_claim_invitations/${id}`),
   createPlayerClaimInvitation: (playerProfileId: number) =>
     postJSON<CreatedPlayerClaimInvitation>("/player_claim_invitations", { player_profile_id: playerProfileId }),
   redeemPlayerClaimInvitation: (token: string) =>
