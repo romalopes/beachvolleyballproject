@@ -48,8 +48,12 @@ export default function IdentityPage() {
     if (!userId) return;
     let cancelled = false;
     Promise.all([
-      api.playerProfileCandidates().catch(() => [] as PlayerProfileCandidate[]),
-      Promise.resolve().then(() => api.profileCandidates("CoachProfile")).catch(() => [] as PlayerProfileCandidate[]),
+      personId
+        ? api.playerProfileCandidates().catch(() => [] as PlayerProfileCandidate[])
+        : Promise.resolve([] as PlayerProfileCandidate[]),
+      personId
+        ? api.profileCandidates("CoachProfile").catch(() => [] as PlayerProfileCandidate[])
+        : Promise.resolve([] as PlayerProfileCandidate[]),
       api.playerClaims(),
     ]).then(([suggestions, coachSuggestions, userClaims]) => {
       if (cancelled) return;
@@ -164,19 +168,31 @@ export default function IdentityPage() {
       <button className="auth-submit" disabled={busy || !token.trim()} onClick={() => void redeem()}>{busy ? "Submitting…" : "Redeem invitation"}</button>
     </section>
 
-    <section className="detail-section"><h2>Claim profiles</h2><p>Suggestions are limited to profiles in your organisation or connected through a current coach relationship. A match is only a suggestion; your request will be reviewed.</p>
-      <div role="tablist" aria-label="Profile type"><button role="tab" aria-selected={profileType === "PlayerProfile"} onClick={() => { setProfileType("PlayerProfile"); setSelected([]); }}>Players</button><button role="tab" aria-selected={profileType === "CoachProfile"} onClick={() => { setProfileType("CoachProfile"); setSelected([]); }}>Coaches</button></div>
-      {candidates.filter((candidate) => (candidate.claimable_type ?? "PlayerProfile") === profileType).length ? <ul>
-        {candidates.filter((candidate) => (candidate.claimable_type ?? "PlayerProfile") === profileType).map((candidate) => {
-          const type = candidate.claimable_type ?? "PlayerProfile";
-          const id = candidate.claimable_id ?? candidate.player_profile_id ?? candidate.coach_profile_id ?? candidate.id;
-          const key = `${type}:${id}`;
-          return <li key={key}>
-            <label><input type="checkbox" checked={selected.includes(key)} onChange={(event) => setSelected((ids) => event.target.checked ? [...ids, key] : ids.filter((id) => id !== key))} /> {candidate.display_name} · {candidate.match_type.replaceAll("_", " ")} · Suggested match</label>
-          </li>;
-        })}
-      </ul> : <p>No profile suggestions are available.</p>}
-      <button className="auth-submit" disabled={busy || selected.length === 0} onClick={() => void submitClaims()}>Request selected claims ({selected.length})</button>
+    <section className="detail-section"><h2>Claim profiles</h2>
+      {!personId ? (
+        <p role="note">
+          Your account has no linked Person, so the club cannot match you to profile
+          suggestions yet. Ask a coach or administrator to create an invite link
+          from your player or coach profile, then redeem it above while signed in.
+          If the link is tied to your recorded email, verify that email first.
+        </p>
+      ) : (
+        <>
+          <p>Suggestions are limited to profiles in your organisation or connected through a current coach relationship. A match is only a suggestion; your request will be reviewed.</p>
+          <div role="tablist" aria-label="Profile type"><button role="tab" aria-selected={profileType === "PlayerProfile"} onClick={() => { setProfileType("PlayerProfile"); setSelected([]); }}>Players</button><button role="tab" aria-selected={profileType === "CoachProfile"} onClick={() => { setProfileType("CoachProfile"); setSelected([]); }}>Coaches</button></div>
+          {candidates.filter((candidate) => (candidate.claimable_type ?? "PlayerProfile") === profileType).length ? <ul>
+            {candidates.filter((candidate) => (candidate.claimable_type ?? "PlayerProfile") === profileType).map((candidate) => {
+              const type = candidate.claimable_type ?? "PlayerProfile";
+              const id = candidate.claimable_id ?? candidate.player_profile_id ?? candidate.coach_profile_id ?? candidate.id;
+              const key = `${type}:${id}`;
+              return <li key={key}>
+                <label><input type="checkbox" checked={selected.includes(key)} onChange={(event) => setSelected((ids) => event.target.checked ? [...ids, key] : ids.filter((id) => id !== key))} /> {candidate.display_name} · {candidate.match_type.replaceAll("_", " ")} · Suggested match</label>
+              </li>;
+            })}
+          </ul> : <p>No profile suggestions are available for your Person and its current club or coach relationships. If a club has recorded your profile, ask a coach or administrator for an invite link.</p>}
+          <button className="auth-submit" disabled={busy || selected.length === 0} onClick={() => void submitClaims()}>Request selected claims ({selected.length})</button>
+        </>
+      )}
     </section>
 
     <section className="detail-section"><h2>My claim requests</h2>

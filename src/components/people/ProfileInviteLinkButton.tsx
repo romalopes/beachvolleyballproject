@@ -15,6 +15,7 @@ export default function ProfileInviteLinkButton({
   profileName,
 }: ProfileInviteLinkButtonProps) {
   const [link, setLink] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
 
@@ -22,9 +23,17 @@ export default function ProfileInviteLinkButton({
     setWorking(true);
     setError(null);
     setLink(null);
+    setNotice(null);
     try {
       const created = await api.createClaimInvitation(claimableType, claimableId);
       setLink(`${window.location.origin}/identity#claim_token=${encodeURIComponent(created.token)}`);
+      setNotice(
+        created.email_delivered
+          ? `Invitation emailed to ${created.invitation.invitee_email}. A verified matching account can connect immediately.`
+          : created.invitation.invitee_email
+            ? `Email delivery failed. Share this link only with ${created.invitation.invitee_email}; their verified account can connect immediately.`
+            : "No email is on file. Anyone with the link can request the profile, and staff must approve the request.",
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create an invitation.");
     } finally {
@@ -43,6 +52,7 @@ export default function ProfileInviteLinkButton({
       >
         <Link2 size={14} /> {working ? "Creating…" : "Create new invite link"}
       </button>
+      {notice && <p className="related-item-meta" role="status">{notice}</p>}
       {link && (
         <div className="profile-invite-link" role="status">
           <input aria-label={`Invite link for ${profileName}`} readOnly value={link} />

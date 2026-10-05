@@ -16,7 +16,7 @@ const user = { id: 7, name: "Alex Player", email_address: "alex@example.com", ro
   player_profiles: [{ id: 12, display_name: "Alex Player", preferred_position: null, level: "advanced", status: "active" as const, visibility: "shared" as const }],
   coach_profiles: [], organisation_memberships: [], group_memberships: [] };
 const authValue = { user, loading: false, login: vi.fn(), register: vi.fn(), resetPassword: vi.fn(), logout: vi.fn(), impersonation: { active: false, realAdmin: null }, startImpersonating: vi.fn(), stopImpersonating: vi.fn() } as unknown as AuthContextValue;
-const renderPage = (entry = "/identity", currentUser = user) => render(<AuthContext.Provider value={{ ...authValue, user: currentUser } as unknown as AuthContextValue}><MemoryRouter initialEntries={[entry]}><IdentityPage /></MemoryRouter></AuthContext.Provider>);
+const renderPage = (entry = "/identity", currentUser: AuthContextValue["user"] = user) => render(<AuthContext.Provider value={{ ...authValue, user: currentUser } as unknown as AuthContextValue}><MemoryRouter initialEntries={[entry]}><IdentityPage /></MemoryRouter></AuthContext.Provider>);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -30,8 +30,18 @@ describe("Identity", () => {
     expect(await screen.findByRole("heading", { name: "Account" })).toBeInTheDocument();
     expect(screen.getByText("#9")).toBeInTheDocument();
     expect(screen.getByText("Player profiles")).toBeInTheDocument();
-    expect(await screen.findByText("No profile suggestions are available.")).toBeInTheDocument();
+    expect(await screen.findByText(/no profile suggestions are available for your Person/i)).toBeInTheDocument();
     expect(screen.getByText("You have no claim requests.")).toBeInTheDocument();
+  });
+
+  it("explains that an account without a linked Person needs a profile invitation", async () => {
+    const unlinkedAccount = { ...user, person_id: null, account_id: null };
+    renderPage("/identity", unlinkedAccount);
+
+    expect(await screen.findByRole("heading", { name: "Claim profiles" })).toBeInTheDocument();
+    expect(await screen.findByRole("note")).toHaveTextContent(/ask a coach or administrator to create an invite link/i);
+    expect(screen.queryByRole("tab", { name: "Players" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Coaches" })).not.toBeInTheDocument();
   });
 
   it("presents matches as suggestions and lets a user request selected claims", async () => {

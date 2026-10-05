@@ -95,9 +95,8 @@ afterEach(() => vi.clearAllMocks());
 
 describe("Players", () => {
   it("records a player without an account so they can claim it later", async () => {
-    // This is the change that makes claim invitations reachable at all: a
-    // profile with a Person can never receive one, so the SPA must be able to
-    // create the personless (display-name-only) form.
+    // Keep the personless form available alongside profiles recorded on a
+    // Person; both accountless states can now receive profile invitations.
     mockedApi.createPlayer.mockResolvedValue({
       ...player({ id: 9, person_id: null, display_name: "Pedro Santos" }),
       possible_duplicates: [],
@@ -139,6 +138,15 @@ describe("Players", () => {
     expect(await screen.findByText("Maria Silva")).toBeInTheDocument();
     expect(screen.getByText("setter · intermediate")).toBeInTheDocument();
     expect(screen.getByText("Account connected")).toBeInTheDocument();
+  });
+
+  it("offers an invite link for an accountless player already linked to a Person", async () => {
+    mockedApi.players.mockResolvedValue(paginated([player({ id: 4 })]));
+    renderPlayers();
+
+    expect(
+      await screen.findByRole("button", { name: "Create new invite link for Pedro Santos" }),
+    ).toBeInTheDocument();
   });
 
   it("searches players server-side and returns to page one", async () => {

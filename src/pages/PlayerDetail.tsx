@@ -219,14 +219,20 @@ export default function PlayerDetail() {
               {player.person.date_of_birth ? ` · born ${player.person.date_of_birth}` : ""}
             </p>
             {player.account_status !== "connected" && (
-              <ClaimInvitationPanel
-                key={`${player.id}:${player.status}`}
-                claimableType="PlayerProfile"
-                claimableId={player.id}
-                blockedReason={invitationBlockedReason}
-                ineligibleReason={isArchived(player) ? "Restore this profile before creating claim invitations." : null}
-                inviteeEmail={player.person.email}
-              />
+              <>
+                <p className="related-item-meta">
+                  This profile already belongs to this Person. The invitation connects
+                  the Person&apos;s account to the player profile.
+                </p>
+                <ClaimInvitationPanel
+                  key={`${player.id}:${player.status}`}
+                  claimableType="PlayerProfile"
+                  claimableId={player.id}
+                  blockedReason={invitationBlockedReason}
+                  ineligibleReason={isArchived(player) ? "Restore this profile before creating claim invitations." : null}
+                  inviteeEmail={player.person.email}
+                />
+              </>
             )}
           </>
         ) : (

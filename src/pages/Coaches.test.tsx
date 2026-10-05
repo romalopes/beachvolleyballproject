@@ -102,6 +102,9 @@ describe("Coaches", () => {
     expect(await screen.findByText("Olga Coach")).toBeInTheDocument();
     expect(screen.getByText("state · Level 1")).toBeInTheDocument();
     expect(screen.getByText("Profile only")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create new invite link for Olga Coach" }),
+    ).toBeInTheDocument();
   });
 
   it("searches coaches server-side", async () => {

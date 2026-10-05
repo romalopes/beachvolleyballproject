@@ -99,19 +99,19 @@ describe("CoachDetail", () => {
       await screen.findByRole("heading", { name: /Olga Reyes/ });
 
       expect(
-        await screen.findByRole("button", { name: "Create claim invitation" }),
+        await screen.findByRole("button", { name: "Create new invite link" }),
       ).toBeInTheDocument();
     });
 
-    it("explains why a coach with a Person needs no invitation", async () => {
+    it("offers a link to connect an account to the Person on a coach profile", async () => {
       mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
       renderDetail();
       await screen.findByRole("heading", { name: /Olga Reyes/ });
 
       expect(screen.getByText(/a profile entered by a coach/)).toBeInTheDocument();
       expect(
-        screen.queryByRole("button", { name: "Create claim invitation" }),
-      ).not.toBeInTheDocument();
+        await screen.findByRole("button", { name: "Create new invite link" }),
+      ).toBeInTheDocument();
     });
 
     it("renders a personless coach without crashing on contact fields", async () => {

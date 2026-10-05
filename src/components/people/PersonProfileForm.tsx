@@ -169,9 +169,14 @@ export default function PersonProfileForm({
     setMemberships((prev) => {
       const next = [...prev];
       const item = next[index];
-      if (item.id) {
-        // mark for destruction
+      if (item.id && item.status === "pending") {
+        // Pending invitations have not become membership history, so they can
+        // be withdrawn and deleted. All other saved rows are retained.
         next[index] = { ...item, _destroy: true };
+      } else if (item.id) {
+        // Active or suspended members leave the roster by ending the membership;
+        // the server stamps left_at and retains the historical row.
+        next[index] = { ...item, status: "ended" };
       } else {
         next.splice(index, 1);
       }
@@ -391,7 +396,10 @@ export default function PersonProfileForm({
       {!isPlaceholder && organisations.length > 0 && (
         <fieldset className="person-memberships-field">
           <legend>Organisation memberships</legend>
-          {memberships.map((m, idx) => (
+          <p className="related-item-meta">
+            Ending a membership removes it from the current roster and keeps its history. Pending invitations can be withdrawn.
+          </p>
+          {memberships.map((m, idx) => m._destroy ? null : (
             <div key={idx} className="membership-row" style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
               <select
                 value={m.organisation_id ? String(m.organisation_id) : ""}
@@ -426,15 +434,18 @@ export default function PersonProfileForm({
                 <option value="suspended">Suspended</option>
                 <option value="ended">Ended</option>
               </select>
-              <button
-                type="button"
-                className="admin-btn"
-                onClick={() => removeMembership(idx)}
-                disabled={submitting}
-                aria-label="Remove membership"
-              >
-                <Trash2 size={14} />
-              </button>
+              {m.status !== "ended" && (
+                <button
+                  type="button"
+                  className="admin-btn"
+                  onClick={() => removeMembership(idx)}
+                  disabled={submitting}
+                  aria-label={m.id && m.status !== "pending" ? "End membership" : m.id ? "Withdraw invitation" : "Remove membership"}
+                >
+                  <Trash2 size={14} />
+                  {m.id && m.status !== "pending" ? "End" : m.id ? "Withdraw" : "Remove"}
+                </button>
+              )}
             </div>
           ))}
           <button

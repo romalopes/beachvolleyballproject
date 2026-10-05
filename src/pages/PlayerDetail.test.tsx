@@ -47,7 +47,7 @@ const adminUser = {
 };
 
 
-/** The only state a claim invitation can exist in: no Person yet. */
+/** A profile with no Person can receive a claim invitation. */
 const unlinkedPlayer = (overrides: Partial<Player> = {}): Player =>
   player({
     person_id: null,
@@ -156,7 +156,7 @@ describe("PlayerDetail", () => {
       renderDetail();
 
       await userEvent.click(
-        await screen.findByRole("button", { name: "Create claim invitation" }),
+        await screen.findByRole("button", { name: "Create new invite link" }),
       );
 
       // The panel passes the subject kind and the optional address.
@@ -171,15 +171,14 @@ describe("PlayerDetail", () => {
       );
     });
 
-    it("explains why a linked profile needs no invitation instead of showing nothing", async () => {
+    it("offers a link to connect an account to the Person on a profile", async () => {
       renderDetail();
       await screen.findByRole("heading", { name: "Pedro Santos" });
 
-      // The identity block renders the person, and no invitation control appears.
       expect(screen.getByText(/a profile entered by a coach/)).toBeInTheDocument();
       expect(
-        screen.queryByRole("button", { name: "Create claim invitation" }),
-      ).not.toBeInTheDocument();
+        await screen.findByRole("button", { name: "Create new invite link" }),
+      ).toBeInTheDocument();
     });
 
     it("tells a coach who did not record the profile why they cannot invite", async () => {
@@ -194,7 +193,7 @@ describe("PlayerDetail", () => {
         await screen.findByText(/only an administrator or the coach who recorded/i),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole("button", { name: "Create claim invitation" }),
+        screen.queryByRole("button", { name: "Create new invite link" }),
       ).not.toBeInTheDocument();
     });
 
@@ -205,7 +204,7 @@ describe("PlayerDetail", () => {
       await screen.findByRole("heading", { name: "Pedro Santos" });
 
       expect(
-        await screen.findByRole("button", { name: "Create claim invitation" }),
+        await screen.findByRole("button", { name: "Create new invite link" }),
       ).toBeInTheDocument();
     });
 
@@ -217,7 +216,7 @@ describe("PlayerDetail", () => {
       renderDetail();
 
       expect(
-        await screen.findByRole("button", { name: "Create claim invitation" }),
+        await screen.findByRole("button", { name: "Create new invite link" }),
       ).toBeInTheDocument();
     });
 
@@ -258,7 +257,7 @@ describe("PlayerDetail", () => {
       renderDetail();
 
       await userEvent.click(
-        await screen.findByRole("button", { name: "Create claim invitation" }),
+        await screen.findByRole("button", { name: "Create new invite link" }),
       );
 
       expect(

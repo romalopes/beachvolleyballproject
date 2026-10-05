@@ -206,14 +206,20 @@ export default function CoachDetail() {
               {coach.created_by ? ` · recorded by ${coach.created_by.name}` : ""}
             </p>
             {coach.account_status !== "connected" && (
-              <ClaimInvitationPanel
-                key={`${coach.id}:${coach.status}`}
-                claimableType="CoachProfile"
-                claimableId={coach.id}
-                blockedReason={invitationBlockedReason}
-                ineligibleReason={isArchived(coach) ? "Restore this profile before creating claim invitations." : null}
-                inviteeEmail={coach.person.email}
-              />
+              <>
+                <p className="related-item-meta">
+                  This profile already belongs to this Person. The invitation connects
+                  the Person&apos;s account to the coach profile.
+                </p>
+                <ClaimInvitationPanel
+                  key={`${coach.id}:${coach.status}`}
+                  claimableType="CoachProfile"
+                  claimableId={coach.id}
+                  blockedReason={invitationBlockedReason}
+                  ineligibleReason={isArchived(coach) ? "Restore this profile before creating claim invitations." : null}
+                  inviteeEmail={coach.person.email}
+                />
+              </>
             )}
           </>
         ) : (

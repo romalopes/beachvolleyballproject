@@ -7,6 +7,7 @@ import {
   EyeOff,
   Pencil,
   Search,
+  Trash2,
   UserPlus,
 } from "lucide-react";
 import { api, type Coach, type PaginationMeta } from "../api";
@@ -21,7 +22,9 @@ import ProfileInviteLinkButton from "../components/people/ProfileInviteLinkButto
 import {
   archiveCoach,
   canManageProfiles,
+  deleteCoachProfile,
   isArchived,
+  profileDeletionErrorMessage,
   restoreCoach,
 } from "../utils/people";
 
@@ -52,6 +55,7 @@ export default function Coaches() {
   const [confirmingArchive, setConfirmingArchive] = useState<Coach | null>(
     null,
   );
+  const [confirmingDelete, setConfirmingDelete] = useState<Coach | null>(null);
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   // Soft visibility: by default other coaches' private coaches are hidden.
@@ -141,6 +145,24 @@ export default function Coaches() {
     }
   };
 
+  const coachName = (coach: Coach) =>
+    coach.full_name ?? coach.person?.first_name ?? coach.display_name ?? `Coach profile #${coach.id}`;
+
+  const handleDelete = async () => {
+    if (!confirmingDelete) return;
+    setWorking(true);
+    setActionError(null);
+    try {
+      await deleteCoachProfile(confirmingDelete.id);
+      setConfirmingDelete(null);
+      reload();
+    } catch (err: unknown) {
+      setActionError(profileDeletionErrorMessage(err, "Failed to delete the coach profile."));
+    } finally {
+      setWorking(false);
+    }
+  };
+
   return (
     <div className="page">
       <PageHeader
@@ -223,7 +245,7 @@ export default function Coaches() {
         )}
       </div>
 
-      {actionError && <div className="admin-error">{actionError}</div>}
+      {actionError && !confirmingDelete && <div className="admin-error">{actionError}</div>}
 
       {confirmingArchive && (
         <DeleteConfirm
@@ -243,6 +265,20 @@ export default function Coaches() {
             setActionError(null);
           }}
           onConfirm={handleArchive}
+        />
+      )}
+
+      {confirmingDelete && (
+        <DeleteConfirm
+          entityName={coachName(confirmingDelete)}
+          title={`Permanently delete “${coachName(confirmingDelete)}” profile?`}
+          warning="This is only allowed when the profile and linked Person have no account, training, tournament, or assessment history. The Person record is retained."
+          confirmLabel="Delete profile"
+          pendingLabel="Deleting..."
+          deleting={working}
+          error={actionError}
+          onCancel={() => setConfirmingDelete(null)}
+          onConfirm={handleDelete}
         />
       )}
 
@@ -345,6 +381,21 @@ export default function Coaches() {
                     Archive
                   </button>
                 ))}
+              {user?.roles.includes("admin") && (
+                <button
+                  type="button"
+                  className="admin-btn admin-btn-remove"
+                  disabled={working}
+                  aria-label={`Delete ${coachName(coach)} profile`}
+                  onClick={() => {
+                    setActionError(null);
+                    setConfirmingDelete(coach);
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Delete profile
+                </button>
+              )}
             </li>
           ))}
         </ul>

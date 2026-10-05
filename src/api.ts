@@ -122,9 +122,14 @@ function throwApiError(
     const err = new Error((data as { error: string }).error) as Error & {
       status?: number;
       code?: string;
+      blockers?: string[];
     };
     err.status = status;
     err.code = (data as { code?: string })?.code;
+    const blockers = (data as { blockers?: unknown })?.blockers;
+    if (Array.isArray(blockers) && blockers.every((item) => typeof item === "string")) {
+      err.blockers = blockers;
+    }
     return err;
   }
   const err = new Error(fallback) as Error & { status?: number };
@@ -1794,6 +1799,7 @@ export const api = {
    */
   updatePlayer: (id: number, data: PlayerInput) =>
     postJSON<PlayerCreateResponse>(`/players/${id}`, { player: data }, "PATCH"),
+  deletePlayer: (id: number) => postJSON<void>(`/players/${id}`, {}, "DELETE"),
 
   // ---------- Player claims (self-service request; coach/admin review) ----------
   playerProfileCandidates: () =>
@@ -1905,6 +1911,7 @@ export const api = {
   /** See `updatePlayer` — same contract, same rules. */
   updateCoach: (id: number, data: CoachInput) =>
     postJSON<CoachCreateResponse>(`/coaches/${id}`, { coach: data }, "PATCH"),
+  deleteCoach: (id: number) => postJSON<void>(`/coaches/${id}`, {}, "DELETE"),
 
   // ---------- Assessments (canonical score is derived by the server) ----------
   assessments: (filters: AssessmentFilters = {}) => {

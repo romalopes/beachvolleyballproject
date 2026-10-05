@@ -133,6 +133,23 @@ describe("postJSON (auth + mutations)", () => {
     );
   });
 
+  it("preserves protected-history blockers from a profile delete response", async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 422,
+      body: {
+        error: "Profile has protected history",
+        blockers: ["person_assessments"],
+      },
+    });
+    const rejection = await api.deletePlayer(7).catch((error: unknown) => error);
+
+    expect(rejection).toBeInstanceOf(Error);
+    expect((rejection as Error & { blockers?: string[] }).blockers).toEqual([
+      "person_assessments",
+    ]);
+  });
+
   it("falls back to the HTTP status when the error body is empty", async () => {
     mockFetchOnce({ ok: false, status: 500 });
     await expect(api.account()).rejects.toThrow("API Error: 500");

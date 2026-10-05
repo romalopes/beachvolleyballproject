@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Archive, ArchiveRestore, Eye, EyeOff, Pencil, Search, UserPlus } from "lucide-react";
+import { Archive, ArchiveRestore, Eye, EyeOff, Pencil, Search, Trash2, UserPlus } from "lucide-react";
 import { api, type PaginationMeta, type Player } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
@@ -13,7 +13,9 @@ import ProfileInviteLinkButton from "../components/people/ProfileInviteLinkButto
 import {
   archivePlayer,
   canManageProfiles,
+  deletePlayerProfile,
   isArchived,
+  profileDeletionErrorMessage,
   restorePlayer,
 } from "../utils/people";
 
@@ -47,6 +49,7 @@ export default function Players() {
   const [confirmingArchive, setConfirmingArchive] = useState<Player | null>(
     null,
   );
+  const [confirmingDelete, setConfirmingDelete] = useState<Player | null>(null);
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   // Soft visibility: by default other coaches' private players are hidden.
@@ -138,6 +141,21 @@ export default function Players() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirmingDelete) return;
+    setWorking(true);
+    setActionError(null);
+    try {
+      await deletePlayerProfile(confirmingDelete.id);
+      setConfirmingDelete(null);
+      reload();
+    } catch (err: unknown) {
+      setActionError(profileDeletionErrorMessage(err, "Failed to delete the player profile."));
+    } finally {
+      setWorking(false);
+    }
+  };
+
   return (
     <div className="page">
       <PageHeader
@@ -220,7 +238,7 @@ export default function Players() {
         )}
       </div>
 
-      {actionError && <div className="admin-error">{actionError}</div>}
+      {actionError && !confirmingDelete && <div className="admin-error">{actionError}</div>}
 
       {confirmingArchive && (
         <DeleteConfirm
@@ -238,6 +256,20 @@ export default function Players() {
             setActionError(null);
           }}
           onConfirm={handleArchive}
+        />
+      )}
+
+      {confirmingDelete && (
+        <DeleteConfirm
+          entityName={playerName(confirmingDelete)}
+          title={`Permanently delete “${playerName(confirmingDelete)}” profile?`}
+          warning="This is only allowed when the profile and linked Person have no account, training, tournament, or assessment history. The Person record is retained."
+          confirmLabel="Delete profile"
+          pendingLabel="Deleting..."
+          deleting={working}
+          error={actionError}
+          onCancel={() => setConfirmingDelete(null)}
+          onConfirm={handleDelete}
         />
       )}
 
@@ -337,6 +369,21 @@ export default function Players() {
                     Archive
                   </button>
                 ))}
+              {user?.roles.includes("admin") && (
+                <button
+                  type="button"
+                  className="admin-btn admin-btn-remove"
+                  disabled={working}
+                  aria-label={`Delete ${playerName(player)} profile`}
+                  onClick={() => {
+                    setActionError(null);
+                    setConfirmingDelete(player);
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Delete profile
+                </button>
+              )}
             </li>
           ))}
         </ul>
