@@ -78,7 +78,7 @@ export default function CoachingRelationships({
   isAdmin,
 }: CoachingRelationshipsProps) {
   const [rows, setRows] = useState<PlayerCoach[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadedQuery, setLoadedQuery] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -115,9 +115,11 @@ export default function CoachingRelationships({
   const describe = (err: unknown) =>
     err instanceof Error ? err.message : "Something went wrong.";
 
+  const queryKey = `${side}:${profileId}:${reloadKey}`;
+  const loading = loadedQuery !== queryKey;
+
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     const query =
       side === "player"
         ? { player_profile_id: profileId }
@@ -134,12 +136,12 @@ export default function CoachingRelationships({
         setListError(describe(err));
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setLoadedQuery(queryKey);
       });
     return () => {
       cancelled = true;
     };
-  }, [side, profileId, reloadKey]);
+  }, [side, profileId, reloadKey, queryKey]);
 
   useEffect(() => {
     if (!needsPlayerPicker) return;

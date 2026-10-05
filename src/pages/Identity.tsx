@@ -14,10 +14,12 @@ export default function IdentityPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [candidates, setCandidates] = useState<PlayerProfileCandidate[]>([]);
-  const [selected, setSelected] = useState<number[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [profileType, setProfileType] = useState<"PlayerProfile" | "CoachProfile">("PlayerProfile");
   const [claims, setClaims] = useState<PlayerClaim[]>([]);
   const [reviewClaims, setReviewClaims] = useState<PlayerClaim[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState<number | null>(null);
+  const loading = Boolean(user) && loadedUserId !== user?.id;
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -33,6 +35,8 @@ export default function IdentityPage() {
 
   const isReviewer = Boolean(user?.roles.some((role) => role === "admin" || role === "coach"));
   const isAdmin = Boolean(user?.roles.includes("admin"));
+  const userId = user?.id;
+  const personId = user?.person_id;
 
   const reloadClaims = async () => {
     const mine = await api.playerClaims();
@@ -41,29 +45,30 @@ export default function IdentityPage() {
   };
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
+    if (!userId) return;
     let cancelled = false;
     Promise.all([
       api.playerProfileCandidates().catch(() => [] as PlayerProfileCandidate[]),
+      Promise.resolve().then(() => api.profileCandidates("CoachProfile")).catch(() => [] as PlayerProfileCandidate[]),
       api.playerClaims(),
-    ]).then(([suggestions, userClaims]) => {
+    ]).then(([suggestions, coachSuggestions, userClaims]) => {
       if (cancelled) return;
-      setCandidates(suggestions);
-      setClaims(userClaims.filter((claim) => claim.person_id === user.person_id));
+      setCandidates([...suggestions, ...coachSuggestions]);
+      setClaims(userClaims.filter((claim) => claim.person_id === personId));
       if (isReviewer) setReviewClaims(userClaims);
     }).catch((err: unknown) => {
       if (!cancelled) setError(err instanceof Error ? err.message : "Could not load identity information.");
-    }).finally(() => { if (!cancelled) setLoading(false); });
+    }).finally(() => { if (!cancelled) setLoadedUserId(userId); });
     return () => { cancelled = true; };
-  }, [user?.id, user?.person_id, isReviewer]);
+  }, [userId, personId, isReviewer]);
 
   const redeem = async () => {
     if (!token.trim()) return;
     setBusy(true); setError(null); setNotice(null);
     try {
       const result = await api.redeemClaimInvitation(token.trim());
-      // Two outcomes, and the difference matters to the reader: an emailed
-      // invitation is linked now, anything else is a request a coach approves.
+      // An exact verified email links now; an open profile link becomes a
+      // request for staff review.
       setNotice(
         result.outcome === "linked"
           ? "Your profile is now linked to your account."
@@ -94,7 +99,12 @@ export default function IdentityPage() {
     if (!selected.length) return;
     setBusy(true); setError(null); setNotice(null);
     try {
-      const results = await Promise.allSettled(selected.map((id) => api.requestPlayerClaim(id)));
+      const results = await Promise.allSettled(selected.map((key) => {
+        const [type, rawId] = key.split(":");
+        return type === "CoachProfile"
+          ? api.requestProfileClaim("CoachProfile", Number(rawId))
+          : api.requestPlayerClaim(Number(rawId));
+      }));
       const requested = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
       if (requested.length) setClaims((old) => [...requested, ...old]);
       setSelected([]);
@@ -149,24 +159,31 @@ export default function IdentityPage() {
       {user.group_memberships?.length ? <ul>{user.group_memberships.map((membership) => <li key={membership.id}>{membership.group.name} · {membership.role} · {membership.status}{membership.group.organisation ? ` · ${membership.group.organisation.name}` : ""}</li>)}</ul> : <p>No group memberships.</p>}
     </section>
 
-    <section className="detail-section"><h2>Redeem a claim invitation</h2><p>Invitation links connect a profile to your account. An invitation the club emailed you is linked straight away; any other link is sent to a coach or administrator to review.</p>
+    <section className="detail-section"><h2>Redeem a claim invitation</h2><p>A verified email matching the invitation links you to the recorded Person or profile. An open link without a matching email is sent to a coach or administrator to review.</p>
       <label className="auth-field">Invitation token<input aria-label="Invitation token" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="off" /></label>
-      <button className="auth-submit" disabled={busy || !token.trim() || !user.person_id} onClick={() => void redeem()}>{busy ? "Submitting…" : "Submit claim request"}</button>
-      {!user.person_id && <p>A linked Person is required before redeeming an invitation.</p>}
+      <button className="auth-submit" disabled={busy || !token.trim()} onClick={() => void redeem()}>{busy ? "Submitting…" : "Redeem invitation"}</button>
     </section>
 
-    <section className="detail-section"><h2>Suggested player profiles</h2><p>These are possible matches based on your account details. A suggestion does not confirm that a profile is yours.</p>
-      {candidates.length ? <ul>{candidates.map((candidate) => <li key={candidate.player_profile_id}>
-        <label><input type="checkbox" checked={selected.includes(candidate.player_profile_id)} onChange={(event) => setSelected((ids) => event.target.checked ? [...ids, candidate.player_profile_id] : ids.filter((id) => id !== candidate.player_profile_id))} /> {candidate.display_name} · {candidate.match_type.replaceAll("_", " ")} · Suggested match</label>
-      </li>)}</ul> : <p>No profile suggestions are available.</p>}
+    <section className="detail-section"><h2>Claim profiles</h2><p>Suggestions are limited to profiles in your organisation or connected through a current coach relationship. A match is only a suggestion; your request will be reviewed.</p>
+      <div role="tablist" aria-label="Profile type"><button role="tab" aria-selected={profileType === "PlayerProfile"} onClick={() => { setProfileType("PlayerProfile"); setSelected([]); }}>Players</button><button role="tab" aria-selected={profileType === "CoachProfile"} onClick={() => { setProfileType("CoachProfile"); setSelected([]); }}>Coaches</button></div>
+      {candidates.filter((candidate) => (candidate.claimable_type ?? "PlayerProfile") === profileType).length ? <ul>
+        {candidates.filter((candidate) => (candidate.claimable_type ?? "PlayerProfile") === profileType).map((candidate) => {
+          const type = candidate.claimable_type ?? "PlayerProfile";
+          const id = candidate.claimable_id ?? candidate.player_profile_id ?? candidate.coach_profile_id ?? candidate.id;
+          const key = `${type}:${id}`;
+          return <li key={key}>
+            <label><input type="checkbox" checked={selected.includes(key)} onChange={(event) => setSelected((ids) => event.target.checked ? [...ids, key] : ids.filter((id) => id !== key))} /> {candidate.display_name} · {candidate.match_type.replaceAll("_", " ")} · Suggested match</label>
+          </li>;
+        })}
+      </ul> : <p>No profile suggestions are available.</p>}
       <button className="auth-submit" disabled={busy || selected.length === 0} onClick={() => void submitClaims()}>Request selected claims ({selected.length})</button>
     </section>
 
     <section className="detail-section"><h2>My claim requests</h2>
-      {claims.length ? <ul>{claims.map((claim) => <li key={claim.id}>Claim #{claim.id} · Player profile #{claim.player_profile_id} · {claim.status}{claim.status === "pending" && <button className="admin-btn" disabled={busy} onClick={() => void actOnClaim(claim, "cancel")}>Cancel request</button>}</li>)}</ul> : <p>You have no claim requests.</p>}
+      {claims.length ? <ul>{claims.map((claim) => <li key={claim.id}>Claim #{claim.id} · {claim.claimable_type?.replace("Profile", " profile ") || "Profile"} #{claim.claimable_id ?? claim.player_profile_id ?? "—"} · {claim.status}{claim.status === "pending" && <button className="admin-btn" disabled={busy} onClick={() => void actOnClaim(claim, "cancel")}>Cancel request</button>}</li>)}</ul> : <p>You have no claim requests.</p>}
     </section>
 
-    {isReviewer && <section className="detail-section"><h2>Invitations you can issue</h2><p>These are the player profiles you recorded that nobody has claimed yet. Create an invitation and share the one-time link — or the address-restricted variant — with the player.</p><ClaimInviteList /></section>}
+    {isReviewer && <section className="detail-section"><h2>Invitations you can issue</h2><p>These are your unlinked player and coach profiles. Add an email to allow immediate linking after verification, or leave it blank to require staff review.</p><ClaimInviteList /></section>}
 
     {isReviewer && <ClaimReview claims={reviewClaims.filter((claim) => claim.person_id !== user.person_id)} busy={busy} reason={rejectReason} setReason={setRejectReason} act={actOnClaim} />}
     {isAdmin && <PersonConsolidation />}
@@ -175,8 +192,8 @@ export default function IdentityPage() {
 
 function ClaimReview({ claims, busy, reason, setReason, act }: { claims: PlayerClaim[]; busy: boolean; reason: string; setReason: (value: string) => void; act: (claim: PlayerClaim, action: "approve" | "reject" | "cancel") => Promise<void> }) {
   const pending = claims.filter((claim) => claim.status === "pending");
-  return <section className="detail-section"><h2>Claims to review</h2>
-    {pending.length ? <><label className="auth-field">Reason when rejecting<input value={reason} onChange={(event) => setReason(event.target.value)} /></label><ul>{pending.map((claim) => <li key={claim.id}>Claim #{claim.id} · {claim.player_name || `Player profile #${claim.player_profile_id}`} · Person #{claim.person_id} <button className="admin-btn" disabled={busy} onClick={() => void act(claim, "approve")}>Approve</button> <button className="admin-btn" disabled={busy || !reason.trim()} onClick={() => void act(claim, "reject")}>Reject</button></li>)}</ul></> : <p>No pending claims to review.</p>}
+  return <section className="detail-section"><h2>Profile requests</h2>
+    {pending.length ? <><label className="auth-field">Reason when rejecting<input value={reason} onChange={(event) => setReason(event.target.value)} /></label><ul>{pending.map((claim) => <li key={claim.id}>Claim #{claim.id} · {claim.player_name || `${claim.claimable_type || "Profile"} #${claim.claimable_id ?? claim.player_profile_id}`} · Person #{claim.person_id} <button className="admin-btn" disabled={busy} onClick={() => void act(claim, "approve")}>Approve</button> <button className="admin-btn" disabled={busy || !reason.trim()} onClick={() => void act(claim, "reject")}>Reject</button></li>)}</ul></> : <p>No pending claims to review.</p>}
   </section>;
 }
 

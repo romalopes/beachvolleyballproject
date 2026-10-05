@@ -17,6 +17,7 @@ import Pagination from "../components/settings/Pagination";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
 import Tag from "../components/Tag";
 import PersonCreatePanel from "../components/people/PersonCreatePanel";
+import ProfileInviteLinkButton from "../components/people/ProfileInviteLinkButton";
 import {
   archiveCoach,
   canManageProfiles,
@@ -227,10 +228,10 @@ export default function Coaches() {
       {confirmingArchive && (
         <DeleteConfirm
           entityName={
-            confirmingArchive.full_name ?? confirmingArchive.person.first_name
+            confirmingArchive.full_name ?? confirmingArchive.person?.first_name ?? confirmingArchive.display_name ?? `Coach profile #${confirmingArchive.id}`
           }
           title={`Archive “${
-            confirmingArchive.full_name ?? confirmingArchive.person.first_name
+            confirmingArchive.full_name ?? confirmingArchive.person?.first_name ?? confirmingArchive.display_name ?? `Coach profile #${confirmingArchive.id}`
           }”?`}
           warning="The coach leaves the catalogue. Their record is kept, and this can be undone."
           confirmLabel="Archive"
@@ -275,10 +276,12 @@ export default function Coaches() {
               <div className="people-identity">
                 <Link to={`/coaches/${coach.id}`} className="people-name">
                   {coach.full_name ??
-                    `${coach.person.first_name} ${coach.person.last_name ?? ""}`}
+                    (coach.person
+                      ? `${coach.person.first_name} ${coach.person.last_name ?? ""}`.trim()
+                      : coach.display_name || `Coach profile #${coach.id}`)}
                 </Link>
                 <span className="people-contact">
-                  {[coach.person.email, coach.person.phone]
+                  {[coach.person?.email, coach.person?.phone]
                     .filter(Boolean)
                     .join(" · ") || "No contact details"}
                 </span>
@@ -295,6 +298,16 @@ export default function Coaches() {
               </Tag>
               {isArchived(coach) && <Tag>Archived</Tag>}
               {coach.visibility === "private" && <Tag>Private</Tag>}
+              {coach.status === "active" && coach.account_status !== "connected" &&
+                (coach.person || coach.display_name?.trim()) && user &&
+                (user.roles.includes("admin") ||
+                  (user.roles.includes("coach") && coach.created_by?.id === user.id)) && (
+                  <ProfileInviteLinkButton
+                    claimableType="CoachProfile"
+                    claimableId={coach.id}
+                    profileName={coach.full_name ?? coach.display_name ?? `Coach profile #${coach.id}`}
+                  />
+                )}
               {canEdit && (
                 <Link
                   to={`/coaches/${coach.id}/edit`}

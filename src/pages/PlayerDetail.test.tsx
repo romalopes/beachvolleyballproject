@@ -198,14 +198,14 @@ describe("PlayerDetail", () => {
       ).not.toBeInTheDocument();
     });
 
-    it("tells an owner without a linked Person why they cannot invite", async () => {
+    it("lets a profile owner invite even without a linked Person", async () => {
       mockedApi.me.mockResolvedValue({ ...coachUser, person_id: undefined });
       mockedApi.player.mockResolvedValue(unlinkedPlayer());
       renderDetail();
       await screen.findByRole("heading", { name: "Pedro Santos" });
 
       expect(
-        await screen.findByText(/needs a linked Person before you can issue/i),
+        await screen.findByRole("button", { name: "Create claim invitation" }),
       ).toBeInTheDocument();
     });
 

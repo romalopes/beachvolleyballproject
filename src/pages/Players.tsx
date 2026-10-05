@@ -9,6 +9,7 @@ import Pagination from "../components/settings/Pagination";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
 import Tag from "../components/Tag";
 import PersonCreatePanel from "../components/people/PersonCreatePanel";
+import ProfileInviteLinkButton from "../components/people/ProfileInviteLinkButton";
 import {
   archivePlayer,
   canManageProfiles,
@@ -289,6 +290,16 @@ export default function Players() {
               </Tag>
               {isArchived(player) && <Tag>Archived</Tag>}
               {player.visibility === "private" && <Tag>Private</Tag>}
+              {player.status === "active" && player.account_status !== "connected" &&
+                (player.person || player.display_name?.trim()) && user &&
+                (user.roles.includes("admin") ||
+                  (user.roles.includes("coach") && player.created_by?.id === user.id)) && (
+                  <ProfileInviteLinkButton
+                    claimableType="PlayerProfile"
+                    claimableId={player.id}
+                    profileName={playerName(player)}
+                  />
+                )}
               {canRecord && player.person && (
                 <Link
                   to={`/players/${player.id}/edit`}

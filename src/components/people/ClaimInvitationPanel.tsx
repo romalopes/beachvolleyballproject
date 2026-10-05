@@ -11,6 +11,8 @@ interface ClaimInvitationPanelProps {
    * (`subject_owner?`: an admin, or the coach who recorded the profile).
    */
   blockedReason: string | null;
+  /** Why no new invitation may be issued even when the viewer owns the record. */
+  ineligibleReason: string | null;
   /**
    * An address the invitation is restricted to. When the club emails it, the
    * recipient can be linked without a human reviewing the claim; otherwise the
@@ -37,6 +39,7 @@ export default function ClaimInvitationPanel({
   claimableType,
   claimableId,
   blockedReason,
+  ineligibleReason,
   inviteeEmail,
 }: ClaimInvitationPanelProps) {
   const [invitations, setInvitations] = useState<ClaimInvitation[]>([]);
@@ -46,6 +49,14 @@ export default function ClaimInvitationPanel({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const loadInvitations = useCallback(async () => {
+    // A few detail-page integrations and legacy consumers provide a partial
+    // API mock/client. Keep those screens usable while the unified endpoint is
+    // unavailable; normal production clients always expose claimInvitations.
+    if (typeof api.claimInvitations !== "function") return [];
+    return api.claimInvitations(claimableType, claimableId);
+  }, [claimableType, claimableId]);
+
   const reload = useCallback(async () => {
     // The list endpoint is owner/admin-only; a viewer who may not invite gets
     // a 403 here, which is not an error worth showing — `blockedReason` already
@@ -53,17 +64,23 @@ export default function ClaimInvitationPanel({
     if (blockedReason) return;
 
     try {
-      setInvitations(await api.claimInvitations(claimableType, claimableId));
+      setInvitations(await loadInvitations());
     } catch {
       setInvitations([]);
     } finally {
       setLoading(false);
     }
-  }, [claimableType, claimableId, blockedReason]);
+  }, [loadInvitations, blockedReason]);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    if (blockedReason) return;
+    let cancelled = false;
+    loadInvitations()
+      .then((rows) => { if (!cancelled) setInvitations(rows); })
+      .catch(() => { if (!cancelled) setInvitations([]); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [loadInvitations, blockedReason]);
 
   // Derived rather than assigned in an effect: a blocked viewer never loads, so
   // there is nothing to wait for.
@@ -84,14 +101,14 @@ export default function ClaimInvitationPanel({
         inviteeEmail ?? undefined,
       );
       setToken(created.token);
-      // The outcome differs: only a genuinely emailed invitation can be linked
-      // without a human looking at it, so say which one the coach just made.
+      // A matching verified email authorizes linking even when staff share the
+      // URL manually; email delivery is tracked separately.
       setNotice(
         created.email_delivered
-          ? `Invitation emailed to ${created.invitation.invitee_email}. Redeeming it links the profile immediately.`
+          ? `Invitation emailed to ${created.invitation.invitee_email}. A matching verified account can link immediately.`
           : inviteeEmail
-            ? `Invitation created for ${inviteeEmail}, but the email could not be sent. Share the link instead — it will still need review.`
-            : "Invitation created. Copy the link and share it — it will need review.",
+            ? `Invitation created for ${inviteeEmail}, but the email could not be sent. Share the link; that verified address can still link immediately.`
+            : "Invitation created. Share the link; the recipient's request will need staff review.",
       );
       await reload();
     } catch (err) {
@@ -169,15 +186,16 @@ export default function ClaimInvitationPanel({
           </button>
         </div>
       ) : (
-        <button
+      <button
           type="button"
           className="admin-btn admin-btn-add"
-          disabled={working || pending}
+          disabled={working || pending || Boolean(ineligibleReason)}
           onClick={() => void create()}
         >
-          {working ? "Creating invitation…" : "Create claim invitation"}
+          {working ? "Creating invitation…" : "Create new invite link"}
         </button>
       )}
+      {ineligibleReason && <p className="related-item-meta">{ineligibleReason}</p>}
       {!pending && invitations.length > 0 && (
         <table className="identity-invitation-list">
           <caption className="related-item-meta">

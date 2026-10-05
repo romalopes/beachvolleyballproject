@@ -73,8 +73,8 @@ const claim = {
 };
 
   it("redeems a signed-in invitation and clears its token from the URL", async () => {
-    // Not emailed, so it must come back as a request for review rather than a
-    // completed link.
+    // This open invitation has no recipient email, so possession requests
+    // staff review rather than completing an account link.
     mockedApi.redeemClaimInvitation.mockResolvedValue({
       outcome: "pending_review",
       invitation,
@@ -83,7 +83,7 @@ const claim = {
     });
     renderPage("/identity#claim_token=one-time-secret");
     expect(await screen.findByLabelText("Invitation token")).toHaveValue("one-time-secret");
-    await userEvent.click(screen.getByRole("button", { name: "Submit claim request" }));
+    await userEvent.click(screen.getByRole("button", { name: "Redeem invitation" }));
     await waitFor(() => expect(mockedApi.redeemClaimInvitation).toHaveBeenCalledWith("one-time-secret"));
     expect(await screen.findByText(/sent for review/)).toBeInTheDocument();
   });
@@ -96,7 +96,7 @@ const claim = {
     });
     renderPage("/identity#claim_token=emailed-secret");
     await screen.findByLabelText("Invitation token");
-    await userEvent.click(screen.getByRole("button", { name: "Submit claim request" }));
+    await userEvent.click(screen.getByRole("button", { name: "Redeem invitation" }));
     expect(await screen.findByText(/now linked to your account/i)).toBeInTheDocument();
   });
 

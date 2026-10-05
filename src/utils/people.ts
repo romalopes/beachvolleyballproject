@@ -14,10 +14,10 @@ export function canManageProfiles(user: User | null | undefined): boolean {
 }
 
 /**
- * Archiving is the only removal path: profiles are never hard-deleted, because
- * a PlayerProfile owns the training history (`dependent: :destroy` would take
- * the attendance with it). An archived profile disappears from the catalogue and
- * cannot be added to new sessions, but keeps every past one.
+ * Archiving is the normal history-preserving removal path. A separate guarded
+ * API hard-delete is available only for profiles without protected references;
+ * a PlayerProfile with attendance or other history is archived instead. An
+ * archived profile leaves the active catalogue and cannot enter new sessions.
  */
 export function archivePlayer(id: number) {
   return api.updatePlayer(id, { player_profile: { status: "archived" } });

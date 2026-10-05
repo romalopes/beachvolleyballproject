@@ -5657,7 +5657,7 @@
   width: auto;
 }
 
-/* ---- People pages (players / coaches: identity + profile) ---- */
+/* ---- Player and coach catalogues ---- */
 .people-toolbar {
   display: flex;
   align-items: center;
@@ -5691,6 +5691,31 @@
 .people-row:hover {
   border-color: var(--amber-500);
   box-shadow: var(--shadow-sm);
+}
+
+.profile-invite-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.profile-invite-link {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.profile-invite-link input {
+  min-width: min(24rem, 100%);
+  flex: 1;
+}
+
+.profile-invite-link p {
+  flex-basis: 100%;
+  margin: 0;
 }
 
 .people-identity {
@@ -6285,92 +6310,6 @@
   color: var(--teal-600);
   background: var(--teal-50);
   border-color: var(--teal-100);
-}
-
-/* ---------- People: the identity catalogue ---------- */
-.people-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 1rem 0;
-}
-
-.people-toolbar input {
-  flex: 1;
-  min-width: 12rem;
-}
-
-.people-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.people-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-
-.people-row-main {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.people-name {
-  font-weight: 600;
-  color: var(--charcoal);
-}
-
-.people-meta {
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
-.people-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  margin-top: 0.15rem;
-}
-
-.people-tag {
-  font-size: 0.7rem;
-  padding: 0.1rem 0.4rem;
-  border-radius: var(--radius-sm, 4px);
-  background: var(--border-light, #f1efe9);
-  color: var(--text-muted);
-}
-
-.people-tag-player {
-  background: var(--teal-50);
-  color: var(--teal-600);
-}
-
-.people-tag-coach {
-  background: var(--amber-50);
-  color: var(--amber-600);
-}
-
-.people-row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.people-form {
-  margin: 0.5rem 0;
 }
 
 .organisations-roster {
@@ -7921,4 +7860,3 @@
     width: 100%;
   }
 }
-

@@ -1114,15 +1114,6 @@ export interface PersonIdentity {
   organisation_memberships?: OrganisationMembership[];
 }
 
-export interface PersonInput {
-  first_name: string;
-  last_name?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  date_of_birth?: string | null;
-  organisation_memberships_attributes?: OrganisationMembershipInput[];
-}
-
 /** Nested attributes for organisation memberships (mirrors Rails convention). */
 export interface OrganisationMembershipInput {
   id?: number;
@@ -1262,7 +1253,9 @@ export interface PlayerInput {
 
 export interface PlayerClaim {
   id: number;
-  player_profile_id: number;
+  player_profile_id: number | null;
+  claimable_type?: string | null;
+  claimable_id?: number | null;
   person_id: number;
   status: "pending" | "approved" | "rejected" | "cancelled";
   created_at: string;
@@ -1273,7 +1266,10 @@ export interface PlayerClaim {
 /** Safe, unconfirmed suggestion returned by player profile candidate search. */
 export interface PlayerProfileCandidate {
   id: number;
-  player_profile_id: number;
+  player_profile_id?: number;
+  coach_profile_id?: number;
+  claimable_type?: "PlayerProfile" | "CoachProfile";
+  claimable_id?: number;
   display_name: string;
   match_type: "exact_name" | "partial_name";
   result_type: "candidate";
@@ -1289,9 +1285,9 @@ export interface ClaimInvitation {
   /** Set when the subject is a Person with no account. */
   person_id: number | null;
   invitee_email: string | null;
-  /** Set only when the club actually emailed the invitation. */
+  /** Delivery telemetry; linking is authorized by a verified exact email match. */
   emailed_at: string | null;
-  /** Whether this invitation may auto-approve rather than await review. */
+  /** Whether an exact verified email match may link without staff review. */
   auto_approvable: boolean;
   status: "active" | "used" | "revoked" | "expired";
   expires_at: string;
@@ -1324,13 +1320,6 @@ export interface PersonAccountInvitation {
   used_at: string | null;
   revoked_at: string | null;
   created_at: string;
-}
-
-export interface CreatedPersonAccountInvitation {
-  invitation: PersonAccountInvitation;
-  /** Returned only at creation; do not retain it in persistent storage. */
-  token: string;
-  email_delivered: boolean;
 }
 
 export interface PersonConsolidationConflict {
@@ -1392,7 +1381,7 @@ export interface Coach {
   coach_profile_id?: number;
   assessments_recorded_count?: number;
   recent_assessments?: Assessment[];
-  person: ProfilePerson;
+  person: ProfilePerson | null;
 }
 
 export interface CoachInput {
@@ -1724,9 +1713,7 @@ export const api = {
    */
   /**
    * The identity typeahead: a bare array, hard-capped server-side at 25. It is a
-   * different endpoint from the paginated management list, so this shape stays
-   * stable for the invite form and the create-player flow that already depend on
-   * it.
+   * shape stays stable for profile creation and organisation roster workflows.
    */
   people: (params?: { q?: string; email?: string }) => {
     const qs = new URLSearchParams();
@@ -1735,35 +1722,6 @@ export const api = {
     const query = qs.toString();
     return fetchAPI<PersonIdentity[]>(`/people/search${query ? `?${query}` : ""}`);
   },
-
-  // ---------- People (CRUD; delete and promote are admin-only) ----------
-  peopleList: (params?: { q?: string; page?: number; per_page?: number }) => {
-    const qs = new URLSearchParams();
-    if (params?.q) qs.set("q", params.q);
-    if (params?.page) qs.set("page", String(params.page));
-    if (params?.per_page) qs.set("per_page", String(params.per_page));
-    const query = qs.toString();
-    return fetchAPI<{ data: PersonIdentity[]; meta: PaginationMeta }>(
-      `/people${query ? `?${query}` : ""}`,
-    );
-  },
-  person: (id: number) => fetchAPI<PersonIdentity>(`/people/${id}`),
-  createPerson: (data: PersonInput) =>
-    postJSON<PersonIdentity>("/people", { person: data }),
-  updatePerson: (id: number, data: Partial<PersonInput>) =>
-    postJSON<PersonIdentity>(`/people/${id}`, { person: data }, "PATCH"),
-  deletePerson: (id: number) =>
-    postJSON<{ message: string; id: number }>(`/people/${id}`, {}, "DELETE"),
-  /**
-   * Attach a player or coach profile to an existing person. Admin-only server-side:
-   * a new player is a coach's ordinary work, but promoting an identity that may
-   * already sit on a roster is a broader act.
-   */
-  promotePerson: (id: number, role: "player" | "coach") =>
-    postJSON<PersonIdentity & { profile_id: number; profile_kind: string }>(
-      `/people/${id}/promote`,
-      { promotion: { role } },
-    ),
 
   // ---------- Person consolidation (admin; identity phases 7–8) ----------
   personConsolidationPreview: (sourcePersonId: number, canonicalPersonId: number) =>
@@ -1840,9 +1798,13 @@ export const api = {
   // ---------- Player claims (self-service request; coach/admin review) ----------
   playerProfileCandidates: () =>
     fetchAPI<PlayerProfileCandidate[]>("/player_claims/candidates"),
+  profileCandidates: (type: "PlayerProfile" | "CoachProfile") =>
+    fetchAPI<PlayerProfileCandidate[]>(`/player_claims/candidates?claimable_type=${type}`),
   playerClaims: () => fetchAPI<PlayerClaim[]>("/player_claims"),
   requestPlayerClaim: (playerProfileId: number) =>
     postJSON<PlayerClaim>("/player_claims", { player_profile_id: playerProfileId }),
+  requestProfileClaim: (type: "PlayerProfile" | "CoachProfile", profileId: number) =>
+    postJSON<PlayerClaim>("/player_claims", { claimable_type: type, claimable_id: profileId }),
   approvePlayerClaim: (id: number) =>
     postJSON<PlayerClaim>(`/player_claims/${id}/approve`, {}),
   rejectPlayerClaim: (id: number, rejectionReason: string) =>
@@ -1853,16 +1815,18 @@ export const api = {
   // ---------- Claim invitations (unified: player profile, coach profile, person) ----------
 
   /**
-   * Invitations for any claimable subject. An invitation may auto-approve only
-   * when the club actually emailed it to the address the recipient controls;
-   * otherwise redeeming it files a request for staff review.
+   * Invitations for any claimable subject. A matching verified email links
+   * immediately even when the link is shared manually; an open invitation
+   * without a recipient email files a request for review.
    */
   claimInvitations: (
-    claimableType: ClaimInvitation["claimable_type"],
-    claimableId: number,
+    claimableType?: ClaimInvitation["claimable_type"],
+    claimableId?: number,
   ) =>
     fetchAPI<ClaimInvitation[]>(
-      `/claim_invitations?claimable_type=${claimableType}&claimable_id=${claimableId}`,
+      claimableType && claimableId
+        ? `/claim_invitations?claimable_type=${claimableType}&claimable_id=${claimableId}`
+        : "/claim_invitations",
     ),
   createClaimInvitation: (
     claimableType: ClaimInvitation["claimable_type"],
@@ -1899,17 +1863,11 @@ export const api = {
       invitee_email: inviteeEmail,
     }),
   redeemPlayerClaimInvitation: (token: string) =>
-    postJSON<{ claim: PlayerClaim }>("/player_claim_invitations/redeem", { token }),
+    postJSON<ClaimRedemptionOutcome>("/player_claim_invitations/redeem", { token }),
   revokePlayerClaimInvitation: (id: number) =>
     postJSON<ClaimInvitation>(`/player_claim_invitations/${id}/revoke`, {}),
 
-  // ---------- Claiming a known Person by linking an Account ----------
-  personAccountInvitations: (personId: number) =>
-    fetchAPI<PersonAccountInvitation[]>(`/people/${personId}/account_invitations`),
-  createPersonAccountInvitation: (personId: number) =>
-    postJSON<CreatedPersonAccountInvitation>(`/people/${personId}/account_invitations`, {}),
-  revokePersonAccountInvitation: (id: number) =>
-    postJSON<PersonAccountInvitation>(`/person_account_invitations/${id}/revoke`, {}),
+  // ---------- Redeem legacy invitations linking an Account to a Person ----------
   redeemPersonAccountInvitation: (token: string) =>
     postJSON<{ invitation: PersonAccountInvitation; account_id: number; person: PersonIdentity }>(
       "/person_account_invitations/redeem",

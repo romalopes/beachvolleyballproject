@@ -108,17 +108,13 @@ export default function PlayerDetail() {
 
   // Mirrors the API's `profile_owner?` (an admin, or the coach who recorded the
   // profile) so the panel can explain *why* it is unavailable instead of
-  // silently rendering nothing. An owner also needs a linked Person: the
-  // service records `created_by_person`, and a coach account without one
-  // cannot issue an invitation at all.
+  // silently rendering nothing.
   const invitationBlockedReason = !user
     ? "Sign in to invite this player to claim their profile."
     : !user.roles.includes("admin") &&
         !(user.roles.includes("coach") && player.created_by?.id === user.id)
       ? "Only an administrator or the coach who recorded this profile can invite a player to claim it."
-      : !user.person_id
-        ? "Your account needs a linked Person before you can issue a claim invitation."
-        : null;
+      : null;
 
   const history = [...(player.training_session_participants ?? [])].sort(
     (a, b) =>
@@ -222,14 +218,26 @@ export default function PlayerDetail() {
                 : player.person.creation_source}
               {player.person.date_of_birth ? ` · born ${player.person.date_of_birth}` : ""}
             </p>
+            {player.account_status !== "connected" && (
+              <ClaimInvitationPanel
+                key={`${player.id}:${player.status}`}
+                claimableType="PlayerProfile"
+                claimableId={player.id}
+                blockedReason={invitationBlockedReason}
+                ineligibleReason={isArchived(player) ? "Restore this profile before creating claim invitations." : null}
+                inviteeEmail={player.person.email}
+              />
+            )}
           </>
         ) : (
           <>
             <p className="related-item-meta">This player profile has not been linked to a Person yet, so the player signs in themselves and claims it. A claim invitation lets them request that link.</p>
             <ClaimInvitationPanel
+              key={`${player.id}:${player.status}`}
               claimableType="PlayerProfile"
               claimableId={player.id}
               blockedReason={invitationBlockedReason}
+              ineligibleReason={isArchived(player) ? "Restore this profile before creating claim invitations." : null}
               inviteeEmail={null}
             />
           </>

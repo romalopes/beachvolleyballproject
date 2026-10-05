@@ -1,169 +1,113 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, type Player, type ClaimInvitation } from "../../api";
+import { api, type ClaimInvitation } from "../../api";
 
-/**
- * The coach/admin side of claim invitations, reachable from /identity.
- *
- * This section exists because the invitation flow used to live only on a
- * player detail page reachable by exact URL, which made it undiscoverable.
- * It lists the viewer's own unlinked player profiles — the only profiles an
- * invitation can be issued against — and creates one in a click.
- */
+type SubjectType = "PlayerProfile" | "CoachProfile";
+type ClaimableProfile = {
+  type: SubjectType;
+  id: number;
+  name: string;
+  path: string;
+};
+
+/** Staff view for issuing verified-email or open-link invitations. */
 export default function ClaimInviteList() {
-  const [profiles, setProfiles] = useState<Player[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [workingId, setWorkingId] = useState<number | null>(null);
-  const [issued, setIssued] = useState<Record<number, string>>({});
+  const [profiles, setProfiles] = useState<ClaimableProfile[]>([]);
   const [invitations, setInvitations] = useState<ClaimInvitation[]>([]);
+  const [emails, setEmails] = useState<Record<string, string>>({});
+  const [issued, setIssued] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [workingKey, setWorkingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    try {
-      // `mine=1` narrows to what this coach recorded; an admin may also issue
-      // invitations, but the catalogue is the cheap shared source either way.
-      const response = await api.players({ mine: true, per_page: 100 });
-      setProfiles(
-        response.data.filter((player) => player.person_id === null),
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not load player profiles.",
-      );
-    } finally {
-      setLoading(false);
-    }
+    const [players, coaches, issuedInvitations] = await Promise.all([
+      api.players({ mine: true, per_page: 100 }),
+      api.coaches({ mine: true, per_page: 100 }),
+      api.claimInvitations(),
+    ]);
+    const unlinkedPlayers = players.data
+      .filter((profile) => profile.person_id === null && profile.status === "active")
+      .map((profile): ClaimableProfile => ({
+        type: "PlayerProfile", id: profile.id,
+        name: profile.full_name?.trim() || profile.display_name || `Player profile #${profile.id}`,
+        path: `/players/${profile.id}`,
+      }));
+    const unlinkedCoaches = coaches.data
+      .filter((profile) => profile.person_id === null && profile.status === "active")
+      .map((profile): ClaimableProfile => ({
+        type: "CoachProfile", id: profile.id,
+        name: profile.full_name?.trim() || profile.display_name || `Coach profile #${profile.id}`,
+        path: `/coaches/${profile.id}`,
+      }));
+    return { profiles: [...unlinkedPlayers, ...unlinkedCoaches], invitations: issuedInvitations };
   }, []);
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    load()
+      .then(({ profiles: available, invitations: rows }) => {
+        if (cancelled) return;
+        setProfiles(available);
+        setInvitations(rows);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Could not load claimable profiles.");
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [load]);
 
-  const invite = async (player: Player) => {
-    setWorkingId(player.id);
-    setError(null);
+  const invite = async (profile: ClaimableProfile) => {
+    const key = `${profile.type}:${profile.id}`;
+    setWorkingKey(key); setError(null);
     try {
-      const created = await api.createClaimInvitation("PlayerProfile", player.id);
-      setIssued((old) => ({ ...old, [player.id]: created.token }));
-      setInvitations(await api.claimInvitations("PlayerProfile", player.id));
+      const created = await api.createClaimInvitation(profile.type, profile.id, emails[key]?.trim() || undefined);
+      setIssued((old) => ({ ...old, [key]: created.token }));
+      setInvitations(await api.claimInvitations());
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not create an invitation.",
-      );
-    } finally {
-      setWorkingId(null);
-    }
+      setError(err instanceof Error ? err.message : "Could not create an invitation.");
+    } finally { setWorkingKey(null); }
   };
 
-  const revoke = async (invitation: ClaimInvitation) => {
-    // `claimable_id`, not the legacy `player_profile_id`: this list is already
-    // subject-polymorphic.
-    const subjectId = invitation.claimable_id;
-    setWorkingId(subjectId);
-    setError(null);
+  const revoke = async (profile: ClaimableProfile, invitation: ClaimInvitation) => {
+    const key = `${profile.type}:${profile.id}`;
+    setWorkingKey(key); setError(null);
     try {
       await api.revokeClaimInvitation(invitation.id);
-      setIssued((old) => {
-        const next = { ...old };
-        delete next[subjectId];
-        return next;
-      });
-      setInvitations(await api.claimInvitations("PlayerProfile", subjectId));
+      setIssued((old) => { const next = { ...old }; delete next[key]; return next; });
+      setInvitations(await api.claimInvitations());
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not revoke the invitation.",
-      );
-    } finally {
-      setWorkingId(null);
-    }
+      setError(err instanceof Error ? err.message : "Could not revoke the invitation.");
+    } finally { setWorkingKey(null); }
   };
 
   if (loading) return <p className="related-item-meta">Loading profiles…</p>;
 
-  return (
-    <div className="identity-invite-list">
-      {error && (
-        <div className="admin-error" role="alert">
-          {error}
-        </div>
-      )}
-      {profiles.length === 0 ? (
-        <p className="related-item-meta">
-          You have no player profiles waiting to be claimed. Record one without
-          an account from Players → Record player, and it will appear here.
-        </p>
-      ) : (
-        <ul>
-          {profiles.map((player) => {
-            const token = issued[player.id];
-            const link = token
-              ? `${window.location.origin}/identity#claim_token=${encodeURIComponent(token)}`
-              : null;
-            const existing = invitations.filter(
-              (row) =>
-                row.claimable_id === player.id && row.status === "active",
-            );
-            return (
-              <li key={player.id} className="identity-invite-row">
-                <div>
-                  <strong>
-                    {player.full_name?.trim() ||
-                      player.display_name ||
-                      `Player profile #${player.id}`}
-                  </strong>{" "}
-                  · <Link to={`/players/${player.id}`}>open profile</Link>
-                </div>
-                {link ? (
-                  <div role="status">
-                    <input
-                      aria-label={`Claim invitation link for player ${player.id}`}
-                      readOnly
-                      value={link}
-                    />
-                    <button
-                      type="button"
-                      className="admin-btn"
-                      onClick={() => {
-                        void navigator.clipboard?.writeText(link);
-                      }}
-                    >
-                      Copy link
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn-add"
-                    disabled={workingId === player.id}
-                    onClick={() => void invite(player)}
-                  >
-                    {workingId === player.id
-                      ? "Creating invitation…"
-                      : "Create claim invitation"}
-                  </button>
-                )}
-                {existing.length > 0 && (
-                  <p className="related-item-meta">
-                    An invitation created {new Date(existing[0].created_at).toLocaleDateString()}{" "}
-                    expires{" "}
-                    {new Date(existing[0].expires_at).toLocaleDateString()}. Its
-                    link was shown once and is not recoverable — create a new one
-                    if it was lost.
-                    <button
-                      type="button"
-                      className="admin-btn"
-                      disabled={workingId === player.id}
-                      onClick={() => void revoke(existing[0])}
-                    >
-                      Revoke
-                    </button>
-                  </p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
+  return <div className="identity-invite-list">
+    {error && <div className="admin-error" role="alert">{error}</div>}
+    {profiles.length === 0 ? <p className="related-item-meta">You have no unlinked profiles waiting to be claimed. Record a player or coach without a Person, and it will appear here.</p> : <ul>
+      {profiles.map((profile) => {
+        const key = `${profile.type}:${profile.id}`;
+        const token = issued[key];
+        const link = token ? `${window.location.origin}/identity#claim_token=${encodeURIComponent(token)}` : null;
+        const active = invitations.find((row) => row.claimable_type === profile.type && row.claimable_id === profile.id && row.status === "active");
+        return <li key={key} className="identity-invite-row">
+          <div><strong>{profile.name}</strong> · <Link to={profile.path}>open profile</Link> · {profile.type === "PlayerProfile" ? "Player" : "Coach"}</div>
+          {!link && <label className="auth-field">Recipient email (optional; exact verified match links immediately)
+            <input type="email" value={emails[key] ?? ""} onChange={(event) => setEmails((old) => ({ ...old, [key]: event.target.value }))} placeholder="Leave blank for a review request" />
+          </label>}
+          {link ? <div role="status">
+            <input aria-label={`Claim invitation link for ${profile.type} ${profile.id}`} readOnly value={link} />
+            <button type="button" className="admin-btn" onClick={() => { void navigator.clipboard?.writeText(link); }}>Copy link</button>
+          </div> : <button type="button" className="admin-btn admin-btn-add" disabled={workingKey === key} onClick={() => void invite(profile)}>
+            {workingKey === key ? "Creating invitation…" : "Create claim invitation"}
+          </button>}
+          {active && <p className="related-item-meta">{active.invitee_email ? `Restricted to ${active.invitee_email}.` : "Open invitation; claim requires staff review."} Expires {new Date(active.expires_at).toLocaleDateString()}. The link is shown once and cannot be recovered.
+            <button type="button" className="admin-btn" disabled={workingKey === key} onClick={() => void revoke(profile, active)}>Revoke</button>
+          </p>}
+        </li>;
+      })}
+    </ul>}
+  </div>;
 }

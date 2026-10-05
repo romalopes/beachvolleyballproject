@@ -102,17 +102,14 @@ export default function CoachDetail() {
     );
 
   // Mirrors the API's `subject_owner?` for a coach profile: an admin, or the
-  // coach who recorded it. An owner also needs a linked Person, because the
-  // service records the issuer as a Person. Computed after the loading guards so
-  // `coach` is known.
+  // coach who recorded it. Computed after the loading guards so `coach` is known.
   const invitationBlockedReason = !user
     ? "Sign in to invite this coach to claim their profile."
     : !user.roles.includes("admin") &&
         !(user.roles.includes("coach") && coach.created_by?.id === user.id)
       ? "Only an administrator or the coach who recorded this profile can invite a coach to claim it."
-      : !user.person_id
-        ? "Your account needs a linked Person before you can issue a claim invitation."
-        : null;
+      : null;
+  const coachName = coach.full_name ?? coach.person?.first_name ?? coach.display_name ?? `Coach profile #${coach.id}`;
 
   return (
     <div className="page">
@@ -122,7 +119,7 @@ export default function CoachDetail() {
           Back to Coaches
         </button>
         <span className="section-label">Coach</span>
-        <h1>{coach.full_name ?? coach.person.first_name}</h1>
+        <h1>{coachName}</h1>
         <div className="tags" style={{ marginTop: "1rem" }}>
           <Tag>
             {coach.account_status === "connected"
@@ -174,8 +171,8 @@ export default function CoachDetail() {
 
       {confirmingArchive && (
         <DeleteConfirm
-          entityName={coach.full_name ?? coach.person.first_name}
-          title={`Archive “${coach.full_name ?? coach.person.first_name}”?`}
+          entityName={coachName}
+          title={`Archive “${coachName}”?`}
           warning="The coach leaves the catalogue. Their profile and past trainings are kept, and this can be undone."
           confirmLabel="Archive"
           pendingLabel="Archiving..."
@@ -208,6 +205,16 @@ export default function CoachDetail() {
                 : ""}
               {coach.created_by ? ` · recorded by ${coach.created_by.name}` : ""}
             </p>
+            {coach.account_status !== "connected" && (
+              <ClaimInvitationPanel
+                key={`${coach.id}:${coach.status}`}
+                claimableType="CoachProfile"
+                claimableId={coach.id}
+                blockedReason={invitationBlockedReason}
+                ineligibleReason={isArchived(coach) ? "Restore this profile before creating claim invitations." : null}
+                inviteeEmail={coach.person.email}
+              />
+            )}
           </>
         ) : (
           <>
@@ -217,9 +224,11 @@ export default function CoachDetail() {
               them request that link.
             </p>
             <ClaimInvitationPanel
+              key={`${coach.id}:${coach.status}`}
               claimableType="CoachProfile"
               claimableId={coach.id}
               blockedReason={invitationBlockedReason}
+              ineligibleReason={isArchived(coach) ? "Restore this profile before creating claim invitations." : null}
               inviteeEmail={null}
             />
           </>

@@ -34,7 +34,6 @@ import AssessmentSessionDetail from "./pages/AssessmentSessionDetail";
 import RankingConsolidations from "./pages/RankingConsolidations";
 import Groups from "./pages/Groups";
 import Organisations from "./pages/Organisations";
-import People from "./pages/People";
 import RankingConsolidationDetail from "./pages/RankingConsolidationDetail";
 import PersonProfileEditPage from "./pages/PersonProfileEditPage";
 import AdminUsers from "./pages/AdminUsers";
@@ -241,18 +240,6 @@ export default function App() {
               element={
                 <ManagerRoute>
                   <Groups />
-                </ManagerRoute>
-              }
-            />
-            {/* Same gate as the other people-facing catalogues: the tree is
-                readable by a training manager, though only an admin may change it. */}
-            {/* People are a staff catalogue: the payloads carry contact details, so
-                the same training-manager gate as the other people pages applies. */}
-            <Route
-              path="/people"
-              element={
-                <ManagerRoute>
-                  <People />
                 </ManagerRoute>
               }
             />
