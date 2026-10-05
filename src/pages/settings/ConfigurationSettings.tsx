@@ -61,7 +61,9 @@ export default function ConfigurationSettings() {
       } catch (err: unknown) {
         if (!cancelled)
           setError(
-            err instanceof Error ? err.message : "Failed to load configuration.",
+            err instanceof Error
+              ? err.message
+              : "Failed to load configuration.",
           );
       } finally {
         if (!cancelled) setLoading(false);
@@ -84,7 +86,8 @@ export default function ConfigurationSettings() {
     (row) => !["logs_enabled", "test", "test_email"].includes(row.key),
   );
 
-  const dirty = saved === null || JSON.stringify(form) !== JSON.stringify(saved);
+  const dirty =
+    saved === null || JSON.stringify(form) !== JSON.stringify(saved);
 
   async function handleSave(event: React.FormEvent) {
     event.preventDefault();
@@ -194,13 +197,21 @@ export default function ConfigurationSettings() {
         <form onSubmit={handleSave}>
           <h2>Logs</h2>
           <label
-            style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              margin: "8px 0",
+            }}
           >
             <input
               type="checkbox"
               checked={form.logs_saved_to_database}
               onChange={(e) =>
-                setForm((f) => ({ ...f, logs_saved_to_database: e.target.checked }))
+                setForm((f) => ({
+                  ...f,
+                  logs_saved_to_database: e.target.checked,
+                }))
               }
               disabled={saving}
             />
@@ -215,12 +226,19 @@ export default function ConfigurationSettings() {
 
           <h2 style={{ marginTop: 24 }}>Email test mode</h2>
           <label
-            style={{ display: "flex", alignItems: "center", gap: 8, margin: "8px 0" }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              margin: "8px 0",
+            }}
           >
             <input
               type="checkbox"
               checked={form.test}
-              onChange={(e) => setForm((f) => ({ ...f, test: e.target.checked }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, test: e.target.checked }))
+              }
               disabled={saving}
             />
             Redirect all emails to the test address
@@ -235,14 +253,28 @@ export default function ConfigurationSettings() {
             <input
               type="email"
               value={form.test_email}
-              onChange={(e) => setForm((f) => ({ ...f, test_email: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, test_email: e.target.value }))
+              }
               disabled={saving}
               placeholder="romalopes@yahoo.com.br"
-              style={{ display: "block", marginTop: 4, maxWidth: 320, width: "100%" }}
+              style={{
+                display: "block",
+                marginTop: 4,
+                maxWidth: 320,
+                width: "100%",
+              }}
             />
           </label>
 
-          <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 16 }}>
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              alignItems: "center",
+              marginTop: 16,
+            }}
+          >
             <button
               type="submit"
               className="admin-btn admin-btn-add"
@@ -251,7 +283,10 @@ export default function ConfigurationSettings() {
               {saving ? "Saving..." : "Save changes"}
             </button>
             {savedAt && !error && (
-              <span className="admin-table-name" style={{ fontWeight: "normal" }}>
+              <span
+                className="admin-table-name"
+                style={{ fontWeight: "normal" }}
+              >
                 Saved at {savedAt.toLocaleTimeString()}
               </span>
             )}

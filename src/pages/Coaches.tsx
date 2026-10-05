@@ -7,6 +7,7 @@ import {
   EyeOff,
   Pencil,
   Search,
+  Trash2,
   UserPlus,
 } from "lucide-react";
 import { api, type Coach, type PaginationMeta } from "../api";
@@ -17,10 +18,13 @@ import Pagination from "../components/settings/Pagination";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
 import Tag from "../components/Tag";
 import PersonCreatePanel from "../components/people/PersonCreatePanel";
+import ProfileInviteLinkButton from "../components/people/ProfileInviteLinkButton";
 import {
   archiveCoach,
   canManageProfiles,
+  deleteCoachProfile,
   isArchived,
+  profileDeletionErrorMessage,
   restoreCoach,
 } from "../utils/people";
 
@@ -51,6 +55,7 @@ export default function Coaches() {
   const [confirmingArchive, setConfirmingArchive] = useState<Coach | null>(
     null,
   );
+  const [confirmingDelete, setConfirmingDelete] = useState<Coach | null>(null);
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   // Soft visibility: by default other coaches' private coaches are hidden.
@@ -140,6 +145,24 @@ export default function Coaches() {
     }
   };
 
+  const coachName = (coach: Coach) =>
+    coach.full_name ?? coach.person?.first_name ?? coach.display_name ?? `Coach profile #${coach.id}`;
+
+  const handleDelete = async () => {
+    if (!confirmingDelete) return;
+    setWorking(true);
+    setActionError(null);
+    try {
+      await deleteCoachProfile(confirmingDelete.id);
+      setConfirmingDelete(null);
+      reload();
+    } catch (err: unknown) {
+      setActionError(profileDeletionErrorMessage(err, "Failed to delete the coach profile."));
+    } finally {
+      setWorking(false);
+    }
+  };
+
   return (
     <div className="page">
       <PageHeader
@@ -222,15 +245,15 @@ export default function Coaches() {
         )}
       </div>
 
-      {actionError && <div className="admin-error">{actionError}</div>}
+      {actionError && !confirmingDelete && <div className="admin-error">{actionError}</div>}
 
       {confirmingArchive && (
         <DeleteConfirm
           entityName={
-            confirmingArchive.full_name ?? confirmingArchive.person.first_name
+            confirmingArchive.full_name ?? confirmingArchive.person?.first_name ?? confirmingArchive.display_name ?? `Coach profile #${confirmingArchive.id}`
           }
           title={`Archive “${
-            confirmingArchive.full_name ?? confirmingArchive.person.first_name
+            confirmingArchive.full_name ?? confirmingArchive.person?.first_name ?? confirmingArchive.display_name ?? `Coach profile #${confirmingArchive.id}`
           }”?`}
           warning="The coach leaves the catalogue. Their record is kept, and this can be undone."
           confirmLabel="Archive"
@@ -242,6 +265,20 @@ export default function Coaches() {
             setActionError(null);
           }}
           onConfirm={handleArchive}
+        />
+      )}
+
+      {confirmingDelete && (
+        <DeleteConfirm
+          entityName={coachName(confirmingDelete)}
+          title={`Permanently delete “${coachName(confirmingDelete)}” profile?`}
+          warning="This is only allowed when the profile and linked Person have no account, training, tournament, or assessment history. The Person record is retained."
+          confirmLabel="Delete profile"
+          pendingLabel="Deleting..."
+          deleting={working}
+          error={actionError}
+          onCancel={() => setConfirmingDelete(null)}
+          onConfirm={handleDelete}
         />
       )}
 
@@ -275,10 +312,12 @@ export default function Coaches() {
               <div className="people-identity">
                 <Link to={`/coaches/${coach.id}`} className="people-name">
                   {coach.full_name ??
-                    `${coach.person.first_name} ${coach.person.last_name ?? ""}`}
+                    (coach.person
+                      ? `${coach.person.first_name} ${coach.person.last_name ?? ""}`.trim()
+                      : coach.display_name || `Coach profile #${coach.id}`)}
                 </Link>
                 <span className="people-contact">
-                  {[coach.person.email, coach.person.phone]
+                  {[coach.person?.email, coach.person?.phone]
                     .filter(Boolean)
                     .join(" · ") || "No contact details"}
                 </span>
@@ -295,6 +334,16 @@ export default function Coaches() {
               </Tag>
               {isArchived(coach) && <Tag>Archived</Tag>}
               {coach.visibility === "private" && <Tag>Private</Tag>}
+              {coach.status === "active" && coach.account_status !== "connected" &&
+                (coach.person || coach.display_name?.trim()) && user &&
+                (user.roles.includes("admin") ||
+                  (user.roles.includes("coach") && coach.created_by?.id === user.id)) && (
+                  <ProfileInviteLinkButton
+                    claimableType="CoachProfile"
+                    claimableId={coach.id}
+                    profileName={coach.full_name ?? coach.display_name ?? `Coach profile #${coach.id}`}
+                  />
+                )}
               {canEdit && (
                 <Link
                   to={`/coaches/${coach.id}/edit`}
@@ -332,6 +381,21 @@ export default function Coaches() {
                     Archive
                   </button>
                 ))}
+              {user?.roles.includes("admin") && (
+                <button
+                  type="button"
+                  className="admin-btn admin-btn-remove"
+                  disabled={working}
+                  aria-label={`Delete ${coachName(coach)} profile`}
+                  onClick={() => {
+                    setActionError(null);
+                    setConfirmingDelete(coach);
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Delete profile
+                </button>
+              )}
             </li>
           ))}
         </ul>

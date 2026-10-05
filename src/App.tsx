@@ -34,7 +34,6 @@ import AssessmentSessionDetail from "./pages/AssessmentSessionDetail";
 import RankingConsolidations from "./pages/RankingConsolidations";
 import Groups from "./pages/Groups";
 import Organisations from "./pages/Organisations";
-import People from "./pages/People";
 import RankingConsolidationDetail from "./pages/RankingConsolidationDetail";
 import PersonProfileEditPage from "./pages/PersonProfileEditPage";
 import AdminUsers from "./pages/AdminUsers";
@@ -56,6 +55,7 @@ import VideoTagsSettings from "./pages/settings/VideoTags";
 import VideosDetail from "./pages/VideosDetail";
 
 import AccountPage from "./pages/Account";
+import IdentityPage from "./pages/Identity";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -240,18 +240,6 @@ export default function App() {
               element={
                 <ManagerRoute>
                   <Groups />
-                </ManagerRoute>
-              }
-            />
-            {/* Same gate as the other people-facing catalogues: the tree is
-                readable by a training manager, though only an admin may change it. */}
-            {/* People are a staff catalogue: the payloads carry contact details, so
-                the same training-manager gate as the other people pages applies. */}
-            <Route
-              path="/people"
-              element={
-                <ManagerRoute>
-                  <People />
                 </ManagerRoute>
               }
             />
@@ -448,6 +436,7 @@ export default function App() {
               }
             />
             <Route path="/account" element={<AccountPage />} />
+            <Route path="/identity" element={<IdentityPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Layout>

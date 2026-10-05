@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -73,6 +73,19 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("Coaches", () => {
+  it("now offers the accountless mode when recording a coach", async () => {
+    // Phase 18 reversed Phase 2's rule: a coach recorded with only a display
+    // name is the state a claim invitation is issued against.
+    renderCoaches();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "New coach" }),
+    );
+
+    expect(
+      screen.getByRole("radio", { name: /no details yet/i }),
+    ).toBeInTheDocument();
+  });
+
   it("lists coaches with their details and account status", async () => {
     mockedApi.coaches.mockResolvedValue(
       paginated([
@@ -89,6 +102,9 @@ describe("Coaches", () => {
     expect(await screen.findByText("Olga Coach")).toBeInTheDocument();
     expect(screen.getByText("state · Level 1")).toBeInTheDocument();
     expect(screen.getByText("Profile only")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Create new invite link for Olga Coach" }),
+    ).toBeInTheDocument();
   });
 
   it("searches coaches server-side", async () => {
@@ -213,6 +229,49 @@ describe("Coaches", () => {
     expect(
       await screen.findByText("New Coach is now a coach"),
     ).toBeInTheDocument();
+  });
+
+  it("can add another CoachProfile to a Person who is already a coach", async () => {
+    mockedApi.people.mockResolvedValue([
+      {
+        id: 42,
+        first_name: "Sam",
+        last_name: "Coach",
+        full_name: "Sam Coach",
+        email: "sam@example.com",
+        phone: null,
+        date_of_birth: null,
+        creation_source: "signup",
+        account_status: "connected",
+        player_profile_id: null,
+        coach_profile_id: 7,
+        player_profile_ids: [],
+        coach_profile_ids: [7],
+      },
+    ]);
+    mockedApi.createCoach.mockResolvedValue({
+      ...coach({ id: 8, person_id: 42, full_name: "Sam Coach" }),
+      possible_duplicates: [],
+    });
+    renderCoaches();
+
+    await userEvent.click(await screen.findByRole("button", { name: /New coach/ }));
+    await userEvent.type(screen.getByRole("searchbox", { name: "Search people" }), "Sam");
+    await userEvent.click(await screen.findByRole("button", { name: "Add another coach profile" }));
+    await userEvent.type(screen.getByLabelText("Coaching level"), "national");
+    await userEvent.click(screen.getByRole("button", { name: "Add coach" }));
+
+    await waitFor(() =>
+      expect(mockedApi.createCoach).toHaveBeenCalledWith({
+        person_id: 42,
+        person: undefined,
+        coach_profile: {
+          coaching_level: "national",
+          qualifications: null,
+          visibility: "shared",
+        },
+      }),
+    );
   });
 
   it("offers an edit link per coach", async () => {

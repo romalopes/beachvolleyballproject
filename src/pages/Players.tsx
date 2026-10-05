@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Archive, ArchiveRestore, Eye, EyeOff, Pencil, Search, UserPlus } from "lucide-react";
+import { Archive, ArchiveRestore, Eye, EyeOff, Pencil, Search, Trash2, UserPlus } from "lucide-react";
 import { api, type PaginationMeta, type Player } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
@@ -9,15 +9,21 @@ import Pagination from "../components/settings/Pagination";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
 import Tag from "../components/Tag";
 import PersonCreatePanel from "../components/people/PersonCreatePanel";
+import ProfileInviteLinkButton from "../components/people/ProfileInviteLinkButton";
 import {
   archivePlayer,
   canManageProfiles,
+  deletePlayerProfile,
   isArchived,
+  profileDeletionErrorMessage,
   restorePlayer,
 } from "../utils/people";
 
 /** Page size for the player catalogue (the API's own default). */
 const PER_PAGE = 20;
+
+const playerName = (player: Player) =>
+  player.full_name?.trim() || player.person?.first_name || player.display_name || "Unnamed player";
 
 /**
  * Player catalogue: everyone the club can schedule.
@@ -43,6 +49,7 @@ export default function Players() {
   const [confirmingArchive, setConfirmingArchive] = useState<Player | null>(
     null,
   );
+  const [confirmingDelete, setConfirmingDelete] = useState<Player | null>(null);
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   // Soft visibility: by default other coaches' private players are hidden.
@@ -134,6 +141,21 @@ export default function Players() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!confirmingDelete) return;
+    setWorking(true);
+    setActionError(null);
+    try {
+      await deletePlayerProfile(confirmingDelete.id);
+      setConfirmingDelete(null);
+      reload();
+    } catch (err: unknown) {
+      setActionError(profileDeletionErrorMessage(err, "Failed to delete the player profile."));
+    } finally {
+      setWorking(false);
+    }
+  };
+
   return (
     <div className="page">
       <PageHeader
@@ -216,15 +238,13 @@ export default function Players() {
         )}
       </div>
 
-      {actionError && <div className="admin-error">{actionError}</div>}
+      {actionError && !confirmingDelete && <div className="admin-error">{actionError}</div>}
 
       {confirmingArchive && (
         <DeleteConfirm
-          entityName={
-            confirmingArchive.full_name ?? confirmingArchive.person.first_name
-          }
+          entityName={playerName(confirmingArchive)}
           title={`Archive “${
-            confirmingArchive.full_name ?? confirmingArchive.person.first_name
+            playerName(confirmingArchive)
           }”?`}
           warning="The player leaves the catalogue and cannot be added to new trainings. Their training history is kept, and this can be undone."
           confirmLabel="Archive"
@@ -236,6 +256,20 @@ export default function Players() {
             setActionError(null);
           }}
           onConfirm={handleArchive}
+        />
+      )}
+
+      {confirmingDelete && (
+        <DeleteConfirm
+          entityName={playerName(confirmingDelete)}
+          title={`Permanently delete “${playerName(confirmingDelete)}” profile?`}
+          warning="This is only allowed when the profile and linked Person have no account, training, tournament, or assessment history. The Person record is retained."
+          confirmLabel="Delete profile"
+          pendingLabel="Deleting..."
+          deleting={working}
+          error={actionError}
+          onCancel={() => setConfirmingDelete(null)}
+          onConfirm={handleDelete}
         />
       )}
 
@@ -268,10 +302,10 @@ export default function Players() {
             <li key={player.id} className="people-row">
               <div className="people-identity">
                 <Link to={`/players/${player.id}`} className="people-name">
-                  {player.full_name ?? `${player.person.first_name} ${player.person.last_name ?? ""}`}
+                  {playerName(player)}
                 </Link>
                 <span className="people-contact">
-                  {[player.person.email, player.person.phone]
+                  {[player.person?.email, player.person?.phone]
                     .filter(Boolean)
                     .join(" · ") || "No contact details"}
                 </span>
@@ -288,13 +322,21 @@ export default function Players() {
               </Tag>
               {isArchived(player) && <Tag>Archived</Tag>}
               {player.visibility === "private" && <Tag>Private</Tag>}
-              {canRecord && (
+              {player.status === "active" && player.account_status !== "connected" &&
+                (player.person || player.display_name?.trim()) && user &&
+                (user.roles.includes("admin") ||
+                  (user.roles.includes("coach") && player.created_by?.id === user.id)) && (
+                  <ProfileInviteLinkButton
+                    claimableType="PlayerProfile"
+                    claimableId={player.id}
+                    profileName={playerName(player)}
+                  />
+                )}
+              {canRecord && player.person && (
                 <Link
                   to={`/players/${player.id}/edit`}
                   className="admin-btn"
-                  aria-label={`Edit ${
-                    player.full_name ?? player.person.first_name
-                  }`}
+                  aria-label={`Edit ${playerName(player)}`}
                 >
                   <Pencil size={14} />
                   Edit
@@ -306,9 +348,7 @@ export default function Players() {
                     type="button"
                     className="admin-btn"
                     disabled={working}
-                    aria-label={`Restore ${
-                      player.full_name ?? player.person.first_name
-                    }`}
+                    aria-label={`Restore ${playerName(player)}`}
                     onClick={() => handleRestore(player)}
                   >
                     <ArchiveRestore size={14} />
@@ -319,9 +359,7 @@ export default function Players() {
                     type="button"
                     className="admin-btn admin-btn-remove"
                     disabled={working}
-                    aria-label={`Archive ${
-                      player.full_name ?? player.person.first_name
-                    }`}
+                    aria-label={`Archive ${playerName(player)}`}
                     onClick={() => {
                       setActionError(null);
                       setConfirmingArchive(player);
@@ -331,6 +369,21 @@ export default function Players() {
                     Archive
                   </button>
                 ))}
+              {user?.roles.includes("admin") && (
+                <button
+                  type="button"
+                  className="admin-btn admin-btn-remove"
+                  disabled={working}
+                  aria-label={`Delete ${playerName(player)} profile`}
+                  onClick={() => {
+                    setActionError(null);
+                    setConfirmingDelete(player);
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Delete profile
+                </button>
+              )}
             </li>
           ))}
         </ul>

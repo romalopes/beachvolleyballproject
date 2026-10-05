@@ -4,6 +4,7 @@ import { Archive, ArchiveRestore, ArrowLeft, Pencil } from "lucide-react";
 import { api, type Player } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import AssessmentList from "../components/people/AssessmentList";
+import ClaimInvitationPanel from "../components/people/ClaimInvitationPanel";
 import CoachingRelationships from "../components/people/CoachingRelationships";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
@@ -103,6 +104,18 @@ export default function PlayerDetail() {
   if (error || !player)
     return <EmptyState title="Player not found" description={error ?? undefined} />;
 
+  const playerName = player.full_name?.trim() || player.person?.first_name || player.display_name || "Unnamed player";
+
+  // Mirrors the API's `profile_owner?` (an admin, or the coach who recorded the
+  // profile) so the panel can explain *why* it is unavailable instead of
+  // silently rendering nothing.
+  const invitationBlockedReason = !user
+    ? "Sign in to invite this player to claim their profile."
+    : !user.roles.includes("admin") &&
+        !(user.roles.includes("coach") && player.created_by?.id === user.id)
+      ? "Only an administrator or the coach who recorded this profile can invite a player to claim it."
+      : null;
+
   const history = [...(player.training_session_participants ?? [])].sort(
     (a, b) =>
       (b.training_session?.starts_at ?? "").localeCompare(
@@ -118,7 +131,7 @@ export default function PlayerDetail() {
           Back to Players
         </button>
         <span className="section-label">Player</span>
-        <h1>{player.full_name ?? player.person.first_name}</h1>
+        <h1>{playerName}</h1>
         <div className="tags" style={{ marginTop: "1rem" }}>
           <Tag>
             {player.account_status === "connected"
@@ -137,14 +150,14 @@ export default function PlayerDetail() {
         {canEdit && (
           <div className="admin-actions-bar">
             <div className="admin-table-actions">
-              <button
+              {player.person && <button
                 type="button"
                 className="admin-btn admin-btn-add"
                 onClick={() => navigate(`/players/${player.id}/edit`)}
               >
                 <Pencil size={14} />
                 Edit
-              </button>
+              </button>}
               {isArchived(player) ? (
                 <button
                   type="button"
@@ -175,10 +188,8 @@ export default function PlayerDetail() {
 
       {confirmingArchive && (
         <DeleteConfirm
-          entityName={player.full_name ?? player.person.first_name}
-          title={`Archive “${
-            player.full_name ?? player.person.first_name
-          }”?`}
+          entityName={playerName}
+          title={`Archive “${playerName}”?`}
           warning="The player leaves the catalogue and cannot be added to new trainings. Their training history is kept, and this can be undone."
           confirmLabel="Archive"
           pendingLabel="Archiving..."
@@ -194,20 +205,52 @@ export default function PlayerDetail() {
 
       <section className="detail-section">
         <h2>Identity</h2>
-        <p>
-          {player.person.first_name} {player.person.last_name ?? ""}
-          <br />
-          {player.person.email ?? "No email"} · {player.person.phone ?? "No phone"}
-        </p>
-        <p className="related-item-meta">
-          Recorded as {player.person.creation_source === "coach_created"
-            ? "a profile entered by a coach"
-            : player.person.creation_source}
-          {player.person.date_of_birth ? ` · born ${player.person.date_of_birth}` : ""}
-        </p>
+        {player.person ? (
+          <>
+            <p>
+              {player.person.first_name} {player.person.last_name ?? ""}
+              <br />
+              {player.person.email ?? "No email"} · {player.person.phone ?? "No phone"}
+            </p>
+            <p className="related-item-meta">
+              Recorded as {player.person.creation_source === "coach_created"
+                ? "a profile entered by a coach"
+                : player.person.creation_source}
+              {player.person.date_of_birth ? ` · born ${player.person.date_of_birth}` : ""}
+            </p>
+            {player.account_status !== "connected" && (
+              <>
+                <p className="related-item-meta">
+                  This profile already belongs to this Person. The invitation connects
+                  the Person&apos;s account to the player profile.
+                </p>
+                <ClaimInvitationPanel
+                  key={`${player.id}:${player.status}`}
+                  claimableType="PlayerProfile"
+                  claimableId={player.id}
+                  blockedReason={invitationBlockedReason}
+                  ineligibleReason={isArchived(player) ? "Restore this profile before creating claim invitations." : null}
+                  inviteeEmail={player.person.email}
+                />
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="related-item-meta">This player profile has not been linked to a Person yet, so the player signs in themselves and claims it. A claim invitation lets them request that link.</p>
+            <ClaimInvitationPanel
+              key={`${player.id}:${player.status}`}
+              claimableType="PlayerProfile"
+              claimableId={player.id}
+              blockedReason={invitationBlockedReason}
+              ineligibleReason={isArchived(player) ? "Restore this profile before creating claim invitations." : null}
+              inviteeEmail={null}
+            />
+          </>
+        )}
       </section>
 
-      {player.person.organisation_memberships?.length ? (
+      {player.person?.organisation_memberships?.length ? (
         <section className="detail-section">
           <h2>Organisation memberships</h2>
           <ul className="people-list">
@@ -232,9 +275,10 @@ export default function PlayerDetail() {
         profileId={player.id}
         canManage={
           canEdit &&
-          (Boolean(user?.roles.includes("admin")) || Boolean(user?.coach_profile_id))
+          (Boolean(user?.roles.includes("admin")) || Boolean(user?.coach_profile_ids?.length ?? user?.coach_profile_id))
         }
         viewerCoachProfileId={user?.coach_profile_id ?? null}
+        viewerCoachProfiles={user?.coach_profiles}
         isAdmin={Boolean(user?.roles.includes("admin"))}
       />
 

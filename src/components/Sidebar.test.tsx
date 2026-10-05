@@ -104,7 +104,7 @@ describe("Sidebar", () => {
       expect(screen.queryByRole("link", { name: /organisations/i })).not.toBeInTheDocument();
     });
 
-    it("sits with the other people-facing pages, between Coaches and Groups", () => {
+    it("keeps the community catalogues together without a People link", () => {
       signInAs(["coach"]);
 
       renderSidebar();
@@ -117,6 +117,7 @@ describe("Sidebar", () => {
       expect(at("Coaches")).toBeGreaterThanOrEqual(0);
       expect(at("Organisations")).toBeGreaterThan(at("Coaches"));
       expect(at("Organisations")).toBeLessThan(at("Groups"));
+      expect(screen.queryByRole("link", { name: /^people$/i })).not.toBeInTheDocument();
     });
   });
 

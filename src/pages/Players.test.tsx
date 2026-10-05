@@ -94,6 +94,33 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("Players", () => {
+  it("records a player without an account so they can claim it later", async () => {
+    // Keep the personless form available alongside profiles recorded on a
+    // Person; both accountless states can now receive profile invitations.
+    mockedApi.createPlayer.mockResolvedValue({
+      ...player({ id: 9, person_id: null, display_name: "Pedro Santos" }),
+      possible_duplicates: [],
+    });
+    renderPlayers();
+
+    await userEvent.click(await screen.findByRole("button", { name: "New player" }));
+    await userEvent.click(
+      screen.getByRole("radio", { name: /no details yet/i }),
+    );
+    await userEvent.type(screen.getByLabelText(/display name/i), "Pedro Santos");
+    await userEvent.click(screen.getByRole("button", { name: "Add player" }));
+
+    expect(mockedApi.createPlayer).toHaveBeenCalledWith({
+      person_id: undefined,
+      person: undefined,
+      player_profile: expect.objectContaining({
+        display_name: "Pedro Santos",
+        visibility: "shared",
+      }),
+    });
+  });
+
+  
   it("lists players with their account status", async () => {
     mockedApi.players.mockResolvedValue(
       paginated([
@@ -111,6 +138,15 @@ describe("Players", () => {
     expect(await screen.findByText("Maria Silva")).toBeInTheDocument();
     expect(screen.getByText("setter · intermediate")).toBeInTheDocument();
     expect(screen.getByText("Account connected")).toBeInTheDocument();
+  });
+
+  it("offers an invite link for an accountless player already linked to a Person", async () => {
+    mockedApi.players.mockResolvedValue(paginated([player({ id: 4 })]));
+    renderPlayers();
+
+    expect(
+      await screen.findByRole("button", { name: "Create new invite link for Pedro Santos" }),
+    ).toBeInTheDocument();
   });
 
   it("searches players server-side and returns to page one", async () => {

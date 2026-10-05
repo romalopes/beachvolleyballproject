@@ -36,7 +36,7 @@ type SidebarLink = {
 /**
  * A collapsible section of the navigation.
  *
- * `staffOnly` groups hold the people-facing pages: their payloads carry contact
+ * `staffOnly` groups hold staff catalogue pages: their payloads carry contact
  * details and their endpoints require a training manager (coach/curator/admin),
  * so the links only appear for those roles instead of leading to a 403.
  * `adminOnly` groups hold admin surfaces, which the router guards as well.
@@ -78,10 +78,6 @@ const navGroups: SidebarGroup[] = [
     items: [
       { path: "/players", label: "Players", icon: Users },
       { path: "/coaches", label: "Coaches", icon: Volleyball },
-      // People are the identity behind players and coaches, and are managed
-      // separately: a club records committee members and parents who have no
-      // profile at all, so a roster cannot be the only way a person arrives.
-      { path: "/people", label: "People", icon: UserCircle },
       { path: "/organisations", label: "Organisations", icon: Building2 },
       { path: "/groups", label: "Groups", icon: UsersRound },
     ],
@@ -124,6 +120,11 @@ const accountLink: SidebarLink = {
   path: "/account",
   label: "Account",
   icon: UserCircle,
+};
+const identityLink: SidebarLink = {
+  path: "/identity",
+  label: "Identity",
+  icon: UsersRound,
 };
 
 /**
@@ -262,6 +263,7 @@ export default function Sidebar() {
           );
         })}
         {isAdmin && <SidebarNavLink link={settingsLink} />}
+        {user && <SidebarNavLink link={identityLink} />}
         {user && <SidebarNavLink link={accountLink} />}
       </nav>
       <div className="sidebar-footer">

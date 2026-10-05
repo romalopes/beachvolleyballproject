@@ -17,6 +17,9 @@ vi.mock("../api", async (importOriginal) => {
       coaches: vi.fn(),
       playerCoaches: vi.fn(),
       skills: vi.fn().mockResolvedValue([]),
+      claimInvitations: vi.fn().mockResolvedValue([]),
+      createClaimInvitation: vi.fn(),
+      revokeClaimInvitation: vi.fn(),
     },
   };
 });
@@ -33,7 +36,42 @@ const playerUser = {
   name: "Player",
   email_address: "player@x.com",
   roles: ["player"],
+  person_id: 5,
 };
+const adminUser = {
+  id: 3,
+  name: "Admin",
+  email_address: "admin@x.com",
+  roles: ["admin"],
+  person_id: 6,
+};
+
+
+/** A profile with no Person can receive a claim invitation. */
+const unlinkedPlayer = (overrides: Partial<Player> = {}): Player =>
+  player({
+    person_id: null,
+    display_name: "Pedro Santos",
+    person: undefined as never,
+    ...overrides,
+  });
+
+const invitation = (overrides = {}) => ({
+  id: 5,
+  claimable_type: "PlayerProfile" as const,
+  claimable_id: 12,
+  player_profile_id: 12,
+  person_id: null,
+  invitee_email: null,
+  emailed_at: null,
+  auto_approvable: false,
+  status: "active" as const,
+  expires_at: "2026-10-20T00:00:00.000Z",
+  used_at: null,
+  revoked_at: null,
+  created_at: "2026-10-13T00:00:00.000Z",
+  ...overrides,
+});
 
 const participant: TrainingSessionParticipant = {
   id: 5,
@@ -100,11 +138,133 @@ beforeEach(() => {
   mockedApi.player.mockResolvedValue(player());
   mockedApi.coaches.mockResolvedValue({ data: [], meta: { page: 1, per_page: 100, total: 0, total_pages: 1 } });
   mockedApi.playerCoaches.mockResolvedValue([]);
+  mockedApi.claimInvitations.mockResolvedValue([]);
 });
 
 afterEach(() => vi.clearAllMocks());
 
 describe("PlayerDetail", () => {
+  describe("claim invitations", () => {
+    it("offers the owner a claim invitation for an unlinked profile and reveals the link", async () => {
+      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.player.mockResolvedValue(unlinkedPlayer());
+      mockedApi.createClaimInvitation.mockResolvedValue({
+        invitation: invitation(),
+        token: "one-time-secret",
+        email_delivered: false,
+      });
+      renderDetail();
+
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Create new invite link" }),
+      );
+
+      // The panel passes the subject kind and the optional address.
+      expect(mockedApi.createClaimInvitation).toHaveBeenCalledWith(
+        "PlayerProfile",
+        12,
+        undefined,
+      );
+      const field = await screen.findByLabelText("Claim invitation link");
+      expect(field).toHaveValue(
+        `${window.location.origin}/identity#claim_token=one-time-secret`,
+      );
+    });
+
+    it("offers a link to connect an account to the Person on a profile", async () => {
+      renderDetail();
+      await screen.findByRole("heading", { name: "Pedro Santos" });
+
+      expect(screen.getByText(/a profile entered by a coach/)).toBeInTheDocument();
+      expect(
+        await screen.findByRole("button", { name: "Create new invite link" }),
+      ).toBeInTheDocument();
+    });
+
+    it("tells a coach who did not record the profile why they cannot invite", async () => {
+      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.player.mockResolvedValue(
+        unlinkedPlayer({ created_by: { id: 99, name: "Other Coach" } }),
+      );
+      renderDetail();
+      await screen.findByRole("heading", { name: "Pedro Santos" });
+
+      expect(
+        await screen.findByText(/only an administrator or the coach who recorded/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Create new invite link" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("lets a profile owner invite even without a linked Person", async () => {
+      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: undefined });
+      mockedApi.player.mockResolvedValue(unlinkedPlayer());
+      renderDetail();
+      await screen.findByRole("heading", { name: "Pedro Santos" });
+
+      expect(
+        await screen.findByRole("button", { name: "Create new invite link" }),
+      ).toBeInTheDocument();
+    });
+
+    it("lets an admin invite even though they did not record the profile", async () => {
+      mockedApi.me.mockResolvedValue(adminUser);
+      mockedApi.player.mockResolvedValue(
+        unlinkedPlayer({ created_by: { id: 2, name: "Coach" } }),
+      );
+      renderDetail();
+
+      expect(
+        await screen.findByRole("button", { name: "Create new invite link" }),
+      ).toBeInTheDocument();
+    });
+
+    it("restores invitation state on reload instead of losing it with the token", async () => {
+      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.player.mockResolvedValue(unlinkedPlayer());
+      mockedApi.claimInvitations.mockResolvedValue([invitation()]);
+      renderDetail();
+      await screen.findByRole("heading", { name: "Pedro Santos" });
+
+      // This is the regression that made the feature unusable: the raw token is
+      // shown once, so the list is the only durable answer to "is one live?".
+      expect(await screen.findByText(/expires/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Revoke" })).toBeInTheDocument();
+    });
+
+    it("revokes an active invitation through the API", async () => {
+      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.player.mockResolvedValue(unlinkedPlayer());
+      mockedApi.claimInvitations.mockResolvedValue([invitation()]);
+      mockedApi.revokeClaimInvitation.mockResolvedValue(
+        invitation({ status: "revoked" }),
+      );
+      renderDetail();
+      await screen.findByRole("heading", { name: "Pedro Santos" });
+
+      await userEvent.click(await screen.findByRole("button", { name: "Revoke" }));
+
+      expect(mockedApi.revokeClaimInvitation).toHaveBeenCalledWith(5);
+    });
+
+    it("surfaces a failed invitation instead of failing silently", async () => {
+      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.player.mockResolvedValue(unlinkedPlayer());
+      mockedApi.createClaimInvitation.mockRejectedValue(
+        new Error("A linked Person is required to create an invitation"),
+      );
+      renderDetail();
+
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Create new invite link" }),
+      );
+
+      expect(
+        await screen.findByRole("alert"),
+      ).toHaveTextContent(/linked Person is required/i);
+    });
+  });
   it("shows the identity, its provenance and the training history", async () => {
     renderDetail();
 

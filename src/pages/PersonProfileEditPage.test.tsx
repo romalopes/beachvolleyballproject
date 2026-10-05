@@ -156,6 +156,86 @@ describe("PersonProfileEditPage", () => {
     expect(await screen.findByText("Pedro Santos saved.")).toBeInTheDocument();
   });
 
+  it("ends an active organisation membership instead of destroying its history", async () => {
+    const organisation = {
+      id: 3,
+      name: "Sydney Club",
+      slug: "sydney-club",
+      description: null,
+      acronym: null,
+      organisation_type: "club" as const,
+      status: "active" as const,
+      status_label: "Active",
+      parent_organisation_id: null,
+      parent_organisation: null,
+      child_count: 0,
+      depth: 0,
+      logo_url: null,
+      logo_attached: false,
+      can_edit: true,
+      can_delete: false,
+      can_manage_members: true,
+      created_by_person: null,
+      created_at: "2026-09-01T00:00:00.000Z",
+      updated_at: "2026-09-01T00:00:00.000Z",
+    };
+    mockedApi.organisations.mockResolvedValue({
+      data: [organisation],
+      meta: { page: 1, per_page: 20, total: 1, total_pages: 1 },
+    });
+    mockedApi.coach.mockResolvedValue(coachRecord({
+      person: {
+        ...coachRecord().person!,
+        organisation_memberships: [{
+          id: 91,
+          organisation_id: organisation.id,
+          person_id: 70,
+          person_name: "Ana Coach",
+          role: "coach",
+          role_label: "Coach",
+          status: "active",
+          status_label: "Active",
+          joined_at: "2026-09-01T00:00:00.000Z",
+          left_at: null,
+          manages: false,
+          organisation: { id: organisation.id, name: organisation.name },
+          created_at: "2026-09-01T00:00:00.000Z",
+          updated_at: "2026-09-01T00:00:00.000Z",
+        }],
+      },
+    }));
+    mockedApi.updateCoach.mockResolvedValue({
+      ...coachRecord(),
+      possible_duplicates: [],
+    });
+    renderEdit("/coaches/7/edit");
+    await screen.findByLabelText("First name");
+
+    await userEvent.click(screen.getByRole("button", { name: "End membership" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(mockedApi.updateCoach).toHaveBeenCalledWith(7, {
+      person: {
+        first_name: "Ana",
+        last_name: "Coach",
+        email: "ana@example.com",
+        phone: null,
+        organisation_memberships_attributes: [{
+          id: 91,
+          organisation_id: 3,
+          role: "coach",
+          status: "ended",
+          _destroy: undefined,
+        }],
+      },
+      coach_profile: {
+        coaching_level: null,
+        qualifications: null,
+        visibility: "shared",
+      },
+    });
+  });
+
   it("warns about possible duplicates after a rename", async () => {
     mockedApi.updatePlayer.mockResolvedValue({
       ...player({ full_name: "Maria Silva" }),

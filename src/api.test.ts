@@ -133,6 +133,23 @@ describe("postJSON (auth + mutations)", () => {
     );
   });
 
+  it("preserves protected-history blockers from a profile delete response", async () => {
+    mockFetchOnce({
+      ok: false,
+      status: 422,
+      body: {
+        error: "Profile has protected history",
+        blockers: ["person_assessments"],
+      },
+    });
+    const rejection = await api.deletePlayer(7).catch((error: unknown) => error);
+
+    expect(rejection).toBeInstanceOf(Error);
+    expect((rejection as Error & { blockers?: string[] }).blockers).toEqual([
+      "person_assessments",
+    ]);
+  });
+
   it("falls back to the HTTP status when the error body is empty", async () => {
     mockFetchOnce({ ok: false, status: 500 });
     await expect(api.account()).rejects.toThrow("API Error: 500");
@@ -319,8 +336,7 @@ describe("people, players and coaches", () => {
     const fetchMock = mockFetchOnce({ ok: true, status: 200, body: [] });
     await api.people({ q: "pedro", email: "pedro@example.com" });
     const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
-    // The typeahead lives on its own endpoint: `/people` is the paginated
-    // management list, and the two have deliberately different response shapes.
+    // The typeahead returns a bare array for profile and roster pickers.
     expect(url).toBe("/api/v1/people/search?q=pedro&email=pedro%40example.com");
   });
 
@@ -329,6 +345,20 @@ describe("people, players and coaches", () => {
     await api.players({ q: "pedro" });
     const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("/api/v1/players?q=pedro");
+  });
+
+  it("searches player profile candidates through the claim endpoint", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      body: [{ id: 7, player_profile_id: 7, display_name: "John Smith", match_type: "exact_name", result_type: "candidate" }],
+    });
+
+    const candidates = await api.playerProfileCandidates();
+
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/player_claims/candidates");
+    expect(candidates[0].result_type).toBe("candidate");
+    expect(candidates[0].match_type).toBe("exact_name");
   });
 
   it("unwraps the paginated player catalogue", async () => {
@@ -465,5 +495,56 @@ describe("people, players and coaches", () => {
     expect(JSON.parse(init.body as string)).toEqual({
       coach: { coach_profile: { coaching_level: "national" } },
     });
+  });
+});
+
+describe("identity API contracts", () => {
+  it("posts consolidation preview and explicit membership resolutions to their routes", async () => {
+    const previewFetch = mockFetchOnce({
+      ok: true,
+      status: 200,
+      body: { ready: false, conflicts: [], records_to_reassign: {} },
+    });
+    await api.personConsolidationPreview(10, 20);
+    expect(previewFetch.mock.calls[0][0]).toBe(
+      "/api/v1/person_consolidations/preview",
+    );
+
+    const resolveFetch = mockFetchOnce({
+      ok: true,
+      status: 201,
+      body: { id: 1 },
+    });
+    await api.resolvePersonConsolidation(10, 20, [
+      {
+        type: "organisation_membership_conflict",
+        container_id: 5,
+        keep_record_id: 7,
+        reason: "Confirmed by club administrator",
+      },
+    ]);
+    expect(resolveFetch.mock.calls[0][0]).toBe(
+      "/api/v1/person_consolidations/resolve",
+    );
+    const [, init] = resolveFetch.mock.calls[0] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      person_consolidation: {
+        source_person_id: 10,
+        canonical_person_id: 20,
+      },
+      membership_resolutions: [{ keep_record_id: 7 }],
+    });
+  });
+
+  it("gets safe claim-invitation status by ID", async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      body: { id: 9, status: "used" },
+    });
+    await api.playerClaimInvitation(9);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "/api/v1/player_claim_invitations/9",
+    );
   });
 });

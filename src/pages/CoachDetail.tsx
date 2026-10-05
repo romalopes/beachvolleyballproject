@@ -4,6 +4,7 @@ import { Archive, ArchiveRestore, ArrowLeft, Pencil } from "lucide-react";
 import { api, type Coach } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import AssessmentList from "../components/people/AssessmentList";
+import ClaimInvitationPanel from "../components/people/ClaimInvitationPanel";
 import CoachingRelationships from "../components/people/CoachingRelationships";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
@@ -96,7 +97,19 @@ export default function CoachDetail() {
 
   if (loading) return <div className="loading">Loading...</div>;
   if (error || !coach)
-    return <EmptyState title="Coach not found" description={error ?? undefined} />;
+    return (
+      <EmptyState title="Coach not found" description={error ?? undefined} />
+    );
+
+  // Mirrors the API's `subject_owner?` for a coach profile: an admin, or the
+  // coach who recorded it. Computed after the loading guards so `coach` is known.
+  const invitationBlockedReason = !user
+    ? "Sign in to invite this coach to claim their profile."
+    : !user.roles.includes("admin") &&
+        !(user.roles.includes("coach") && coach.created_by?.id === user.id)
+      ? "Only an administrator or the coach who recorded this profile can invite a coach to claim it."
+      : null;
+  const coachName = coach.full_name ?? coach.person?.first_name ?? coach.display_name ?? `Coach profile #${coach.id}`;
 
   return (
     <div className="page">
@@ -106,7 +119,7 @@ export default function CoachDetail() {
           Back to Coaches
         </button>
         <span className="section-label">Coach</span>
-        <h1>{coach.full_name ?? coach.person.first_name}</h1>
+        <h1>{coachName}</h1>
         <div className="tags" style={{ marginTop: "1rem" }}>
           <Tag>
             {coach.account_status === "connected"
@@ -158,8 +171,8 @@ export default function CoachDetail() {
 
       {confirmingArchive && (
         <DeleteConfirm
-          entityName={coach.full_name ?? coach.person.first_name}
-          title={`Archive “${coach.full_name ?? coach.person.first_name}”?`}
+          entityName={coachName}
+          title={`Archive “${coachName}”?`}
           warning="The coach leaves the catalogue. Their profile and past trainings are kept, and this can be undone."
           confirmLabel="Archive"
           pendingLabel="Archiving..."
@@ -175,24 +188,60 @@ export default function CoachDetail() {
 
       <section className="detail-section">
         <h2>Identity</h2>
-        <p>
-          {coach.person.first_name} {coach.person.last_name ?? ""}
-          <br />
-          {coach.person.email ?? "No email"} · {coach.person.phone ?? "No phone"}
-        </p>
-        <p className="related-item-meta">
-          Recorded as{" "}
-          {coach.person.creation_source === "coach_created"
-            ? "a profile entered by a coach"
-            : coach.person.creation_source}
-          {coach.person.date_of_birth
-            ? ` · born ${coach.person.date_of_birth}`
-            : ""}
-          {coach.created_by ? ` · recorded by ${coach.created_by.name}` : ""}
-        </p>
+        {coach.person ? (
+          <>
+            <p>
+              {coach.person.first_name} {coach.person.last_name ?? ""}
+              <br />
+              {coach.person.email ?? "No email"} · {coach.person.phone ?? "No phone"}
+            </p>
+            <p className="related-item-meta">
+              Recorded as{" "}
+              {coach.person.creation_source === "coach_created"
+                ? "a profile entered by a coach"
+                : coach.person.creation_source}
+              {coach.person.date_of_birth
+                ? ` · born ${coach.person.date_of_birth}`
+                : ""}
+              {coach.created_by ? ` · recorded by ${coach.created_by.name}` : ""}
+            </p>
+            {coach.account_status !== "connected" && (
+              <>
+                <p className="related-item-meta">
+                  This profile already belongs to this Person. The invitation connects
+                  the Person&apos;s account to the coach profile.
+                </p>
+                <ClaimInvitationPanel
+                  key={`${coach.id}:${coach.status}`}
+                  claimableType="CoachProfile"
+                  claimableId={coach.id}
+                  blockedReason={invitationBlockedReason}
+                  ineligibleReason={isArchived(coach) ? "Restore this profile before creating claim invitations." : null}
+                  inviteeEmail={coach.person.email}
+                />
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="related-item-meta">
+              This coach profile has not been linked to a Person yet, so the
+              coach signs in themselves and claims it. A claim invitation lets
+              them request that link.
+            </p>
+            <ClaimInvitationPanel
+              key={`${coach.id}:${coach.status}`}
+              claimableType="CoachProfile"
+              claimableId={coach.id}
+              blockedReason={invitationBlockedReason}
+              ineligibleReason={isArchived(coach) ? "Restore this profile before creating claim invitations." : null}
+              inviteeEmail={null}
+            />
+          </>
+        )}
       </section>
 
-      {coach.person.organisation_memberships?.length ? (
+      {coach.person?.organisation_memberships?.length ? (
         <section className="detail-section">
           <h2>Organisation memberships</h2>
           <ul className="people-list">
@@ -200,27 +249,8 @@ export default function CoachDetail() {
               <li key={m.id} className="people-row">
                 <div className="people-identity">
                   <span className="people-name">
-                    {m.organisation?.name ?? `Organisation #${m.organisation_id}`}
-                  </span>
-                  <span className="people-contact">
-                    {m.role} · {m.status}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {coach.person.organisation_memberships?.length ? (
-        <section className="detail-section">
-          <h2>Organisation memberships</h2>
-          <ul className="people-list">
-            {coach.person.organisation_memberships.map((m) => (
-              <li key={m.id} className="people-row">
-                <div className="people-identity">
-                  <span className="people-name">
-                    {m.organisation?.name ?? `Organisation #${m.organisation_id}`}
+                    {m.organisation?.name ??
+                      `Organisation #${m.organisation_id}`}
                   </span>
                   <span className="people-contact">
                     {m.role} · {m.status}
@@ -238,8 +268,10 @@ export default function CoachDetail() {
         canManage={
           canEdit &&
           (Boolean(user?.roles.includes("admin")) ||
-            (Boolean(user?.coach_profile_id) &&
-              user?.coach_profile_id === coach.coach_profile_id))
+            Boolean(
+              user?.coach_profile_ids?.includes(coach.coach_profile_id!) ||
+              user?.coach_profile_id === coach.coach_profile_id,
+            ))
         }
         isAdmin={Boolean(user?.roles.includes("admin"))}
       />
@@ -247,7 +279,9 @@ export default function CoachDetail() {
       <section className="detail-section assessment-section">
         <h2>Recorded assessments</h2>
         <p className="related-item-meta">
-          {coach.assessments_recorded_count ?? 0} published assessment{(coach.assessments_recorded_count ?? 0) === 1 ? "" : "s"} attributed to this coach.
+          {coach.assessments_recorded_count ?? 0} published assessment
+          {(coach.assessments_recorded_count ?? 0) === 1 ? "" : "s"} attributed
+          to this coach.
         </p>
         <AssessmentList
           assessments={coach.recent_assessments}
@@ -271,4 +305,3 @@ export default function CoachDetail() {
     </div>
   );
 }
-

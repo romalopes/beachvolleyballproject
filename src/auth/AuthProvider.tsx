@@ -35,8 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       return null;
     }
-    setUser(result);
-    return result;
+    const currentUser = (await api.me().catch(() => null)) ?? result;
+    setUser(currentUser);
+    return currentUser;
   };
 
   const register = async (name: string, email: string, password: string, confirmation: string) => {
@@ -47,12 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       return null;
     }
-    setUser(result);
-    return result;
+    const currentUser = (await api.me().catch(() => null)) ?? result;
+    setUser(currentUser);
+    return currentUser;
   };
 
   const resetPassword = async (token: string, password: string, confirmation: string) => {
-    setUser(await api.resetPassword(token, password, confirmation));
+    const result = await api.resetPassword(token, password, confirmation);
+    setUser((await api.me().catch(() => null)) ?? result);
   };
 
   const logout = async () => {
@@ -64,13 +67,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const startImpersonating = async (userId: number) => {
     const result = await api.startImpersonation(userId);
     setImpersonation({ active: true, realAdmin: result.real_admin });
-    setUser(result.effective_user);
+    setUser((await api.me().catch(() => null)) ?? result.effective_user);
   };
 
   const stopImpersonating = async () => {
     const result = await api.stopImpersonation();
     setImpersonation({ active: false, realAdmin: null });
-    setUser({ ...result.real_admin, roles: ["admin"] });
+    setUser((await api.me().catch(() => null)) ?? { ...result.real_admin, roles: ["admin"] });
   };
 
   return (
