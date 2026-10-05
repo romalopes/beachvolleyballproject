@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Pencil, Plus, Trash2, UserCheck, UserCircle, X } from "lucide-react";
-import { api, type PaginationMeta, type PersonIdentity, type PersonInput } from "../api";
+import { api, ApiValidationError, type PaginationMeta, type PersonIdentity, type PersonInput } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
@@ -82,9 +82,13 @@ export default function People() {
   };
 
   const destroy = async (person: PersonIdentity) => {
+    // Deliberately does NOT promise that the profiles go with them. They do not:
+    // `Person` guards its associations with `restrict_with_error`, so a person
+    // who has a player or coach profile is refused outright and nothing is
+    // deleted. The old copy described a cascade that the server never performs.
     if (
       !window.confirm(
-        `Delete ${person.full_name}? Their player and coach profiles go with them.`,
+        `Delete ${person.full_name}? This is only possible if they have no account and no player or coach profiles.`,
       )
     ) {
       return;
@@ -94,10 +98,18 @@ export default function People() {
     setNotice(null);
     try {
       await api.deletePerson(person.id);
-      setNotice(`${person.full_name} deleted.`);
+      // Only claim success once the list has actually been reloaded, so the
+      // confirmation can never describe a delete the reader cannot see.
       await refresh();
+      setNotice(`${person.full_name} deleted.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "That person could not be deleted.");
+      setError(
+        err instanceof ApiValidationError
+          ? err.errors.join(" ")
+          : err instanceof Error
+            ? err.message
+            : "That person could not be deleted.",
+      );
     } finally {
       setBusyId(null);
     }

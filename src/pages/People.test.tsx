@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, type PersonIdentity } from "../api";
+import { api, ApiValidationError, type PersonIdentity } from "../api";
 import { paginated } from "../test/paginated";
 import { AuthContext, type AuthContextValue } from "../auth/AuthContext";
 import People from "./People";
@@ -248,6 +248,45 @@ describe("People", () => {
     await userEvent.click(screen.getByRole("button", { name: /delete/i }));
 
     expect(mockedApi.deletePerson).not.toHaveBeenCalled();
+  });
+
+  it("does not promise that profiles are deleted with the person", async () => {
+    // The server refuses outright when a person has a player or coach profile,
+    // so the old copy ("their profiles go with them") described a cascade that
+    // never happens.
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderPage();
+    await screen.findByText("Rosa New");
+
+    await userEvent.click(screen.getByRole("button", { name: /delete/i }));
+
+    const message = confirmSpy.mock.calls[0][0] as string;
+    expect(message).not.toMatch(/go with them/i);
+    expect(message).toMatch(/only possible if they have no account/i);
+  });
+
+  it("surfaces every blocking reason the server returns", async () => {
+    // A validation error carries the full reason-and-remedy list in `errors`;
+    // rendering only `err.message` would show a single opaque sentence.
+    mockedApi.deletePerson.mockRejectedValue(
+      new ApiValidationError([
+        "This person cannot be deleted.",
+        "They have a coach profile.",
+        "Archive the coach profile instead of deleting it — it holds the coaching history.",
+      ]),
+    );
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderPage();
+    await screen.findByText("Rosa New");
+
+    await userEvent.click(screen.getByRole("button", { name: /delete/i }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/They have a coach profile/);
+    expect(alert).toHaveTextContent(/Archive the coach profile instead/);
+    // A refused delete must not also render the success notice. Scoped to the
+    // `status` region so it cannot match the remedy text ("instead of deleting").
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
   it("offers delete only to somebody with no account", async () => {
