@@ -26,6 +26,10 @@ export default function IdentityPage() {
     return fragmentToken ?? searchParams.get("claim_token") ?? "";
   });
   const [rejectReason, setRejectReason] = useState("");
+  const [accountToken, setAccountToken] = useState(() => {
+    const fragmentToken = new URLSearchParams(location.hash.replace(/^#/, "")).get("account_claim_token");
+    return fragmentToken ?? searchParams.get("account_claim_token") ?? "";
+  });
 
   const isReviewer = Boolean(user?.roles.some((role) => role === "admin" || role === "coach"));
   const isAdmin = Boolean(user?.roles.includes("admin"));
@@ -57,14 +61,32 @@ export default function IdentityPage() {
     if (!token.trim()) return;
     setBusy(true); setError(null); setNotice(null);
     try {
-      const result = await api.redeemPlayerClaimInvitation(token.trim());
-      setNotice(`Claim request ${result.claim.id} was submitted for review.`);
+      const result = await api.redeemClaimInvitation(token.trim());
+      // Two outcomes, and the difference matters to the reader: an emailed
+      // invitation is linked now, anything else is a request a coach approves.
+      setNotice(
+        result.outcome === "linked"
+          ? "Your profile is now linked to your account."
+          : result.message,
+      );
       setToken("");
       const next = new URLSearchParams(searchParams);
       next.delete("claim_token");
       navigate({ pathname: location.pathname, search: next.toString() ? `?${next}` : "", hash: "" }, { replace: true });
       await reloadClaims();
     } catch (err) { setError(err instanceof Error ? err.message : "Invitation could not be redeemed."); }
+    finally { setBusy(false); }
+  };
+
+  const redeemAccountInvitation = async () => {
+    if (!accountToken.trim()) return;
+    setBusy(true); setError(null); setNotice(null);
+    try {
+      const result = await api.redeemPersonAccountInvitation(accountToken.trim());
+      setAccountToken("");
+      navigate({ pathname: location.pathname, search: "", hash: "" }, { replace: true });
+      setNotice(`Your account is now linked to ${result.person.full_name}. Refresh the page to load the updated identity.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Account invitation could not be accepted."); }
     finally { setBusy(false); }
   };
 
@@ -108,6 +130,12 @@ export default function IdentityPage() {
       <h2 id="account-context-heading">Account</h2>
       <dl className="identity-context"><dt>Account</dt><dd>{user.account_id ? `#${user.account_id}` : "No linked account"}</dd><dt>Person</dt><dd>{user.person_id ? `#${user.person_id}` : "No linked Person"}</dd></dl>
     </section>
+    {accountToken && <section className="detail-section"><h2>Connect to your recorded Person</h2>
+      <p>Accepting this invitation connects your verified email account to the Person already recorded by the club. Their player and coach profiles stay with that Person.</p>
+      <label className="auth-field">Invitation token<input aria-label="Account invitation token" value={accountToken} onChange={(event) => setAccountToken(event.target.value)} autoComplete="off" /></label>
+      <button className="auth-submit" disabled={busy || !accountToken.trim()} onClick={() => void redeemAccountInvitation()}>{busy ? "Connecting…" : "Accept account invitation"}</button>
+      {notice?.includes("Refresh the page") && <button className="admin-btn" onClick={() => window.location.reload()}>Refresh identity</button>}
+    </section>}
     <section className="detail-section"><h2>Player profiles</h2>
       {user.player_profiles?.length ? <ul>{user.player_profiles.map((profile) => <li key={profile.id}>{profile.display_name || `Player profile #${profile.id}`} · {profile.status}{profile.level ? ` · ${profile.level}` : ""}</li>)}</ul> : <p>No player profiles are linked to this account.</p>}
     </section>
@@ -121,7 +149,7 @@ export default function IdentityPage() {
       {user.group_memberships?.length ? <ul>{user.group_memberships.map((membership) => <li key={membership.id}>{membership.group.name} · {membership.role} · {membership.status}{membership.group.organisation ? ` · ${membership.group.organisation.name}` : ""}</li>)}</ul> : <p>No group memberships.</p>}
     </section>
 
-    <section className="detail-section"><h2>Redeem a player invitation</h2><p>Invitation links connect a player profile to your Person after you sign in. The profile match is confirmed by its owner.</p>
+    <section className="detail-section"><h2>Redeem a claim invitation</h2><p>Invitation links connect a profile to your account. An invitation the club emailed you is linked straight away; any other link is sent to a coach or administrator to review.</p>
       <label className="auth-field">Invitation token<input aria-label="Invitation token" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="off" /></label>
       <button className="auth-submit" disabled={busy || !token.trim() || !user.person_id} onClick={() => void redeem()}>{busy ? "Submitting…" : "Submit claim request"}</button>
       {!user.person_id && <p>A linked Person is required before redeeming an invitation.</p>}

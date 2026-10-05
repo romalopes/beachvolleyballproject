@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, type Player, type PlayerClaimInvitation } from "../../api";
+import { api, type Player, type ClaimInvitation } from "../../api";
 
 /**
  * The coach/admin side of claim invitations, reachable from /identity.
@@ -15,7 +15,7 @@ export default function ClaimInviteList() {
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState<number | null>(null);
   const [issued, setIssued] = useState<Record<number, string>>({});
-  const [invitations, setInvitations] = useState<PlayerClaimInvitation[]>([]);
+  const [invitations, setInvitations] = useState<ClaimInvitation[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -43,9 +43,9 @@ export default function ClaimInviteList() {
     setWorkingId(player.id);
     setError(null);
     try {
-      const created = await api.createPlayerClaimInvitation(player.id);
+      const created = await api.createClaimInvitation("PlayerProfile", player.id);
       setIssued((old) => ({ ...old, [player.id]: created.token }));
-      setInvitations(await api.playerClaimInvitations(player.id));
+      setInvitations(await api.claimInvitations("PlayerProfile", player.id));
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not create an invitation.",
@@ -55,17 +55,20 @@ export default function ClaimInviteList() {
     }
   };
 
-  const revoke = async (invitation: PlayerClaimInvitation) => {
-    setWorkingId(invitation.player_profile_id);
+  const revoke = async (invitation: ClaimInvitation) => {
+    // `claimable_id`, not the legacy `player_profile_id`: this list is already
+    // subject-polymorphic.
+    const subjectId = invitation.claimable_id;
+    setWorkingId(subjectId);
     setError(null);
     try {
-      await api.revokePlayerClaimInvitation(invitation.id);
+      await api.revokeClaimInvitation(invitation.id);
       setIssued((old) => {
         const next = { ...old };
-        delete next[invitation.player_profile_id];
+        delete next[subjectId];
         return next;
       });
-      setInvitations(await api.playerClaimInvitations(invitation.player_profile_id));
+      setInvitations(await api.claimInvitations("PlayerProfile", subjectId));
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Could not revoke the invitation.",
@@ -97,7 +100,8 @@ export default function ClaimInviteList() {
               ? `${window.location.origin}/identity#claim_token=${encodeURIComponent(token)}`
               : null;
             const existing = invitations.filter(
-              (row) => row.player_profile_id === player.id && row.status === "active",
+              (row) =>
+                row.claimable_id === player.id && row.status === "active",
             );
             return (
               <li key={player.id} className="identity-invite-row">

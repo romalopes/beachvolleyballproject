@@ -66,11 +66,10 @@ export default function PersonCreatePanel({
   const [selectedPerson, setSelectedPerson] = useState<PersonIdentity | null>(
     null,
   );
-  // A placeholder player is recorded with no Person at all, so it is the only
-  // state a claim invitation can be issued against. Coaches are excluded: a
-  // CoachProfile requires a Person (Phase 2).
+  // A coach may now be recorded without a Person (Phase 18), so the placeholder
+  // mode is not player-only any more.
   const [identityMode, setIdentityMode] = useState<IdentityMode>("person");
-  const canRecordPlaceholder = kind === "player";
+  const canRecordPlaceholder = true;
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [createdName, setCreatedName] = useState<string | null>(null);

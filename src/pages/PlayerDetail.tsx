@@ -227,7 +227,8 @@ export default function PlayerDetail() {
           <>
             <p className="related-item-meta">This player profile has not been linked to a Person yet, so the player signs in themselves and claims it. A claim invitation lets them request that link.</p>
             <ClaimInvitationPanel
-              playerProfileId={player.id}
+              claimableType="PlayerProfile"
+              claimableId={player.id}
               blockedReason={invitationBlockedReason}
               inviteeEmail={null}
             />

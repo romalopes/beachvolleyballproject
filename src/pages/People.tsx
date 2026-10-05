@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { Pencil, Plus, Trash2, UserCheck, UserCircle, X } from "lucide-react";
+import { Copy, Link2, Pencil, Plus, Trash2, UserCheck, UserCircle, X } from "lucide-react";
 import { api, ApiValidationError, type PaginationMeta, type PersonIdentity, type PersonInput } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import PageHeader from "../components/PageHeader";
@@ -226,6 +226,9 @@ export default function People() {
                   </div>
 
                   <div className="people-row-actions">
+                    {person.account_status !== "connected" && (
+                      <PersonAccountInvite person={person} disabled={busyId === person.id} />
+                    )}
                     {isAdmin && !person.player_profile_id && (
                       <button
                         type="button"
@@ -293,6 +296,47 @@ export default function People() {
     </div>
   );
 }
+
+function PersonAccountInvite({ person, disabled }: { person: PersonIdentity; disabled: boolean }) {
+  const [invitation, setInvitation] = useState<Awaited<ReturnType<typeof api.personAccountInvitations>>[number] | null>(null);
+  const [link, setLink] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    api.personAccountInvitations(person.id).then((items) => {
+      if (!cancelled) setInvitation(items.find((item) => item.status === "active") ?? null);
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [person.id]);
+  const create = async () => {
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const created = await api.createPersonAccountInvitation(person.id);
+      const value = `${window.location.origin}/identity#account_claim_token=${encodeURIComponent(created.token)}`;
+      setInvitation(created.invitation);
+      setLink(value);
+      setMessage(created.email_delivered ? `Invitation email sent to ${created.invitation.invitee_email}.` : `Copy and share this link with ${created.invitation.invitee_email}.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Invitation could not be created."); }
+    finally { setBusy(false); }
+  };
+  const revoke = async () => {
+    if (!invitation) return;
+    setBusy(true); setError("");
+    try { setInvitation(await api.revokePersonAccountInvitation(invitation.id)); setLink(""); setMessage("Invitation revoked."); }
+    catch (err) { setError(err instanceof Error ? err.message : "Invitation could not be revoked."); }
+    finally { setBusy(false); }
+  };
+  if (!person.email) return <span className="people-meta">Add an email to invite</span>;
+  return <div className="person-account-invite">
+    <button type="button" className="admin-btn" disabled={disabled || busy} onClick={() => void create()}><Link2 size={14} /> {busy ? "Creating…" : invitation?.status === "active" ? "Create new invite link" : "Invite to account"}</button>
+    {invitation?.status === "active" && <button type="button" className="admin-btn" disabled={disabled || busy} onClick={() => void revoke()}>Revoke account invite</button>}
+    {message && <span role="status">{message}</span>}{error && <span role="alert">{error}</span>}
+    {link && <div><input aria-label={`Account invitation link for ${person.full_name}`} readOnly value={link} /><button type="button" className="admin-btn" onClick={() => void navigator.clipboard.writeText(link)}><Copy size={14} /> Copy link</button></div>}
+  </div>;
+}
+
 function PersonForm({
   person,
   onCancel,

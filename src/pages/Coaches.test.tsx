@@ -73,17 +73,17 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("Coaches", () => {
-  it("never offers the accountless profile mode when recording a coach", async () => {
-    // A CoachProfile requires a Person (Phase 2), so the placeholder mode that
-    // unlocks claim invitations is player-only.
+  it("now offers the accountless mode when recording a coach", async () => {
+    // Phase 18 reversed Phase 2's rule: a coach recorded with only a display
+    // name is the state a claim invitation is issued against.
     renderCoaches();
     await userEvent.click(
       await screen.findByRole("button", { name: "New coach" }),
     );
 
     expect(
-      screen.queryByRole("radio", { name: /no details yet/i }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("radio", { name: /no details yet/i }),
+    ).toBeInTheDocument();
   });
 
   it("lists coaches with their details and account status", async () => {

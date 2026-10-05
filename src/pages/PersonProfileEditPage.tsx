@@ -94,12 +94,9 @@ export default function PersonProfileEditPage({
     request
       .then((record) => {
         if (cancelled) return;
-        // A coach profile always has a Person. A *player* profile may not: one
-        // recorded as a placeholder is editable by display name alone, and it
-        // is exactly the profile a claim invitation is issued against.
-        if (kind === "coach" && !record.person) {
-          throw new Error("This coach profile is not linked to a Person.");
-        }
+        // Phase 18 allowed personless coach profiles, so a coach is no longer refused
+        // here; a placeholder coach is edited by display name like a placeholder
+        // player.
         const person = record.person ?? null;
         setLoaded({
           id: record.id,

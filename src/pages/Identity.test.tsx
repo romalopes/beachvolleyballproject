@@ -2,13 +2,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../api";
+import { api, type ClaimInvitation } from "../api";
 import { AuthContext, type AuthContextValue } from "../auth/AuthContext";
 import IdentityPage from "./Identity";
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, api: { ...actual.api, playerProfileCandidates: vi.fn(), playerClaims: vi.fn(), requestPlayerClaim: vi.fn(), redeemPlayerClaimInvitation: vi.fn(), people: vi.fn(), personConsolidationPreview: vi.fn() } };
+  return { ...actual, api: { ...actual.api, playerProfileCandidates: vi.fn(), playerClaims: vi.fn(), requestPlayerClaim: vi.fn(), redeemClaimInvitation: vi.fn(), people: vi.fn(), personConsolidationPreview: vi.fn() } };
 });
 
 const mockedApi = vi.mocked(api, true);
@@ -46,13 +46,58 @@ describe("Identity", () => {
     expect(await screen.findByText(/still need review/)).toBeInTheDocument();
   });
 
+  const invitation: ClaimInvitation = {
+    id: 3,
+    claimable_type: "PlayerProfile",
+    claimable_id: 21,
+    player_profile_id: 21,
+    person_id: null,
+    invitee_email: null,
+    emailed_at: null,
+    auto_approvable: false,
+    status: "used",
+    expires_at: "2026-01-08",
+    used_at: "2026-01-01",
+    revoked_at: null,
+    created_at: "2026-01-01",
+  };
+const claim = {
+  id: 8,
+  player_profile_id: 21,
+  claimable_type: "PlayerProfile",
+  claimable_id: 21,
+  person_id: 4,
+  status: "pending" as const,
+  created_at: "2026-01-01",
+  reviewed_at: null,
+};
+
   it("redeems a signed-in invitation and clears its token from the URL", async () => {
-    mockedApi.redeemPlayerClaimInvitation.mockResolvedValue({ claim: { id: 8, player_profile_id: 21, person_id: 4, status: "pending", created_at: "2026-01-01", reviewed_at: null } });
+    // Not emailed, so it must come back as a request for review rather than a
+    // completed link.
+    mockedApi.redeemClaimInvitation.mockResolvedValue({
+      outcome: "pending_review",
+      invitation,
+      claim,
+      message: "Your request was sent for review.",
+    });
     renderPage("/identity#claim_token=one-time-secret");
     expect(await screen.findByLabelText("Invitation token")).toHaveValue("one-time-secret");
     await userEvent.click(screen.getByRole("button", { name: "Submit claim request" }));
-    await waitFor(() => expect(mockedApi.redeemPlayerClaimInvitation).toHaveBeenCalledWith("one-time-secret"));
-    expect(await screen.findByText(/Claim request 8 was submitted/)).toBeInTheDocument();
+    await waitFor(() => expect(mockedApi.redeemClaimInvitation).toHaveBeenCalledWith("one-time-secret"));
+    expect(await screen.findByText(/sent for review/)).toBeInTheDocument();
+  });
+
+  it("confirms immediately when the club emailed the invitation", async () => {
+    mockedApi.redeemClaimInvitation.mockResolvedValue({
+      outcome: "linked",
+      invitation: { ...invitation, emailed_at: "2026-01-01", auto_approvable: true },
+      person: { id: 4, first_name: "Alex", last_name: "Player", full_name: "Alex Player", email: "alex@example.com", phone: null, date_of_birth: null, creation_source: "signup", account_status: "connected", player_profile_id: 21, coach_profile_id: null },
+    });
+    renderPage("/identity#claim_token=emailed-secret");
+    await screen.findByLabelText("Invitation token");
+    await userEvent.click(screen.getByRole("button", { name: "Submit claim request" }));
+    expect(await screen.findByText(/now linked to your account/i)).toBeInTheDocument();
   });
 
   it("preserves an invitation link through the sign-in route", async () => {
@@ -62,7 +107,12 @@ describe("Identity", () => {
   });
 
   it("continues to accept a legacy query-token invitation", async () => {
-    mockedApi.redeemPlayerClaimInvitation.mockResolvedValue({ claim: { id: 10, player_profile_id: 22, person_id: 4, status: "pending", created_at: "2026-01-01", reviewed_at: null } });
+    mockedApi.redeemClaimInvitation.mockResolvedValue({
+      outcome: "pending_review",
+      invitation,
+      claim,
+      message: "sent for review",
+    });
     renderPage("/identity?claim_token=legacy-token");
     expect(await screen.findByLabelText("Invitation token")).toHaveValue("legacy-token");
   });

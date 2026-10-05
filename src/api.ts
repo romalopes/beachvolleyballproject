@@ -1279,16 +1279,58 @@ export interface PlayerProfileCandidate {
   result_type: "candidate";
 }
 
-export interface PlayerClaimInvitation {
+export interface ClaimInvitation {
   id: number;
-  player_profile_id: number;
-  status: "active" | "used" | "revoked" | "expired";
-  /** The address this invitation is restricted to; null = open bearer link. */
+  /** Which kind of record this invitation is about. */
+  claimable_type: "PlayerProfile" | "CoachProfile" | "Person";
+  claimable_id: number;
+  /** Retained so an existing client reading the player key keeps working. */
+  player_profile_id: number | null;
+  /** Set when the subject is a Person with no account. */
+  person_id: number | null;
   invitee_email: string | null;
+  /** Set only when the club actually emailed the invitation. */
+  emailed_at: string | null;
+  /** Whether this invitation may auto-approve rather than await review. */
+  auto_approvable: boolean;
+  status: "active" | "used" | "revoked" | "expired";
   expires_at: string;
   used_at: string | null;
   revoked_at: string | null;
   created_at: string;
+}
+
+/** What redeeming an invitation actually did. */
+export type ClaimRedemptionOutcome =
+  | {
+      outcome: "linked";
+      invitation: ClaimInvitation;
+      person: PersonIdentity;
+    }
+  | {
+      outcome: "pending_review";
+      invitation: ClaimInvitation;
+      claim: PlayerClaim;
+      message: string;
+    };
+
+/** One-time invitation to connect an Account to an already recorded Person. */
+export interface PersonAccountInvitation {
+  id: number;
+  person_id: number;
+  invitee_email: string;
+  status: "active" | "used" | "revoked" | "expired";
+  expires_at: string;
+  used_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+export interface CreatedPersonAccountInvitation {
+  invitation: PersonAccountInvitation;
+  /** Returned only at creation; do not retain it in persistent storage. */
+  token: string;
+  email_delivered: boolean;
 }
 
 export interface PersonConsolidationConflict {
@@ -1325,14 +1367,17 @@ export interface PersonConsolidationAudit {
 }
 
 export interface CreatedPlayerClaimInvitation {
-  invitation: PlayerClaimInvitation;
+  invitation: ClaimInvitation;
   /** Returned only when the invitation is created. Keep it out of persistent client storage. */
   token: string;
 }
 
 export interface Coach {
   id: number;
-  person_id: number;
+  /** Null for a coach profile recorded without a Person (Phase 18). */
+  person_id: number | null;
+  /** Only set on a profile recorded without a Person. */
+  display_name?: string | null;
   coaching_level: string | null;
   qualifications: string | null;
   status: ProfileStatus;
@@ -1805,11 +1850,44 @@ export const api = {
   cancelPlayerClaim: (id: number) =>
     postJSON<PlayerClaim>(`/player_claims/${id}/cancel`, {}),
 
-  // ---------- One-time player claim invitations ----------
+  // ---------- Claim invitations (unified: player profile, coach profile, person) ----------
+
+  /**
+   * Invitations for any claimable subject. An invitation may auto-approve only
+   * when the club actually emailed it to the address the recipient controls;
+   * otherwise redeeming it files a request for staff review.
+   */
+  claimInvitations: (
+    claimableType: ClaimInvitation["claimable_type"],
+    claimableId: number,
+  ) =>
+    fetchAPI<ClaimInvitation[]>(
+      `/claim_invitations?claimable_type=${claimableType}&claimable_id=${claimableId}`,
+    ),
+  createClaimInvitation: (
+    claimableType: ClaimInvitation["claimable_type"],
+    claimableId: number,
+    inviteeEmail?: string,
+  ) =>
+    postJSON<{
+      invitation: ClaimInvitation;
+      token: string;
+      email_delivered: boolean;
+    }>("/claim_invitations", {
+      claimable_type: claimableType,
+      claimable_id: claimableId,
+      invitee_email: inviteeEmail,
+    }),
+  redeemClaimInvitation: (token: string) =>
+    postJSON<ClaimRedemptionOutcome>("/claim_invitations/redeem", { token }),
+  revokeClaimInvitation: (id: number) =>
+    postJSON<ClaimInvitation>(`/claim_invitations/${id}/revoke`, {}),
+
+  /** @deprecated Use the unified `claimInvitations` family above. */
   playerClaimInvitations: (playerProfileId: number) =>
-    fetchAPI<PlayerClaimInvitation[]>(`/player_claim_invitations?player_profile_id=${playerProfileId}`),
+    fetchAPI<ClaimInvitation[]>(`/player_claim_invitations?player_profile_id=${playerProfileId}`),
   playerClaimInvitation: (id: number) =>
-    fetchAPI<PlayerClaimInvitation>(`/player_claim_invitations/${id}`),
+    fetchAPI<ClaimInvitation>(`/player_claim_invitations/${id}`),
   /**
    * Restrict the invitation to one address: only a signed-in Person whose
    * email matches may redeem it. Omit for an open bearer link (today's
@@ -1823,7 +1901,20 @@ export const api = {
   redeemPlayerClaimInvitation: (token: string) =>
     postJSON<{ claim: PlayerClaim }>("/player_claim_invitations/redeem", { token }),
   revokePlayerClaimInvitation: (id: number) =>
-    postJSON<PlayerClaimInvitation>(`/player_claim_invitations/${id}/revoke`, {}),
+    postJSON<ClaimInvitation>(`/player_claim_invitations/${id}/revoke`, {}),
+
+  // ---------- Claiming a known Person by linking an Account ----------
+  personAccountInvitations: (personId: number) =>
+    fetchAPI<PersonAccountInvitation[]>(`/people/${personId}/account_invitations`),
+  createPersonAccountInvitation: (personId: number) =>
+    postJSON<CreatedPersonAccountInvitation>(`/people/${personId}/account_invitations`, {}),
+  revokePersonAccountInvitation: (id: number) =>
+    postJSON<PersonAccountInvitation>(`/person_account_invitations/${id}/revoke`, {}),
+  redeemPersonAccountInvitation: (token: string) =>
+    postJSON<{ invitation: PersonAccountInvitation; account_id: number; person: PersonIdentity }>(
+      "/person_account_invitations/redeem",
+      { token },
+    ),
 
   // ---------- Coaches (read: training managers; create: coach/admin) ----------
   /** Paginated catalogue — see `players`. */

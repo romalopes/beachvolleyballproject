@@ -1,41 +1,45 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, type PlayerClaimInvitation } from "../../api";
+import { api, type ClaimInvitation } from "../../api";
 
 interface ClaimInvitationPanelProps {
-  playerProfileId: number;
+  /** Which kind of record the invitation is about. */
+  claimableType: ClaimInvitation["claimable_type"];
+  claimableId: number;
   /**
    * Why the current viewer may not issue invitations, or null when they may.
    * The caller computes it from the same rule the API enforces
-   * (`profile_owner?`: an admin, or the coach who recorded the profile).
+   * (`subject_owner?`: an admin, or the coach who recorded the profile).
    */
   blockedReason: string | null;
   /**
-   * An address the invitation is restricted to. The player must be signed in
-   * as the Person holding this email to redeem it; an invitation without one
-   * is an open bearer link.
+   * An address the invitation is restricted to. When the club emails it, the
+   * recipient can be linked without a human reviewing the claim; otherwise the
+   * request waits for staff review.
    */
   inviteeEmail: string | null;
 }
 
 /**
- * One-time claim invitations for an unlinked player profile.
+ * One-time claim invitations for an unlinked record.
  *
- * Three things this fixes, all of which made the Phase 5 feature unusable:
+ * Three things this fixes, all of which made the original Phase 5 feature
+ * unusable:
  *
  * 1. **Visibility of state.** The raw token is returned exactly once, so a
  *    page refresh used to lose it silently. The safe metadata is refetched on
  *    mount instead, so "is there a live invitation?" is always answerable.
- * 2. **Revocation.** `GET /player_claim_invitations` and the `revoke` action
- *    already existed on the API and client but no screen called them.
+ * 2. **Revocation.** `GET`/`revoke` already existed on the API and client but
+ *    no screen called them.
  * 3. **Dead ends.** When invitations are unavailable the panel says *why*
  *    rather than rendering nothing.
  */
 export default function ClaimInvitationPanel({
-  playerProfileId,
+  claimableType,
+  claimableId,
   blockedReason,
   inviteeEmail,
 }: ClaimInvitationPanelProps) {
-  const [invitations, setInvitations] = useState<PlayerClaimInvitation[]>([]);
+  const [invitations, setInvitations] = useState<ClaimInvitation[]>([]);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
@@ -49,13 +53,13 @@ export default function ClaimInvitationPanel({
     if (blockedReason) return;
 
     try {
-      setInvitations(await api.playerClaimInvitations(playerProfileId));
+      setInvitations(await api.claimInvitations(claimableType, claimableId));
     } catch {
       setInvitations([]);
     } finally {
       setLoading(false);
     }
-  }, [playerProfileId, blockedReason]);
+  }, [claimableType, claimableId, blockedReason]);
 
   useEffect(() => {
     void reload();
@@ -74,15 +78,20 @@ export default function ClaimInvitationPanel({
     setError(null);
     setNotice(null);
     try {
-      const created = await api.createPlayerClaimInvitation(
-        playerProfileId,
+      const created = await api.createClaimInvitation(
+        claimableType,
+        claimableId,
         inviteeEmail ?? undefined,
       );
       setToken(created.token);
+      // The outcome differs: only a genuinely emailed invitation can be linked
+      // without a human looking at it, so say which one the coach just made.
       setNotice(
-        inviteeEmail
-          ? `Invitation created and addressed to ${inviteeEmail}. Only that address can redeem it.`
-          : "Invitation created. Copy the link and share it with the player.",
+        created.email_delivered
+          ? `Invitation emailed to ${created.invitation.invitee_email}. Redeeming it links the profile immediately.`
+          : inviteeEmail
+            ? `Invitation created for ${inviteeEmail}, but the email could not be sent. Share the link instead — it will still need review.`
+            : "Invitation created. Copy the link and share it — it will need review.",
       );
       await reload();
     } catch (err) {
@@ -98,7 +107,7 @@ export default function ClaimInvitationPanel({
     setWorking(true);
     setError(null);
     try {
-      await api.revokePlayerClaimInvitation(id);
+      await api.revokeClaimInvitation(id);
       if (token) setToken(null);
       setNotice("Invitation revoked. The link no longer works.");
       await reload();

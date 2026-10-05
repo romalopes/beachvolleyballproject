@@ -4,6 +4,7 @@ import { Archive, ArchiveRestore, ArrowLeft, Pencil } from "lucide-react";
 import { api, type Coach } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import AssessmentList from "../components/people/AssessmentList";
+import ClaimInvitationPanel from "../components/people/ClaimInvitationPanel";
 import CoachingRelationships from "../components/people/CoachingRelationships";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
@@ -100,6 +101,19 @@ export default function CoachDetail() {
       <EmptyState title="Coach not found" description={error ?? undefined} />
     );
 
+  // Mirrors the API's `subject_owner?` for a coach profile: an admin, or the
+  // coach who recorded it. An owner also needs a linked Person, because the
+  // service records the issuer as a Person. Computed after the loading guards so
+  // `coach` is known.
+  const invitationBlockedReason = !user
+    ? "Sign in to invite this coach to claim their profile."
+    : !user.roles.includes("admin") &&
+        !(user.roles.includes("coach") && coach.created_by?.id === user.id)
+      ? "Only an administrator or the coach who recorded this profile can invite a coach to claim it."
+      : !user.person_id
+        ? "Your account needs a linked Person before you can issue a claim invitation."
+        : null;
+
   return (
     <div className="page">
       <div className="detail-header">
@@ -177,25 +191,42 @@ export default function CoachDetail() {
 
       <section className="detail-section">
         <h2>Identity</h2>
-        <p>
-          {coach.person.first_name} {coach.person.last_name ?? ""}
-          <br />
-          {coach.person.email ?? "No email"} ·{" "}
-          {coach.person.phone ?? "No phone"}
-        </p>
-        <p className="related-item-meta">
-          Recorded as{" "}
-          {coach.person.creation_source === "coach_created"
-            ? "a profile entered by a coach"
-            : coach.person.creation_source}
-          {coach.person.date_of_birth
-            ? ` · born ${coach.person.date_of_birth}`
-            : ""}
-          {coach.created_by ? ` · recorded by ${coach.created_by.name}` : ""}
-        </p>
+        {coach.person ? (
+          <>
+            <p>
+              {coach.person.first_name} {coach.person.last_name ?? ""}
+              <br />
+              {coach.person.email ?? "No email"} · {coach.person.phone ?? "No phone"}
+            </p>
+            <p className="related-item-meta">
+              Recorded as{" "}
+              {coach.person.creation_source === "coach_created"
+                ? "a profile entered by a coach"
+                : coach.person.creation_source}
+              {coach.person.date_of_birth
+                ? ` · born ${coach.person.date_of_birth}`
+                : ""}
+              {coach.created_by ? ` · recorded by ${coach.created_by.name}` : ""}
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="related-item-meta">
+              This coach profile has not been linked to a Person yet, so the
+              coach signs in themselves and claims it. A claim invitation lets
+              them request that link.
+            </p>
+            <ClaimInvitationPanel
+              claimableType="CoachProfile"
+              claimableId={coach.id}
+              blockedReason={invitationBlockedReason}
+              inviteeEmail={null}
+            />
+          </>
+        )}
       </section>
 
-      {coach.person.organisation_memberships?.length ? (
+      {coach.person?.organisation_memberships?.length ? (
         <section className="detail-section">
           <h2>Organisation memberships</h2>
           <ul className="people-list">

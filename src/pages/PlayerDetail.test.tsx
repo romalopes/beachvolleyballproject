@@ -17,9 +17,9 @@ vi.mock("../api", async (importOriginal) => {
       coaches: vi.fn(),
       playerCoaches: vi.fn(),
       skills: vi.fn().mockResolvedValue([]),
-      playerClaimInvitations: vi.fn().mockResolvedValue([]),
-      createPlayerClaimInvitation: vi.fn(),
-      revokePlayerClaimInvitation: vi.fn(),
+      claimInvitations: vi.fn().mockResolvedValue([]),
+      createClaimInvitation: vi.fn(),
+      revokeClaimInvitation: vi.fn(),
     },
   };
 });
@@ -58,9 +58,14 @@ const unlinkedPlayer = (overrides: Partial<Player> = {}): Player =>
 
 const invitation = (overrides = {}) => ({
   id: 5,
+  claimable_type: "PlayerProfile" as const,
+  claimable_id: 12,
   player_profile_id: 12,
-  status: "active" as const,
+  person_id: null,
   invitee_email: null,
+  emailed_at: null,
+  auto_approvable: false,
+  status: "active" as const,
   expires_at: "2026-10-20T00:00:00.000Z",
   used_at: null,
   revoked_at: null,
@@ -133,7 +138,7 @@ beforeEach(() => {
   mockedApi.player.mockResolvedValue(player());
   mockedApi.coaches.mockResolvedValue({ data: [], meta: { page: 1, per_page: 100, total: 0, total_pages: 1 } });
   mockedApi.playerCoaches.mockResolvedValue([]);
-  mockedApi.playerClaimInvitations.mockResolvedValue([]);
+  mockedApi.claimInvitations.mockResolvedValue([]);
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -143,9 +148,10 @@ describe("PlayerDetail", () => {
     it("offers the owner a claim invitation for an unlinked profile and reveals the link", async () => {
       mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
       mockedApi.player.mockResolvedValue(unlinkedPlayer());
-      mockedApi.createPlayerClaimInvitation.mockResolvedValue({
+      mockedApi.createClaimInvitation.mockResolvedValue({
         invitation: invitation(),
         token: "one-time-secret",
+        email_delivered: false,
       });
       renderDetail();
 
@@ -153,8 +159,9 @@ describe("PlayerDetail", () => {
         await screen.findByRole("button", { name: "Create claim invitation" }),
       );
 
-      // The panel passes the (optional) address as a second argument.
-      expect(mockedApi.createPlayerClaimInvitation).toHaveBeenCalledWith(
+      // The panel passes the subject kind and the optional address.
+      expect(mockedApi.createClaimInvitation).toHaveBeenCalledWith(
+        "PlayerProfile",
         12,
         undefined,
       );
@@ -217,7 +224,7 @@ describe("PlayerDetail", () => {
     it("restores invitation state on reload instead of losing it with the token", async () => {
       mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
       mockedApi.player.mockResolvedValue(unlinkedPlayer());
-      mockedApi.playerClaimInvitations.mockResolvedValue([invitation()]);
+      mockedApi.claimInvitations.mockResolvedValue([invitation()]);
       renderDetail();
       await screen.findByRole("heading", { name: "Pedro Santos" });
 
@@ -230,8 +237,8 @@ describe("PlayerDetail", () => {
     it("revokes an active invitation through the API", async () => {
       mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
       mockedApi.player.mockResolvedValue(unlinkedPlayer());
-      mockedApi.playerClaimInvitations.mockResolvedValue([invitation()]);
-      mockedApi.revokePlayerClaimInvitation.mockResolvedValue(
+      mockedApi.claimInvitations.mockResolvedValue([invitation()]);
+      mockedApi.revokeClaimInvitation.mockResolvedValue(
         invitation({ status: "revoked" }),
       );
       renderDetail();
@@ -239,13 +246,13 @@ describe("PlayerDetail", () => {
 
       await userEvent.click(await screen.findByRole("button", { name: "Revoke" }));
 
-      expect(mockedApi.revokePlayerClaimInvitation).toHaveBeenCalledWith(5);
+      expect(mockedApi.revokeClaimInvitation).toHaveBeenCalledWith(5);
     });
 
     it("surfaces a failed invitation instead of failing silently", async () => {
       mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
       mockedApi.player.mockResolvedValue(unlinkedPlayer());
-      mockedApi.createPlayerClaimInvitation.mockRejectedValue(
+      mockedApi.createClaimInvitation.mockRejectedValue(
         new Error("A linked Person is required to create an invitation"),
       );
       renderDetail();

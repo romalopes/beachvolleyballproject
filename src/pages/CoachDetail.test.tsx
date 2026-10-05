@@ -81,6 +81,49 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("CoachDetail", () => {
+  describe("claim invitations", () => {
+    const unlinkedCoach = (overrides = {}) =>
+      coach({
+        person_id: null,
+        display_name: "Olga Reyes",
+        person: undefined as never,
+        ...overrides,
+      });
+
+    it("offers an invitation for a coach profile with no Person", async () => {
+      // Coach parity: Phase 18 made a personless coach profile possible, which
+      // is the state a claim invitation can be issued against.
+      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.coach.mockResolvedValue(unlinkedCoach());
+      renderDetail();
+      await screen.findByRole("heading", { name: /Olga Reyes/ });
+
+      expect(
+        await screen.findByRole("button", { name: "Create claim invitation" }),
+      ).toBeInTheDocument();
+    });
+
+    it("explains why a coach with a Person needs no invitation", async () => {
+      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      renderDetail();
+      await screen.findByRole("heading", { name: /Olga Reyes/ });
+
+      expect(screen.getByText(/a profile entered by a coach/)).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Create claim invitation" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("renders a personless coach without crashing on contact fields", async () => {
+      // `coach.person.first_name` used to be read unguarded, which a
+      // personless profile would turn into a blank crash.
+      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.coach.mockResolvedValue(unlinkedCoach());
+      renderDetail();
+
+      expect(await screen.findByText(/has not been linked to a Person yet/)).toBeInTheDocument();
+    });
+  });
   it("shows the identity, coaching details and profile state", async () => {
     renderDetail();
 
