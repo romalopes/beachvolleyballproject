@@ -28,7 +28,8 @@ interface PersonProfileEditPageProps {
 interface LoadedProfile {
   id: number;
   name: string;
-  person: ProfilePerson;
+  /** Null for a placeholder profile recorded without a Person. */
+  person: ProfilePerson | null;
   /** Owner recorded at creation — decides who may flip the visibility. */
   created_by: ProfileOwner | null;
   initialValues: PersonProfileInitialValues;
@@ -93,20 +94,26 @@ export default function PersonProfileEditPage({
     request
       .then((record) => {
         if (cancelled) return;
-        if (!record.person) {
-          throw new Error("This player profile is not linked to a Person yet.");
+        // A coach profile always has a Person. A *player* profile may not: one
+        // recorded as a placeholder is editable by display name alone, and it
+        // is exactly the profile a claim invitation is issued against.
+        if (kind === "coach" && !record.person) {
+          throw new Error("This coach profile is not linked to a Person.");
         }
+        const person = record.person ?? null;
         setLoaded({
           id: record.id,
           name:
-            record.full_name?.trim() || personName(record.person, `This ${kind}`),
-          person: record.person,
+            record.full_name?.trim() || personName(person, `This ${kind}`),
+          person,
           created_by: record.created_by,
           initialValues: {
-            first_name: record.person.first_name,
-            last_name: record.person.last_name,
-            email: record.person.email,
-            phone: record.person.phone,
+            first_name: person?.first_name ?? null,
+            last_name: person?.last_name ?? null,
+            display_name:
+              "display_name" in record ? record.display_name : null,
+            email: person?.email ?? null,
+            phone: person?.phone ?? null,
             preferred_position:
               "preferred_position" in record ? record.preferred_position : null,
             level: "level" in record ? record.level : null,
@@ -115,7 +122,8 @@ export default function PersonProfileEditPage({
             qualifications:
               "qualifications" in record ? record.qualifications : null,
             visibility: record.visibility,
-            organisation_memberships: record.person.organisation_memberships ?? [],
+            organisation_memberships:
+              person?.organisation_memberships ?? [],
           },
         });
         setLoading(false);
@@ -142,14 +150,17 @@ export default function PersonProfileEditPage({
       // The profile block is keyed per catalogue: the API reads
       // `player_profile`/`coach_profile` and silently ignores the other key, so
       // a shared key would drop every profile edit (visibility included).
+      // A placeholder profile has no Person to update, so `person` is omitted
+      // rather than sent as null.
+      const person = values.person ?? undefined;
       const saved =
         kind === "player"
           ? await api.updatePlayer(loaded.id, {
-              person: values.person,
+              person,
               player_profile: values.profile,
             })
           : await api.updateCoach(loaded.id, {
-              person: values.person,
+              person,
               coach_profile: values.profile,
             });
 
@@ -205,6 +216,7 @@ export default function PersonProfileEditPage({
       <section className="person-create-panel">
         <PersonProfileForm
           kind={kind}
+          identityMode={loaded.person ? "person" : "placeholder"}
           initialValues={loaded.initialValues}
           organisations={organisations}
           personFieldsLegend="Person"

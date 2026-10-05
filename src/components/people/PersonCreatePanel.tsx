@@ -11,6 +11,7 @@ import PersonIdentityList from "./PersonIdentityList";
 import PersonProfileForm, {
   type PersonProfileValues,
   type ProfileKind,
+  type IdentityMode,
 } from "./PersonProfileForm";
 
 interface PersonCreatePanelProps {
@@ -65,6 +66,11 @@ export default function PersonCreatePanel({
   const [selectedPerson, setSelectedPerson] = useState<PersonIdentity | null>(
     null,
   );
+  // A placeholder player is recorded with no Person at all, so it is the only
+  // state a claim invitation can be issued against. Coaches are excluded: a
+  // CoachProfile requires a Person (Phase 2).
+  const [identityMode, setIdentityMode] = useState<IdentityMode>("person");
+  const canRecordPlaceholder = kind === "player";
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [createdName, setCreatedName] = useState<string | null>(null);
@@ -99,19 +105,23 @@ export default function PersonCreatePanel({
   const handleSubmit = async (values: PersonProfileValues) => {
     setErrors([]);
 
-    const personId = selectedPerson?.id ?? undefined;
+    // Selecting an existing person always wins over the placeholder mode: a
+    // profile linked to a known Person is the better record, and the server
+    // would reject a display_name alongside it as ambiguous.
+    const personId = selectedPerson?.id;
+    const placeholder = !personId && identityMode === "placeholder";
     setSubmitting(true);
     try {
       const result =
         kind === "player"
           ? await api.createPlayer({
               person_id: personId,
-              person: personId ? undefined : values.person,
+              person: personId || placeholder ? undefined : values.person!,
               player_profile: values.profile,
             })
           : await api.createCoach({
               person_id: personId,
-              person: personId ? undefined : values.person,
+              person: personId ? undefined : values.person!,
               coach_profile: values.profile,
             });
 
@@ -172,6 +182,7 @@ export default function PersonCreatePanel({
     <section className="person-create-panel">
       <PersonProfileForm
         kind={kind}
+        identityMode={identityMode}
         hidePersonFields={Boolean(selectedPerson)}
         personFieldsLegend="New person (no account)"
         organisations={organisations}
@@ -182,46 +193,80 @@ export default function PersonCreatePanel({
         onCancel={onClose}
       >
         <h3>Record a {kind}</h3>
-        <p className="related-item-meta">
-          Search first. If the club already knows this person, link the profile to
-          them instead of recording a second identity.
-        </p>
-  
-        <label className="person-search">
-          <Search size={14} aria-hidden="true" />
-          <input
-            type="search"
-            value={query}
-            placeholder="Search people by name or email"
-            aria-label="Search people"
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setSelectedPerson(null);
-            }}
-          />
-        </label>
-  
-        {selectedPerson ? (
-          <p className="person-selected">
-            <UserCheck size={14} aria-hidden="true" />
-            Recording a {kind} profile for <strong>{selectedPerson.full_name}</strong>
-            <button
-              type="button"
-              className="admin-btn"
-              onClick={() => setSelectedPerson(null)}
-            >
-              Choose someone else
-            </button>
-          </p>
-        ) : (
+        {canRecordPlaceholder && (
+          <fieldset className="person-identity-mode">
+            <legend>Identity</legend>
+            <label>
+              <input
+                type="radio"
+                name="identity-mode"
+                checked={identityMode === "person"}
+                onChange={() => setIdentityMode("person")}
+              />{" "}
+              The club already knows this person (or record their details)
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="identity-mode"
+                checked={identityMode === "placeholder"}
+                onChange={() => {
+                  setIdentityMode("placeholder");
+                  setSelectedPerson(null);
+                }}
+              />{" "}
+              No details yet — record a profile they can claim later
+            </label>
+            <span className="related-item-meta">
+              {identityMode === "placeholder"
+                ? "This records only a display name. The player claims the profile themselves with a one-time invitation link, so you never store their contact details."
+                : "Search first. If the club already knows this person, link the profile to them instead of recording a second identity."}
+            </span>
+          </fieldset>
+        )}
+        {!(canRecordPlaceholder && identityMode === "placeholder") && (
           <>
-            {query.trim().length >= 2 && (
-              <PersonIdentityList
-                people={matches}
-                profileKind={kind}
-                onSelect={setSelectedPerson}
-                emptyLabel={`No person matches “${query.trim()}”. Record them below.`}
+            <p className="related-item-meta">
+              Search first. If the club already knows this person, link the
+              profile to them instead of recording a second identity.
+            </p>
+
+            <label className="person-search">
+              <Search size={14} aria-hidden="true" />
+              <input
+                type="search"
+                value={query}
+                placeholder="Search people by name or email"
+                aria-label="Search people"
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setSelectedPerson(null);
+                }}
               />
+            </label>
+
+            {selectedPerson ? (
+              <p className="person-selected">
+                <UserCheck size={14} aria-hidden="true" />
+                Recording a {kind} profile for{" "}
+                <strong>{selectedPerson.full_name}</strong>
+                <button
+                  type="button"
+                  className="admin-btn"
+                  onClick={() => setSelectedPerson(null)}
+                >
+                  Choose someone else
+                </button>
+              </p>
+            ) : (
+              query.trim().length >= 2 && (
+                <PersonIdentityList
+                  people={matches}
+                  profileKind={kind}
+                  onSelect={setSelectedPerson}
+                  emptyLabel={`No person matches “${query.trim()}”. Record them below.`}
+                />
+              )
             )}
           </>
         )}

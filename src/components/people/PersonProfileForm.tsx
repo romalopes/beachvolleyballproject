@@ -9,16 +9,34 @@ import type {
 
 export type ProfileKind = "player" | "coach";
 
+/**
+ * How the identity is supplied.
+ *
+ *   * "person"     — record a new Person and link the profile to it. The
+ *                    normal case: the club learns a human and their details.
+ *   * "placeholder"— record a PlayerProfile that has *no* Person yet. The
+ *                    backend supports this (`PlayerProfile` requires
+ *                    `display_name` precisely when `person.nil?`), and it is
+ *                    the only state a claim invitation can exist in.
+ */
+export type IdentityMode = "person" | "placeholder";
+
 /** What the form reports back: the person's contact fields and the profile's own. */
 export interface PersonProfileValues {
+  /**
+   * Null in `placeholder` mode — the profile is recorded without a Person so
+   * the player can claim it later through an invitation.
+   */
   person: {
     first_name: string;
     last_name: string | null;
     email: string | null;
     phone: string | null;
     organisation_memberships_attributes?: OrganisationMembershipInput[];
-  };
+  } | null;
   profile: {
+    /** Required in `placeholder` mode; unused when a Person is recorded. */
+    display_name?: string;
     preferred_position?: string | null;
     level?: string | null;
     coaching_level?: string | null;
@@ -30,6 +48,8 @@ export interface PersonProfileValues {
 export interface PersonProfileInitialValues {
   first_name?: string | null;
   last_name?: string | null;
+  /** Only set when editing a profile recorded without a Person. */
+  display_name?: string | null;
   email?: string | null;
   phone?: string | null;
   preferred_position?: string | null;
@@ -44,6 +64,12 @@ export interface PersonProfileInitialValues {
 interface PersonProfileFormProps {
   kind: ProfileKind;
   initialValues?: PersonProfileInitialValues;
+  /**
+   * "placeholder" records a profile with no Person. Only meaningful for
+   * players — a CoachProfile requires a Person (see Phase 2), so the caller
+   * must not offer it for coaches.
+   */
+  identityMode?: IdentityMode;
   /** List of organisations to choose from for memberships. */
   organisations?: Organisation[];
   /**
@@ -80,6 +106,7 @@ const blank = (value: string | null | undefined) => value ?? "";
 export default function PersonProfileForm({
   kind,
   initialValues,
+  identityMode = "person",
   organisations = [],
   hidePersonFields = false,
   personFieldsLegend = "New person (no account)",
@@ -92,6 +119,7 @@ export default function PersonProfileForm({
   children,
 }: PersonProfileFormProps) {
   const [firstName, setFirstName] = useState(blank(initialValues?.first_name));
+  const [displayName, setDisplayName] = useState(blank(initialValues?.display_name));
   const [lastName, setLastName] = useState(blank(initialValues?.last_name));
   const [email, setEmail] = useState(blank(initialValues?.email));
   const [phone, setPhone] = useState(blank(initialValues?.phone));
@@ -163,9 +191,18 @@ export default function PersonProfileForm({
     });
   };
 
+  const isPlaceholder = identityMode === "placeholder";
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!hidePersonFields && !firstName.trim()) {
+
+    // Placeholder mode validates the display name instead of the person, and
+    // reports a null person so the caller omits `person` from the payload.
+    if (isPlaceholder && !displayName.trim()) {
+      setLocalErrors(["A display name is required."]);
+      return;
+    }
+    if (!isPlaceholder && !hidePersonFields && !firstName.trim()) {
       setLocalErrors(["A first name is required."]);
       return;
     }
@@ -180,16 +217,19 @@ export default function PersonProfileForm({
     }));
 
     onSubmit({
-      person: {
-        first_name: firstName.trim(),
-        last_name: lastName.trim() || null,
-        email: email.trim() || null,
-        phone: phone.trim() || null,
-        organisation_memberships_attributes: membershipAttrs,
-      },
+      person: isPlaceholder
+        ? null
+        : {
+            first_name: firstName.trim(),
+            last_name: lastName.trim() || null,
+            email: email.trim() || null,
+            phone: phone.trim() || null,
+            organisation_memberships_attributes: membershipAttrs,
+          },
       profile:
         kind === "player"
           ? {
+              display_name: isPlaceholder ? displayName.trim() : undefined,
               preferred_position: position.trim() || null,
               level: level.trim() || null,
               visibility,
@@ -212,7 +252,28 @@ export default function PersonProfileForm({
     >
       {children}
 
-      {!hidePersonFields && (
+      {isPlaceholder && (
+        <fieldset className="person-new-fields">
+          <legend>
+            <UserPlus size={14} aria-hidden="true" /> Player without an
+            account
+          </legend>
+          <label>
+            Display name
+            <input
+              type="text"
+              value={displayName}
+              onChange={(event) => setDisplayName(event.target.value)}
+            />
+          </label>
+          <span className="related-item-meta">
+            No account is created and no contact details are stored. The player
+            can later claim this profile with a one-time invitation link.
+          </span>
+        </fieldset>
+      )}
+
+      {!isPlaceholder && !hidePersonFields && (
         <fieldset className="person-new-fields">
           <legend>
             <UserPlus size={14} aria-hidden="true" /> {personFieldsLegend}
@@ -326,7 +387,8 @@ export default function PersonProfileForm({
         )}
       </div>
 
-      {organisations.length > 0 && (
+      {/* Memberships belong to the Person; a placeholder profile has none. */}
+      {!isPlaceholder && organisations.length > 0 && (
         <fieldset className="person-memberships-field">
           <legend>Organisation memberships</legend>
           {memberships.map((m, idx) => (

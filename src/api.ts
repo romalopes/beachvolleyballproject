@@ -1236,6 +1236,10 @@ export interface Player {
  *   * `person_id` — link a profile to a person that already exists (the result
  *     of a people search);
  *   * `person`    — record a new person, with no Account (coach_created).
+ *
+ * Omit `person` and `person_id` entirely to record a profile with no Person
+ * (`display_name` only). That is the state a claim invitation can later be
+ * issued against; a profile linked to a Person never needs one.
  */
 export interface PlayerInput {
   person_id?: number;
@@ -1279,6 +1283,8 @@ export interface PlayerClaimInvitation {
   id: number;
   player_profile_id: number;
   status: "active" | "used" | "revoked" | "expired";
+  /** The address this invitation is restricted to; null = open bearer link. */
+  invitee_email: string | null;
   expires_at: string;
   used_at: string | null;
   revoked_at: string | null;
@@ -1804,8 +1810,16 @@ export const api = {
     fetchAPI<PlayerClaimInvitation[]>(`/player_claim_invitations?player_profile_id=${playerProfileId}`),
   playerClaimInvitation: (id: number) =>
     fetchAPI<PlayerClaimInvitation>(`/player_claim_invitations/${id}`),
-  createPlayerClaimInvitation: (playerProfileId: number) =>
-    postJSON<CreatedPlayerClaimInvitation>("/player_claim_invitations", { player_profile_id: playerProfileId }),
+  /**
+   * Restrict the invitation to one address: only a signed-in Person whose
+   * email matches may redeem it. Omit for an open bearer link (today's
+   * behaviour). The server lowercases and trims before comparing.
+   */
+  createPlayerClaimInvitation: (playerProfileId: number, inviteeEmail?: string) =>
+    postJSON<CreatedPlayerClaimInvitation>("/player_claim_invitations", {
+      player_profile_id: playerProfileId,
+      invitee_email: inviteeEmail,
+    }),
   redeemPlayerClaimInvitation: (token: string) =>
     postJSON<{ claim: PlayerClaim }>("/player_claim_invitations/redeem", { token }),
   revokePlayerClaimInvitation: (id: number) =>

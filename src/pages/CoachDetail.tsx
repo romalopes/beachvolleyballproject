@@ -96,7 +96,9 @@ export default function CoachDetail() {
 
   if (loading) return <div className="loading">Loading...</div>;
   if (error || !coach)
-    return <EmptyState title="Coach not found" description={error ?? undefined} />;
+    return (
+      <EmptyState title="Coach not found" description={error ?? undefined} />
+    );
 
   return (
     <div className="page">
@@ -178,7 +180,8 @@ export default function CoachDetail() {
         <p>
           {coach.person.first_name} {coach.person.last_name ?? ""}
           <br />
-          {coach.person.email ?? "No email"} · {coach.person.phone ?? "No phone"}
+          {coach.person.email ?? "No email"} ·{" "}
+          {coach.person.phone ?? "No phone"}
         </p>
         <p className="related-item-meta">
           Recorded as{" "}
@@ -200,27 +203,8 @@ export default function CoachDetail() {
               <li key={m.id} className="people-row">
                 <div className="people-identity">
                   <span className="people-name">
-                    {m.organisation?.name ?? `Organisation #${m.organisation_id}`}
-                  </span>
-                  <span className="people-contact">
-                    {m.role} · {m.status}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      {coach.person.organisation_memberships?.length ? (
-        <section className="detail-section">
-          <h2>Organisation memberships</h2>
-          <ul className="people-list">
-            {coach.person.organisation_memberships.map((m) => (
-              <li key={m.id} className="people-row">
-                <div className="people-identity">
-                  <span className="people-name">
-                    {m.organisation?.name ?? `Organisation #${m.organisation_id}`}
+                    {m.organisation?.name ??
+                      `Organisation #${m.organisation_id}`}
                   </span>
                   <span className="people-contact">
                     {m.role} · {m.status}
@@ -249,7 +233,9 @@ export default function CoachDetail() {
       <section className="detail-section assessment-section">
         <h2>Recorded assessments</h2>
         <p className="related-item-meta">
-          {coach.assessments_recorded_count ?? 0} published assessment{(coach.assessments_recorded_count ?? 0) === 1 ? "" : "s"} attributed to this coach.
+          {coach.assessments_recorded_count ?? 0} published assessment
+          {(coach.assessments_recorded_count ?? 0) === 1 ? "" : "s"} attributed
+          to this coach.
         </p>
         <AssessmentList
           assessments={coach.recent_assessments}

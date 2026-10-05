@@ -73,6 +73,19 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("Coaches", () => {
+  it("never offers the accountless profile mode when recording a coach", async () => {
+    // A CoachProfile requires a Person (Phase 2), so the placeholder mode that
+    // unlocks claim invitations is player-only.
+    renderCoaches();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "New coach" }),
+    );
+
+    expect(
+      screen.queryByRole("radio", { name: /no details yet/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("lists coaches with their details and account status", async () => {
     mockedApi.coaches.mockResolvedValue(
       paginated([

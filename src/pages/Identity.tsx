@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router-do
 import { api, type MembershipConflictResolution, type PersonConsolidationConflict, type PersonIdentity, type PlayerClaim, type PlayerProfileCandidate } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
+import ClaimInviteList from "../components/people/ClaimInviteList";
 
 type ResolutionChoice = { keep_record_id: number; reason: string };
 
@@ -136,6 +137,8 @@ export default function IdentityPage() {
     <section className="detail-section"><h2>My claim requests</h2>
       {claims.length ? <ul>{claims.map((claim) => <li key={claim.id}>Claim #{claim.id} · Player profile #{claim.player_profile_id} · {claim.status}{claim.status === "pending" && <button className="admin-btn" disabled={busy} onClick={() => void actOnClaim(claim, "cancel")}>Cancel request</button>}</li>)}</ul> : <p>You have no claim requests.</p>}
     </section>
+
+    {isReviewer && <section className="detail-section"><h2>Invitations you can issue</h2><p>These are the player profiles you recorded that nobody has claimed yet. Create an invitation and share the one-time link — or the address-restricted variant — with the player.</p><ClaimInviteList /></section>}
 
     {isReviewer && <ClaimReview claims={reviewClaims.filter((claim) => claim.person_id !== user.person_id)} busy={busy} reason={rejectReason} setReason={setRejectReason} act={actOnClaim} />}
     {isAdmin && <PersonConsolidation />}

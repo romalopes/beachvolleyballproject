@@ -94,6 +94,34 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("Players", () => {
+  it("records a player without an account so they can claim it later", async () => {
+    // This is the change that makes claim invitations reachable at all: a
+    // profile with a Person can never receive one, so the SPA must be able to
+    // create the personless (display-name-only) form.
+    mockedApi.createPlayer.mockResolvedValue({
+      ...player({ id: 9, person_id: null, display_name: "Pedro Santos" }),
+      possible_duplicates: [],
+    });
+    renderPlayers();
+
+    await userEvent.click(await screen.findByRole("button", { name: "New player" }));
+    await userEvent.click(
+      screen.getByRole("radio", { name: /no details yet/i }),
+    );
+    await userEvent.type(screen.getByLabelText(/display name/i), "Pedro Santos");
+    await userEvent.click(screen.getByRole("button", { name: "Add player" }));
+
+    expect(mockedApi.createPlayer).toHaveBeenCalledWith({
+      person_id: undefined,
+      person: undefined,
+      player_profile: expect.objectContaining({
+        display_name: "Pedro Santos",
+        visibility: "shared",
+      }),
+    });
+  });
+
+  
   it("lists players with their account status", async () => {
     mockedApi.players.mockResolvedValue(
       paginated([
