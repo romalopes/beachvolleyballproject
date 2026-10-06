@@ -66,11 +66,21 @@ export default function IdentityPage() {
   useEffect(() => {
     if (!personId) return;
     let cancelled = false;
-    setCandidateLoading(true); setCandidateError(null);
-    api.searchProfileCandidates({ type: profileType, q: submittedQuery, organisationId: organisationId ? Number(organisationId) : undefined, page: candidatePage, perPage: 20 })
-      .then((result) => { if (!cancelled) { setCandidates(result.data); setCandidateMeta(result.meta); } })
-      .catch((err: unknown) => { if (!cancelled) { setCandidates([]); setCandidateMeta(null); setCandidateError(err instanceof Error ? err.message : "Could not search profiles."); } })
-      .finally(() => { if (!cancelled) setCandidateLoading(false); });
+    const search = async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setCandidateLoading(true);
+      setCandidateError(null);
+      try {
+        const result = await api.searchProfileCandidates({ type: profileType, q: submittedQuery, organisationId: organisationId ? Number(organisationId) : undefined, page: candidatePage, perPage: 20 });
+        if (!cancelled) { setCandidates(result.data); setCandidateMeta(result.meta); }
+      } catch (err: unknown) {
+        if (!cancelled) { setCandidates([]); setCandidateMeta(null); setCandidateError(err instanceof Error ? err.message : "Could not search profiles."); }
+      } finally {
+        if (!cancelled) setCandidateLoading(false);
+      }
+    };
+    void search();
     return () => { cancelled = true; };
   }, [personId, profileType, submittedQuery, organisationId, candidatePage]);
 

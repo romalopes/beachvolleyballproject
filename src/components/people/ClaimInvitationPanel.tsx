@@ -39,7 +39,13 @@ export default function ClaimInvitationPanel({
   inviteeEmail,
 }: ClaimInvitationPanelProps) {
   const [invitations, setInvitations] = useState<ClaimInvitation[]>([]);
-  const [recipientEmail, setRecipientEmail] = useState(inviteeEmail ?? "");
+  const [recipient, setRecipient] = useState(() => ({ source: inviteeEmail, value: inviteeEmail ?? "" }));
+  // Reset an edited value when the invitation target changes without mirroring
+  // props in an effect.
+  if (recipient.source !== inviteeEmail) {
+    setRecipient({ source: inviteeEmail, value: inviteeEmail ?? "" });
+  }
+  const recipientEmail = recipient.value;
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
@@ -78,10 +84,6 @@ export default function ClaimInvitationPanel({
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [loadInvitations, blockedReason]);
-
-  useEffect(() => {
-    setRecipientEmail(inviteeEmail ?? "");
-  }, [inviteeEmail]);
 
   // Derived rather than assigned in an effect: a blocked viewer never loads, so
   // there is nothing to wait for.
@@ -193,7 +195,7 @@ export default function ClaimInvitationPanel({
               type="email"
               autoComplete="email"
               value={recipientEmail}
-              onChange={(event) => setRecipientEmail(event.target.value)}
+              onChange={(event) => setRecipient((current) => ({ ...current, value: event.target.value }))}
               placeholder="name@example.com"
             />
           </label>

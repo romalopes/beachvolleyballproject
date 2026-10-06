@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, type ClaimInvitation, type ManagementClaim, type ManagementClaimableProfile, type PaginationMeta } from "../../api";
 
@@ -32,7 +32,7 @@ export default function ProfileManagementDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const loadManagementList = async () => {
+  const loadManagementList = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       if (tab === "claims") {
@@ -46,18 +46,32 @@ export default function ProfileManagementDashboard() {
       }
     } catch (err) { setError(err instanceof Error ? err.message : "Could not load profile management records."); }
     finally { setLoading(false); }
-  };
+  }, [tab, claimType, claimStatus, invitationType, invitationStatus, page]);
 
-  useEffect(() => { void loadManagementList(); }, [tab, claimType, claimStatus, invitationType, invitationStatus, page]);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.resolve().then(() => { if (!cancelled) return loadManagementList(); });
+    return () => { cancelled = true; };
+  }, [loadManagementList]);
 
   useEffect(() => {
     if (tab !== "invitations") return;
     let cancelled = false;
-    setProfileLoading(true); setError(null);
-    api.managementClaimables({ claimableType: profileType, status: profileStatus, linkState, q: profileQuery, page: profilePage, perPage: 20 })
-      .then((response) => { if (!cancelled) { setProfiles(response.data); setProfileMeta(response.meta); } })
-      .catch((err: unknown) => { if (!cancelled) setError(err instanceof Error ? err.message : "Could not load profiles in your scope."); })
-      .finally(() => { if (!cancelled) setProfileLoading(false); });
+    const load = async () => {
+      await Promise.resolve();
+      if (cancelled) return;
+      setProfileLoading(true);
+      setError(null);
+      try {
+        const response = await api.managementClaimables({ claimableType: profileType, status: profileStatus, linkState, q: profileQuery, page: profilePage, perPage: 20 });
+        if (!cancelled) { setProfiles(response.data); setProfileMeta(response.meta); }
+      } catch (err: unknown) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Could not load profiles in your scope.");
+      } finally {
+        if (!cancelled) setProfileLoading(false);
+      }
+    };
+    void load();
     return () => { cancelled = true; };
   }, [tab, profileType, profileStatus, linkState, profileQuery, profilePage]);
 
