@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { api, type MembershipConflictResolution, type PersonConsolidationConflict, type PersonIdentity, type PlayerClaim, type PlayerProfileCandidate } from "../api";
+import { api, type ClaimInvitation, type MembershipConflictResolution, type PersonConsolidationConflict, type PersonIdentity, type PlayerClaim, type PlayerProfileCandidate, type PaginationMeta } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
 import ClaimInviteList from "../components/people/ClaimInviteList";
@@ -15,6 +15,15 @@ export default function IdentityPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [candidates, setCandidates] = useState<PlayerProfileCandidate[]>([]);
+  const [candidateMeta, setCandidateMeta] = useState<PaginationMeta | null>(null);
+  const [candidateLoading, setCandidateLoading] = useState(false);
+  const [candidateError, setCandidateError] = useState<string | null>(null);
+  const [candidateQuery, setCandidateQuery] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [organisationId, setOrganisationId] = useState("");
+  const [candidatePage, setCandidatePage] = useState(1);
+  const [confirmClaims, setConfirmClaims] = useState(false);
+  const [receivedInvitations, setReceivedInvitations] = useState<ClaimInvitation[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [profileType, setProfileType] = useState<"PlayerProfile" | "CoachProfile">("PlayerProfile");
   const [claims, setClaims] = useState<PlayerClaim[]>([]);
@@ -49,30 +58,34 @@ export default function IdentityPage() {
   const reloadClaims = async () => {
     const mine = await api.playerClaims();
     setClaims(mine.filter((claim) => claim.person_id === user?.person_id));
+    setReceivedInvitations(await api.receivedClaimInvitations());
     if (isClaimReviewer) setReviewClaims(await api.playerClaims());
   };
 
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    Promise.all([
-      personId
-        ? api.playerProfileCandidates().catch(() => [] as PlayerProfileCandidate[])
-        : Promise.resolve([] as PlayerProfileCandidate[]),
-      personId
-        ? api.profileCandidates("CoachProfile").catch(() => [] as PlayerProfileCandidate[])
-        : Promise.resolve([] as PlayerProfileCandidate[]),
-      api.playerClaims(),
-    ]).then(([suggestions, coachSuggestions, userClaims]) => {
+    Promise.all([api.playerClaims(), api.receivedClaimInvitations()]).then(([userClaims, received]) => {
       if (cancelled) return;
-      setCandidates([...suggestions, ...coachSuggestions]);
       setClaims(userClaims.filter((claim) => claim.person_id === personId));
+      setReceivedInvitations(received);
       if (isClaimReviewer) setReviewClaims(userClaims);
     }).catch((err: unknown) => {
       if (!cancelled) setError(err instanceof Error ? err.message : "Could not load identity information.");
     }).finally(() => { if (!cancelled) setLoadedUserId(userId); });
     return () => { cancelled = true; };
   }, [userId, personId, isClaimReviewer]);
+
+  useEffect(() => {
+    if (!personId) return;
+    let cancelled = false;
+    setCandidateLoading(true); setCandidateError(null);
+    api.searchProfileCandidates({ type: profileType, q: submittedQuery, organisationId: organisationId ? Number(organisationId) : undefined, page: candidatePage, perPage: 20 })
+      .then((result) => { if (!cancelled) { setCandidates(result.data); setCandidateMeta(result.meta); } })
+      .catch((err: unknown) => { if (!cancelled) { setCandidates([]); setCandidateMeta(null); setCandidateError(err instanceof Error ? err.message : "Could not search profiles."); } })
+      .finally(() => { if (!cancelled) setCandidateLoading(false); });
+    return () => { cancelled = true; };
+  }, [personId, profileType, submittedQuery, organisationId, candidatePage]);
 
   const redeem = async () => {
     if (!token.trim()) return;
@@ -121,10 +134,26 @@ export default function IdentityPage() {
       const requested = results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
       if (requested.length) setClaims((old) => [...requested, ...old]);
       setSelected([]);
+      setConfirmClaims(false);
       if (requested.length) setNotice(`${requested.length} claim request${requested.length === 1 ? "" : "s"} submitted. Matches are suggestions and still need review.`);
       const rejected = results.find((result) => result.status === "rejected");
       if (rejected?.status === "rejected") setError(rejected.reason instanceof Error ? rejected.reason.message : "One or more claim requests could not be submitted.");
     } catch (err) { setError(err instanceof Error ? err.message : "Claim requests could not be submitted."); }
+    finally { setBusy(false); }
+  };
+
+  const invitationAction = async (invitation: ClaimInvitation, action: "accept" | "decline") => {
+    setBusy(true); setError(null); setNotice(null);
+    try {
+      if (action === "accept") {
+        const result = await api.acceptReceivedClaimInvitation(invitation.id);
+        setNotice(result.outcome === "linked" ? "Invitation accepted. The profile is now linked to your account." : result.message);
+      } else {
+        await api.declineReceivedClaimInvitation(invitation.id);
+        setNotice("Invitation declined.");
+      }
+      await reloadClaims();
+    } catch (err) { setError(err instanceof Error ? err.message : `Could not ${action} invitation.`); }
     finally { setBusy(false); }
   };
 
@@ -191,24 +220,40 @@ export default function IdentityPage() {
       ) : (
         <>
           <p>Suggestions are limited to profiles in your organisation or connected through a current coach relationship. A match is only a suggestion; your request will be reviewed.</p>
-          <div role="tablist" aria-label="Profile type"><button role="tab" aria-selected={profileType === "PlayerProfile"} onClick={() => { setProfileType("PlayerProfile"); setSelected([]); }}>Players</button><button role="tab" aria-selected={profileType === "CoachProfile"} onClick={() => { setProfileType("CoachProfile"); setSelected([]); }}>Coaches</button></div>
-          {candidates.filter((candidate) => (candidate.claimable_type ?? "PlayerProfile") === profileType).length ? <ul>
-            {candidates.filter((candidate) => (candidate.claimable_type ?? "PlayerProfile") === profileType).map((candidate) => {
+          <div role="tablist" aria-label="Profile type"><button role="tab" aria-selected={profileType === "PlayerProfile"} onClick={() => { setProfileType("PlayerProfile"); setSelected([]); setCandidatePage(1); }}>Players</button><button role="tab" aria-selected={profileType === "CoachProfile"} onClick={() => { setProfileType("CoachProfile"); setSelected([]); setCandidatePage(1); }}>Coaches</button></div>
+          <div className="identity-candidate-search">
+            <label className="auth-field">Search by name<input aria-label="Search profiles by name" value={candidateQuery} onChange={(event) => setCandidateQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { setSubmittedQuery(candidateQuery); setCandidatePage(1); } }} /></label>
+            {(user.organisation_memberships ?? []).some((membership) => membership.status === "active") && <label className="auth-field">Organisation<select aria-label="Filter by organisation" value={organisationId} onChange={(event) => { setOrganisationId(event.target.value); setCandidatePage(1); }}><option value="">All eligible organisations</option>{(user.organisation_memberships ?? []).filter((membership) => membership.status === "active").map((membership) => <option key={membership.organisation_id} value={membership.organisation_id}>{membership.organisation?.name || `Organisation #${membership.organisation_id}`}</option>)}</select></label>}
+            <button className="admin-btn" onClick={() => { setSubmittedQuery(candidateQuery); setCandidatePage(1); }}>Search</button>
+          </div>
+          {candidateLoading ? <p role="status">Searching eligible profiles…</p> : candidateError ? <p role="alert">{candidateError}</p> : candidates.length ? <ul>
+            {candidates.map((candidate) => {
               const type = candidate.claimable_type ?? "PlayerProfile";
               const id = candidate.claimable_id ?? candidate.player_profile_id ?? candidate.coach_profile_id ?? candidate.id;
               const key = `${type}:${id}`;
+              const existingClaim = claims.find((claim) => claim.claimable_type === type && claim.claimable_id === id && ["pending", "approved"].includes(claim.status));
               return <li key={key}>
-                <label><input type="checkbox" checked={selected.includes(key)} onChange={(event) => setSelected((ids) => event.target.checked ? [...ids, key] : ids.filter((id) => id !== key))} /> {candidate.display_name} · {candidate.match_type.replaceAll("_", " ")} · Suggested match</label>
+                {existingClaim ? <span>{candidate.display_name} · Claim {existingClaim.status}</span> : <label><input type="checkbox" checked={selected.includes(key)} onChange={(event) => setSelected((ids) => event.target.checked ? [...ids, key] : ids.filter((id) => id !== key))} /> {candidate.display_name} · {candidate.match_type.replaceAll("_", " ")} · Suggested match</label>}
               </li>;
             })}
-          </ul> : <p>No profile suggestions are available for your Person and its current club or coach relationships. If a club has recorded your profile, ask a coach or administrator for an invite link.</p>}
-          <button className="auth-submit" disabled={busy || selected.length === 0} onClick={() => void submitClaims()}>Request selected claims ({selected.length})</button>
+          </ul> : <p>{submittedQuery.length > 0 && submittedQuery.length < 3 ? "Enter at least 3 characters to search." : "No eligible profiles found. Try another name or ask a coach or administrator for an invite link."}</p>}
+          {candidateMeta && candidateMeta.total_pages > 1 && <nav aria-label="Profile search pages"><button className="admin-btn" disabled={candidatePage <= 1 || candidateLoading} onClick={() => setCandidatePage((page) => page - 1)}>Previous</button><span>Page {candidateMeta.page} of {candidateMeta.total_pages}</span><button className="admin-btn" disabled={candidatePage >= candidateMeta.total_pages || candidateLoading} onClick={() => setCandidatePage((page) => page + 1)}>Next</button></nav>}
+          <button className="auth-submit" disabled={busy || selected.length === 0} onClick={() => setConfirmClaims(true)}>Review selected claims ({selected.length})</button>
+          {confirmClaims && <div role="group" aria-label="Confirm claim requests"><p>Submit {selected.length} claim request{selected.length === 1 ? "" : "s"}? A coach or administrator must approve each request before a profile is linked.</p><button className="auth-submit" disabled={busy} onClick={() => void submitClaims()}>Submit claim request{selected.length === 1 ? "" : "s"}</button><button className="admin-btn" disabled={busy} onClick={() => setConfirmClaims(false)}>Cancel</button></div>}
         </>
       )}
     </section>
 
     <section className="detail-section"><h2>My claim requests</h2>
       {claims.length ? <ul>{claims.map((claim) => <li key={claim.id}>Claim #{claim.id} · {claim.claimable_type?.replace("Profile", " profile ") || "Profile"} #{claim.claimable_id ?? claim.player_profile_id ?? "—"} · {claim.status}{claim.status === "pending" && <button className="admin-btn" disabled={busy} onClick={() => void actOnClaim(claim, "cancel")}>Cancel request</button>}</li>)}</ul> : <p>You have no claim requests.</p>}
+    </section>
+
+    <section className="detail-section"><h2>Invitations received</h2>
+      {receivedInvitations.length ? <ul>{receivedInvitations.map((invitation) => <li key={invitation.id}>{invitation.claimable_type.replace("Profile", " profile ")} #{invitation.claimable_id} · {invitation.status}{invitation.status === "active" && <><button className="admin-btn" disabled={busy} onClick={() => void invitationAction(invitation, "accept")}>Accept</button><button className="admin-btn" disabled={busy} onClick={() => void invitationAction(invitation, "decline")}>Decline</button></>}</li>)}</ul> : <p>No invitations have been sent to your verified account email.</p>}
+    </section>
+
+    <section className="detail-section"><h2>Claim and invitation history</h2>
+      {claims.some((claim) => claim.status !== "pending") || receivedInvitations.some((invitation) => invitation.status !== "active") ? <ul>{claims.filter((claim) => claim.status !== "pending").map((claim) => <li key={`claim-${claim.id}`}>Claim #{claim.id} · {claim.claimable_type?.replace("Profile", " profile ") || "Profile"} · {claim.status}{claim.reviewed_at ? ` · ${new Date(claim.reviewed_at).toLocaleDateString()}` : ""}</li>)}{receivedInvitations.filter((invitation) => invitation.status !== "active").map((invitation) => <li key={`invitation-${invitation.id}`}>Invitation #{invitation.id} · {invitation.claimable_type.replace("Profile", " profile ")} · {invitation.status}</li>)}</ul> : <p>No claim or invitation history yet.</p>}
     </section>
 
     {canIssueInvitations && <section className="detail-section"><h2>Invitations you can issue</h2><p>These are unlinked player and coach profiles in your authorized scope. Enter an email to allow immediate linking after verification, or leave it blank to require staff review.</p><ClaimInviteList /></section>}

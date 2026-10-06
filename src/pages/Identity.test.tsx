@@ -8,7 +8,7 @@ import IdentityPage from "./Identity";
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, api: { ...actual.api, playerProfileCandidates: vi.fn(), playerClaims: vi.fn(), requestPlayerClaim: vi.fn(), approvePlayerClaim: vi.fn(), redeemClaimInvitation: vi.fn(), people: vi.fn(), personConsolidationPreview: vi.fn() } };
+  return { ...actual, api: { ...actual.api, playerProfileCandidates: vi.fn(), searchProfileCandidates: vi.fn(), receivedClaimInvitations: vi.fn(), acceptReceivedClaimInvitation: vi.fn(), declineReceivedClaimInvitation: vi.fn(), claimInvitations: vi.fn(), playerClaims: vi.fn(), requestPlayerClaim: vi.fn(), approvePlayerClaim: vi.fn(), redeemClaimInvitation: vi.fn(), people: vi.fn(), personConsolidationPreview: vi.fn() } };
 });
 
 const mockedApi = vi.mocked(api, true);
@@ -25,6 +25,9 @@ function RouteState() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockedApi.playerProfileCandidates.mockResolvedValue([]);
+  mockedApi.searchProfileCandidates.mockResolvedValue({ data: [], meta: { page: 1, per_page: 20, total: 0, total_pages: 0 } });
+  mockedApi.receivedClaimInvitations.mockResolvedValue([]);
+  mockedApi.claimInvitations.mockResolvedValue([]);
   mockedApi.playerClaims.mockResolvedValue([]);
 });
 
@@ -34,7 +37,7 @@ describe("Identity", () => {
     expect(await screen.findByRole("heading", { name: "Account" })).toBeInTheDocument();
     expect(screen.getByText("#9")).toBeInTheDocument();
     expect(screen.getByText("Player profiles")).toBeInTheDocument();
-    expect(await screen.findByText(/no profile suggestions are available for your Person/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no eligible profiles found/i)).toBeInTheDocument();
     expect(screen.getByText("You have no claim requests.")).toBeInTheDocument();
   });
 
@@ -49,15 +52,47 @@ describe("Identity", () => {
   });
 
   it("presents matches as suggestions and lets a user request selected claims", async () => {
-    mockedApi.playerProfileCandidates.mockResolvedValue([{ id: 31, player_profile_id: 31, display_name: "Alex Player", match_type: "exact_name", result_type: "candidate" }]);
+    mockedApi.searchProfileCandidates.mockResolvedValue({ data: [{ id: 31, player_profile_id: 31, claimable_type: "PlayerProfile", claimable_id: 31, display_name: "Alex Player", match_type: "exact_name", result_type: "candidate" }], meta: { page: 1, per_page: 20, total: 1, total_pages: 1 } });
     mockedApi.requestPlayerClaim.mockResolvedValue({ id: 3, player_profile_id: 31, person_id: 4, status: "pending", created_at: "2026-01-01", reviewed_at: null });
     renderPage();
     const checkbox = await screen.findByRole("checkbox");
     expect(screen.getByText(/Suggested match/)).toBeInTheDocument();
     await userEvent.click(checkbox);
-    await userEvent.click(screen.getByRole("button", { name: "Request selected claims (1)" }));
+    await userEvent.click(screen.getByRole("button", { name: "Review selected claims (1)" }));
+    expect(screen.getByText(/must approve each request/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Submit claim request" }));
     await waitFor(() => expect(mockedApi.requestPlayerClaim).toHaveBeenCalledWith(31));
     expect(await screen.findByText(/still need review/)).toBeInTheDocument();
+  });
+
+  it("searches eligible profiles and paginates the results", async () => {
+    mockedApi.searchProfileCandidates.mockResolvedValue({ data: [], meta: { page: 1, per_page: 20, total: 41, total_pages: 3 } });
+    renderPage();
+    const search = await screen.findByLabelText("Search profiles by name");
+    await userEvent.type(search, "Taylor");
+    await userEvent.click(screen.getAllByRole("button", { name: "Search" })[0]);
+    await waitFor(() => expect(mockedApi.searchProfileCandidates).toHaveBeenLastCalledWith(expect.objectContaining({ q: "Taylor", type: "PlayerProfile", page: 1 })));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(mockedApi.searchProfileCandidates).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 })));
+  });
+
+  it("lets the verified recipient accept or decline invitations and keeps their outcomes in history", async () => {
+    const received = { ...invitation, invitee_email: "alex@example.com", status: "active" as const };
+    mockedApi.receivedClaimInvitations.mockResolvedValue([received]);
+    mockedApi.acceptReceivedClaimInvitation.mockResolvedValue({ outcome: "linked", invitation: { ...received, status: "used" }, person: { id: 4 } } as never);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Accept" }));
+    await waitFor(() => expect(mockedApi.acceptReceivedClaimInvitation).toHaveBeenCalledWith(received.id));
+    expect(await screen.findByText(/profile is now linked/i)).toBeInTheDocument();
+  });
+
+  it("lets a verified recipient decline an invitation", async () => {
+    mockedApi.receivedClaimInvitations.mockResolvedValue([{ ...invitation, invitee_email: "alex@example.com", status: "active" }]);
+    mockedApi.declineReceivedClaimInvitation.mockResolvedValue({ ...invitation, status: "declined" });
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Decline" }));
+    await waitFor(() => expect(mockedApi.declineReceivedClaimInvitation).toHaveBeenCalledWith(invitation.id));
+    expect(await screen.findByText("Invitation declined.")).toBeInTheDocument();
   });
 
   it("requires a verification method before a reviewer can approve a claim", async () => {
@@ -173,7 +208,7 @@ const claim = {
     mockedApi.personConsolidationPreview.mockResolvedValue({ source_person: { id: 1, full_name: "Alex Source", status: "active" }, canonical_person: { id: 2, full_name: "Alex Keep", status: "active" }, conflicts: [{ type: "account_conflict", source_record_id: 8, canonical_record_id: 9 }], ready: false, records_to_reassign: {} });
     renderPage("/identity", admin);
     await userEvent.type(await screen.findByLabelText("Find people"), "Alex");
-    await userEvent.click(screen.getByRole("button", { name: "Search" }));
+    await userEvent.click(screen.getAllByRole("button", { name: "Search" })[1]);
     await userEvent.selectOptions(screen.getByLabelText("Source record"), "1");
     await userEvent.selectOptions(screen.getByLabelText("Keep this Person"), "2");
     await userEvent.click(screen.getByRole("button", { name: "Preview" }));

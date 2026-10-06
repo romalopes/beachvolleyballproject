@@ -1280,7 +1280,7 @@ export interface PlayerProfileCandidate {
   claimable_type?: "PlayerProfile" | "CoachProfile";
   claimable_id?: number;
   display_name: string;
-  match_type: "exact_name" | "partial_name";
+  match_type: "exact_name" | "partial_name" | "name_search";
   result_type: "candidate";
 }
 
@@ -1298,10 +1298,11 @@ export interface ClaimInvitation {
   emailed_at: string | null;
   /** Whether an exact verified email match may link without staff review. */
   auto_approvable: boolean;
-  status: "active" | "used" | "revoked" | "expired";
+  status: "active" | "used" | "revoked" | "expired" | "declined";
   expires_at: string;
   used_at: string | null;
   revoked_at: string | null;
+  declined_at?: string | null;
   created_at: string;
 }
 
@@ -1815,6 +1816,13 @@ export const api = {
     fetchAPI<PlayerProfileCandidate[] | PaginatedResponse<PlayerProfileCandidate>>(
       `/player_claims/candidates?claimable_type=${type}&per_page=100`,
     ).then((response) => normalizePaginatedResponse(response).data),
+  searchProfileCandidates: async (params: { type: "PlayerProfile" | "CoachProfile"; q?: string; organisationId?: number; page?: number; perPage?: number }) => {
+    const query = new URLSearchParams({ claimable_type: params.type, page: String(params.page ?? 1), per_page: String(params.perPage ?? 20) });
+    if (params.q?.trim()) query.set("q", params.q.trim());
+    if (params.organisationId) query.set("organisation_id", String(params.organisationId));
+    const response = await fetchAPI<PaginatedResponse<PlayerProfileCandidate>>(`/player_claims/candidates?${query}`);
+    return normalizePaginatedResponse(response);
+  },
   playerClaims: () =>
     fetchAPI<PlayerClaim[] | PaginatedResponse<PlayerClaim>>(
       "/player_claims?per_page=100",
@@ -1851,6 +1859,9 @@ export const api = {
         ? `/claim_invitations?claimable_type=${claimableType}&claimable_id=${claimableId}`
         : "/claim_invitations",
     ),
+  receivedClaimInvitations: () => fetchAPI<ClaimInvitation[]>("/claim_invitations/received"),
+  acceptReceivedClaimInvitation: (id: number) => postJSON<ClaimRedemptionOutcome>(`/claim_invitations/${id}/accept`, {}),
+  declineReceivedClaimInvitation: (id: number) => postJSON<ClaimInvitation>(`/claim_invitations/${id}/decline`, {}),
   createClaimInvitation: (
     claimableType: ClaimInvitation["claimable_type"],
     claimableId: number,
