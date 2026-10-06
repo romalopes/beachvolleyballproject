@@ -356,7 +356,7 @@ describe("people, players and coaches", () => {
 
     const candidates = await api.playerProfileCandidates();
 
-    expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/player_claims/candidates");
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/v1/player_claims/candidates?per_page=100");
     expect(candidates[0].result_type).toBe("candidate");
     expect(candidates[0].match_type).toBe("exact_name");
   });

@@ -1804,10 +1804,17 @@ export const api = {
 
   // ---------- Player claims (self-service request; coach/admin review) ----------
   playerProfileCandidates: () =>
-    fetchAPI<PlayerProfileCandidate[]>("/player_claims/candidates"),
+    fetchAPI<PlayerProfileCandidate[] | PaginatedResponse<PlayerProfileCandidate>>(
+      "/player_claims/candidates?per_page=100",
+    ).then((response) => normalizePaginatedResponse(response).data),
   profileCandidates: (type: "PlayerProfile" | "CoachProfile") =>
-    fetchAPI<PlayerProfileCandidate[]>(`/player_claims/candidates?claimable_type=${type}`),
-  playerClaims: () => fetchAPI<PlayerClaim[]>("/player_claims"),
+    fetchAPI<PlayerProfileCandidate[] | PaginatedResponse<PlayerProfileCandidate>>(
+      `/player_claims/candidates?claimable_type=${type}&per_page=100`,
+    ).then((response) => normalizePaginatedResponse(response).data),
+  playerClaims: () =>
+    fetchAPI<PlayerClaim[] | PaginatedResponse<PlayerClaim>>(
+      "/player_claims?per_page=100",
+    ).then((response) => normalizePaginatedResponse(response).data),
   requestPlayerClaim: (playerProfileId: number) =>
     postJSON<PlayerClaim>("/player_claims", { player_profile_id: playerProfileId }),
   requestProfileClaim: (type: "PlayerProfile" | "CoachProfile", profileId: number) =>
