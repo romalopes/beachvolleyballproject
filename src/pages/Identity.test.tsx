@@ -135,17 +135,6 @@ describe("Identity", () => {
     revoked_at: null,
     created_at: "2026-01-01",
   };
-const claim = {
-  id: 8,
-  player_profile_id: 21,
-  claimable_type: "PlayerProfile",
-  claimable_id: 21,
-  person_id: 4,
-  status: "pending" as const,
-  created_at: "2026-01-01",
-  reviewed_at: null,
-};
-
   it("redeems a signed-in invitation and clears its token from the URL", async () => {
     mockedApi.redeemClaimInvitation.mockResolvedValue({
       outcome: "linked",

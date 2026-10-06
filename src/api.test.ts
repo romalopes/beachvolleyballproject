@@ -94,7 +94,7 @@ describe("postJSON (auth + mutations)", () => {
       token: "register-token",
     };
     mockFetchOnce({ ok: true, status: 201, body: user });
-    await api.register("New", "new@example.com", "password123", "password123");
+    await api.register("New", "User", "new@example.com", "password123", "password123");
     expect(localStorage.getItem(TOKEN_KEY)).toBe("register-token");
   });
 
