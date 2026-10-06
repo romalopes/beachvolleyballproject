@@ -33,7 +33,9 @@ import AssessmentSessions from "./pages/AssessmentSessions";
 import AssessmentSessionDetail from "./pages/AssessmentSessionDetail";
 import RankingConsolidations from "./pages/RankingConsolidations";
 import Groups from "./pages/Groups";
+import GroupDetail from "./pages/GroupDetail";
 import Organisations from "./pages/Organisations";
+import OrganisationDetail from "./pages/OrganisationDetail";
 import RankingConsolidationDetail from "./pages/RankingConsolidationDetail";
 import ProfileEditPage from "./pages/ProfileEditPage";
 import AdminUsers from "./pages/AdminUsers";
@@ -88,6 +90,13 @@ function ManagerRoute({ children }: { children: React.ReactNode }) {
   if (loading) return null;
   const canManage = user?.roles?.some((role) => role === "coach" || role === "curator" || role === "admin");
   if (!canManage) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+function AuthenticatedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
@@ -191,9 +200,9 @@ export default function App() {
             <Route
               path="/players/:id"
               element={
-                <ManagerRoute>
+                <AuthenticatedRoute>
                   <PlayerDetail />
-                </ManagerRoute>
+                </AuthenticatedRoute>
               }
             />
             <Route
@@ -244,6 +253,7 @@ export default function App() {
                 </ManagerRoute>
               }
             />
+            <Route path="/groups/:id" element={<AuthenticatedRoute><GroupDetail /></AuthenticatedRoute>} />
             <Route
               path="/organisations"
               element={
@@ -252,6 +262,7 @@ export default function App() {
                 </ManagerRoute>
               }
             />
+            <Route path="/organisations/:id" element={<AuthenticatedRoute><OrganisationDetail /></AuthenticatedRoute>} />
             <Route
               path="/assessment-definitions"
               element={
@@ -271,9 +282,9 @@ export default function App() {
             <Route
               path="/coaches/:id"
               element={
-                <ManagerRoute>
+                <AuthenticatedRoute>
                   <CoachDetail />
-                </ManagerRoute>
+                </AuthenticatedRoute>
               }
             />
             <Route

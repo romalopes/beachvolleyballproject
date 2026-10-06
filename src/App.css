@@ -5446,6 +5446,27 @@
   padding: 0.75rem;
 }
 
+/* ---- Identity dashboard links and claim invitations ------------------- */
+.identity-link {
+  color: var(--amber-600);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.16em;
+}
+
+.identity-link:hover,
+.identity-link:focus-visible {
+  color: var(--amber-700);
+  text-decoration-thickness: 2px;
+}
+
+.identity-link-list {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1.25rem;
+}
+
 /* ---- Claim invitations: issue, share and revoke a one-time link ---- */
 .identity-invitation {
   display: flex;

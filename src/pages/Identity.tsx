@@ -162,22 +162,22 @@ export default function IdentityPage() {
 
     <section className="detail-section" aria-labelledby="account-context-heading">
       <h2 id="account-context-heading">Account</h2>
-      <dl className="identity-context"><dt>Account</dt><dd>{user.account_id ? `#${user.account_id}` : "No linked account"}</dd></dl>
+      <dl className="identity-context"><dt>Account</dt><dd>{user.account_id ? <Link className="identity-link" to={`/accounts/${user.account_id}`}>View account #{user.account_id}</Link> : "No linked account"}</dd></dl>
     </section>
     <section className="detail-section"><h2>Player profiles</h2>
-      {user.player_profiles?.length ? <ul>{user.player_profiles.map((profile) => <li key={profile.id}>{profile.display_name || `Player profile #${profile.id}`} · {profile.status}{profile.level ? ` · ${profile.level}` : ""}</li>)}</ul> : <p>No player profiles are linked to this account.</p>}
+      {user.player_profiles?.length ? <ul className="identity-link-list">{user.player_profiles.map((profile) => <li key={profile.id}><Link className="identity-link" to={`/players/${profile.id}`}>{profile.display_name || `Player profile #${profile.id}`}</Link> · {profile.status}{profile.level ? ` · ${profile.level}` : ""}</li>)}</ul> : <p>No player profiles are linked to this account.</p>}
     </section>
     <section className="detail-section"><h2>Coach profiles</h2>
-      {user.coach_profiles?.length ? <ul>{user.coach_profiles.map((profile) => <li key={profile.id}>Coach profile #{profile.id} · {profile.coaching_level || "Level not set"} · {profile.status}</li>)}</ul> : <p>No coach profiles are linked to this account.</p>}
+      {user.coach_profiles?.length ? <ul className="identity-link-list">{user.coach_profiles.map((profile) => <li key={profile.id}><Link className="identity-link" to={`/coaches/${profile.id}`}>Coach profile #{profile.id}</Link> · {profile.coaching_level || "Level not set"} · {profile.status}</li>)}</ul> : <p>No coach profiles are linked to this account.</p>}
     </section>
     <section className="detail-section"><h2>Organisation memberships</h2>
-      {user.organisation_memberships?.length ? <ul>{user.organisation_memberships.map((membership) => <li key={membership.id}>{membership.organisation?.name || `Organisation #${membership.organisation_id}`} · {membership.role} · {membership.status}</li>)}</ul> : <p>No organisation memberships.</p>}
+      {user.organisation_memberships?.length ? <ul className="identity-link-list">{user.organisation_memberships.map((membership) => <li key={membership.id}><Link className="identity-link" to={`/organisations/${membership.organisation_id}`}>{membership.organisation?.name || `Organisation #${membership.organisation_id}`}</Link> · {membership.role} · {membership.status}</li>)}</ul> : <p>No organisation memberships.</p>}
     </section>
     <section className="detail-section"><h2>Group memberships</h2>
-      {user.group_memberships?.length ? <ul>{user.group_memberships.map((membership) => <li key={membership.id}>{membership.group.name} · {membership.role} · {membership.status}{membership.group.organisation ? ` · ${membership.group.organisation.name}` : ""}</li>)}</ul> : <p>No group memberships.</p>}
+      {user.group_memberships?.length ? <ul className="identity-link-list">{user.group_memberships.map((membership) => <li key={membership.id}><Link className="identity-link" to={`/groups/${membership.group_id}`}>{membership.group.name}</Link> · {membership.role} · {membership.status}{membership.group.organisation && <> · <Link className="identity-link" to={`/organisations/${membership.group.organisation.id}`}>{membership.group.organisation.name}</Link></>}</li>)}</ul> : <p>No group memberships.</p>}
     </section>
 
-    <section className="detail-section"><h2>Redeem a claim invitation</h2><p>A verified email matching the invitation links the profile to your account. An open link without a matching email is sent to a coach or administrator to review.</p>
+    <section className="detail-section"><h2>Redeem a claim invitation</h2><p>Redeeming an active invitation accepts it and links the profile to your account. An invitation addressed to an email also requires that email to be verified.</p>
       <label className="auth-field">Invitation token<input aria-label="Invitation token" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="off" /></label>
       <button className="auth-submit" disabled={busy || !token.trim()} onClick={() => void redeem()}>{busy ? "Submitting…" : "Redeem invitation"}</button>
     </section>
@@ -191,7 +191,7 @@ export default function IdentityPage() {
         </p>
       ) : (
         <>
-          <p>Suggestions are limited to profiles in your organisation or connected through a current coach relationship. A match is only a suggestion; your request will be reviewed.</p>
+          <p>Search active, unlinked profiles by name. A match is only a suggestion; your request will be reviewed before a profile is linked.</p>
           <div role="tablist" aria-label="Profile type"><button role="tab" aria-selected={profileType === "PlayerProfile"} onClick={() => { setProfileType("PlayerProfile"); setSelected([]); setCandidatePage(1); }}>Players</button><button role="tab" aria-selected={profileType === "CoachProfile"} onClick={() => { setProfileType("CoachProfile"); setSelected([]); setCandidatePage(1); }}>Coaches</button></div>
           <div className="identity-candidate-search">
             <label className="auth-field">Search by name<input aria-label="Search profiles by name" value={candidateQuery} onChange={(event) => setCandidateQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { setSubmittedQuery(candidateQuery); setCandidatePage(1); } }} /></label>

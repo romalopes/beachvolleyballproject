@@ -147,19 +147,16 @@ const claim = {
 };
 
   it("redeems a signed-in invitation and clears its token from the URL", async () => {
-    // This open invitation has no recipient email, so possession requests
-    // staff review rather than completing an account link.
     mockedApi.redeemClaimInvitation.mockResolvedValue({
-      outcome: "pending_review",
+      outcome: "linked",
       invitation,
-      claim,
-      message: "Your request was sent for review.",
+      person: { id: 4, first_name: "Alex", last_name: "Player", full_name: "Alex Player", email: null, phone: null, date_of_birth: null, creation_source: "signup", account_status: "connected", player_profile_id: 21, coach_profile_id: null },
     });
     renderPage("/identity#claim_token=one-time-secret");
     expect(await screen.findByLabelText("Invitation token")).toHaveValue("one-time-secret");
     await userEvent.click(screen.getByRole("button", { name: "Redeem invitation" }));
     await waitFor(() => expect(mockedApi.redeemClaimInvitation).toHaveBeenCalledWith("one-time-secret"));
-    expect(await screen.findByText(/sent for review/)).toBeInTheDocument();
+    expect(await screen.findByText(/now linked to your account/i)).toBeInTheDocument();
   });
 
   it("confirms immediately when the club emailed the invitation", async () => {
@@ -195,10 +192,9 @@ const claim = {
 
   it("continues to accept a legacy query-token invitation", async () => {
     mockedApi.redeemClaimInvitation.mockResolvedValue({
-      outcome: "pending_review",
+      outcome: "linked",
       invitation,
-      claim,
-      message: "sent for review",
+      person: { id: 4, first_name: "Alex", last_name: "Player", full_name: "Alex Player", email: null, phone: null, date_of_birth: null, creation_source: "signup", account_status: "connected", player_profile_id: 21, coach_profile_id: null },
     });
     renderPage("/identity?claim_token=legacy-token");
     expect(await screen.findByLabelText("Invitation token")).toHaveValue("legacy-token");
