@@ -1443,7 +1443,6 @@ export interface UserWithToken extends User {
   token?: string;
   /** Present when the account still needs email verification (no session). */
   status?: "pending_verification";
-  verification_token?: string;
   email?: string;
   message?: string;
 }
@@ -2500,10 +2499,7 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
   login: (email_address: string, password: string) =>
     postJSON<UserWithToken>("/sessions", { email_address, password, api: true })
       .then((data) => {
-        // A "pending_verification" response (HTTP 202) carries a one-time
-        // email-verification token, NOT a session token. Storing it would
-        // poison the bearer token and 401 every later request — only store
-        // genuine session tokens.
+        // Pending verification never carries an email token or session token.
         if (data.status === "pending_verification") return data;
         if (data.token) setToken(data.token);
         return data;
@@ -2518,7 +2514,7 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
       user: { name, email_address, password, password_confirmation },
       api: true,
     }).then((data) => {
-      // Same guard as login: never persist a verification token as a session.
+      // Same guard as login: no session is created until email verification.
       if (data.status === "pending_verification") return data;
       if (data.token) setToken(data.token);
       return data;

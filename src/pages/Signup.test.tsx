@@ -27,7 +27,6 @@ describe("Signup", () => {
       email_address: "new@example.com",
       roles: ["player"],
       status: "pending_verification",
-      verification_token: "email-token",
     });
     render(
       <MemoryRouter initialEntries={[{ pathname: "/signup", state: { from: "/identity#claim_token=profile-token" } }]}>

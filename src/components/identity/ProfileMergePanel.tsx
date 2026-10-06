@@ -26,7 +26,6 @@ export default function ProfileMergePanel({ kind, sourceId, sourceName, onMerged
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setLoading(true);
     const params = { q: query.trim() || undefined, status: "active" as const, include_private: true, page: 1, per_page: 100 };
     const request = kind === "player" ? api.players(params) : api.coaches(params);
     request.then((response) => {
@@ -55,10 +54,10 @@ export default function ProfileMergePanel({ kind, sourceId, sourceName, onMerged
 
   return <section className="detail-section profile-merge-panel">
     <h2>Merge duplicate profile</h2>
-    {!open ? <button type="button" className="admin-btn" onClick={() => { setOpen(true); setError(null); }}>Choose a profile to merge into</button> : <>
+    {!open ? <button type="button" className="admin-btn" onClick={() => { setLoading(true); setOpen(true); setError(null); }}>Choose a profile to merge into</button> : <>
       <p>Merge <strong>{sourceName}</strong> into another active {kind} profile. The source record is retained as an archived redirect, and its profile history is moved where records can be safely combined. This cannot be undone here.</p>
       {error && <div className="admin-error" role="alert">{error}</div>}
-      <label className="auth-field">Find active {kind} profiles<input aria-label={`Search ${kind} merge targets`} value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+      <label className="auth-field">Find active {kind} profiles<input aria-label={`Search ${kind} merge targets`} value={query} onChange={(event) => { setLoading(true); setQuery(event.target.value); }} /></label>
       <label className="auth-field">Merge into<select aria-label={`Merge ${kind} into`} value={targetId} onChange={(event) => { setTargetId(event.target.value); setConfirmed(false); }} disabled={loading || working}>
         <option value="">Choose a target profile</option>
         {candidates.map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name || profile.display_name || `${kind} profile #${profile.id}`} · #{profile.id}</option>)}
