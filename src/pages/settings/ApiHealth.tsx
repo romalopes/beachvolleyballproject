@@ -4,6 +4,7 @@ import { getApiToken } from "../../api";
 import { useAuth } from "../../auth/AuthContext";
 import SettingsLayout from "../../components/settings/SettingsLayout";
 import ResponseInspector from "../../components/settings/apiHealth/ResponseInspector";
+import EmailSendSandbox from "../../components/settings/apiHealth/EmailSendSandbox";
 import WriteSandbox from "../../components/settings/apiHealth/WriteSandbox";
 import {
   API_CHECKS,
@@ -11,7 +12,7 @@ import {
   type ApiCheck,
   type CheckResult,
 } from "../../services/apiHealth/apiHealthConfig";
-import { runCheck, runWriteFlow } from "../../services/apiHealth/healthRunner";
+import { runCheck, runEmailSendFlow, runWriteFlow } from "../../services/apiHealth/healthRunner";
 
 const methodClass: Record<string, string> = {
   GET: "health-method-get",
@@ -248,6 +249,19 @@ export default function ApiHealth() {
     }
   }
 
+  async function runEmailSendSingle(
+    check: ApiCheck,
+    input: { to: string; content: string }
+  ) {
+    setRunning((prev) => ({ ...prev, [check.id]: true }));
+    try {
+      const result = await runEmailSendFlow(check, { getAuthToken }, input);
+      setResults((prev) => ({ ...prev, [check.id]: result }));
+    } finally {
+      setRunning((prev) => ({ ...prev, [check.id]: false }));
+    }
+  }
+
   function toggleCategory(name: string) {
     setOpenCategories((prev) => ({ ...prev, [name]: !prev[name] }));
   }
@@ -409,15 +423,26 @@ export default function ApiHealth() {
         );
       })}
 
-      {writeChecks.map((check) => (
-        <WriteSandbox
-          key={check.id}
-          check={check}
-          result={results[check.id]}
-          running={running[check.id]}
-          onRun={() => runWriteSingle(check)}
-        />
-      ))}
+      {writeChecks.map((check) =>
+        check.id === "send-test-email" ? (
+          <EmailSendSandbox
+            key={check.id}
+            check={check}
+            result={results[check.id]}
+            running={running[check.id]}
+            getAuthToken={getAuthToken}
+            onRun={(input) => runEmailSendSingle(check, input)}
+          />
+        ) : (
+          <WriteSandbox
+            key={check.id}
+            check={check}
+            result={results[check.id]}
+            running={running[check.id]}
+            onRun={() => runWriteSingle(check)}
+          />
+        )
+      )}
 
       {history.length > 0 && (
         <div className="health-history">

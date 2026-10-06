@@ -155,6 +155,93 @@ export async function runCheck(
 }
 
 
+// Send-test-email flow: POST { to, content } to the check URL, then validate
+// the reply the same way runCheck does. Mirrors runWriteFlow but carries the
+// operator-supplied inputs in the body.
+export async function runEmailSendFlow(
+  check: ApiCheck,
+  opts: { getAuthToken?: () => string | null; timeoutMs?: number } = {},
+  input: { to: string; content: string }
+): Promise<CheckResult> {
+  const start = performance.now();
+  const timeout = check.timeoutMs || opts.timeoutMs || 5000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+  if (opts.getAuthToken) {
+    const token = opts.getAuthToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+  }
+
+  const sendBody = JSON.stringify({ to: input.to, content: input.content });
+
+  let status: number | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let payload: any = null;
+  let error: unknown = null;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${check.url}`, {
+      method: "POST",
+      headers,
+      credentials: "same-origin",
+      body: sendBody,
+      signal: controller.signal,
+    });
+    status = response.status;
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      payload = await response.json().catch(() => ({}));
+    } else {
+      payload = await response.text();
+    }
+  } catch (err) {
+    error = err;
+  } finally {
+    clearTimeout(timer);
+  }
+
+  const latencyMs = Math.round(performance.now() - start);
+
+  let passed = false;
+  let validationError: string | null = null;
+  if (error == null && status === check.expectedStatus) {
+    try {
+      passed = check.validate ? check.validate(payload) : true;
+      if (!passed) {
+        validationError =
+          (typeof check.describeFailure === "function" &&
+            check.describeFailure(payload)) ||
+          "Payload validation failed";
+      }
+    } catch (e) {
+      passed = false;
+      validationError = `Validation threw: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  } else if (error == null) {
+    validationError = `Expected status ${check.expectedStatus}, got ${status}`;
+  }
+
+  return {
+    id: check.id,
+    name: check.name,
+    category: check.category,
+    passed,
+    status,
+    expectedStatus: check.expectedStatus,
+    latencyMs,
+    latencyRating: rateLatency(latencyMs, check.latencyThresholds),
+    payload,
+    requestHeaders: redactHeaders(headers),
+    error: error ? classifyError(error) : validationError,
+    retried: false,
+  };
+}
+
 // Write-sandbox flow: create a temporary category, then delete it.
 // Returns a result object describing the whole flow.
 export async function runWriteFlow(

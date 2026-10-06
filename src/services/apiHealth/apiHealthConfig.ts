@@ -249,6 +249,34 @@ export const API_CHECKS: ApiCheck[] = [
       "Creates a temporary category (name suffixed with a timestamp) then deletes it. Self-cleaning.",
     validate: isCategoryPayload,
   },
+  {
+    id: "send-test-email",
+    category: API_CATEGORIES.WRITE_SANDBOX,
+    name: "Send Test Email",
+    method: "POST",
+    url: "/health/email/test",
+    expectedStatus: 200,
+    requiresAuth: true,
+    requiresManualTrigger: true,
+    timeoutMs: 15000,
+    description:
+      "Sends a one-off test email whose subject and body embed the effectively used MAIL_TRANSPORT.",
+    validate: (data) => {
+      if (!data || typeof data !== "object") return false;
+      const payload = data as {
+        configured_transport?: unknown;
+        effective_transport?: unknown;
+        status?: unknown;
+      };
+      return (
+        typeof payload.configured_transport === "string" &&
+        typeof payload.effective_transport === "string" &&
+        payload.status === "delivered"
+      );
+    },
+    describeFailure: (data) =>
+      `Expected { configured_transport, effective_transport, status: "delivered" } but got ${JSON.stringify(data)}`,
+  },
 ];
 
 // A tiny helper to keep the config self-documenting.
