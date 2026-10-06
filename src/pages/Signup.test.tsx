@@ -34,7 +34,8 @@ describe("Signup", () => {
       </MemoryRouter>,
     );
     const user = userEvent.setup();
-    await user.type(screen.getByLabelText("Name"), "New Invitee");
+    await user.type(screen.getByLabelText("First name"), "New");
+    await user.type(screen.getByLabelText("Last name"), "Invitee");
     await user.type(screen.getByLabelText("Email"), "new@example.com");
     await user.type(screen.getByLabelText("Password"), "password123");
     await user.type(screen.getByLabelText("Confirm password"), "password123");

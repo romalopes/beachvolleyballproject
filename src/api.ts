@@ -2519,9 +2519,9 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
     setToken(null);
     return request;
   },
-  register: (name: string, email_address: string, password: string, password_confirmation: string) =>
+  register: (first_name: string, last_name: string, email_address: string, password: string, password_confirmation: string) =>
     postJSON<UserWithToken>("/registrations", {
-      user: { name, email_address, password, password_confirmation },
+      user: { first_name, last_name, email_address, password, password_confirmation },
       api: true,
     }).then((data) => {
       // Same guard as login: no session is created until email verification.

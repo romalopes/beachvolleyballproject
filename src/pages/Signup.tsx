@@ -9,7 +9,8 @@ export default function Signup() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = safeInternalReturnPath((location.state as { from?: string } | null)?.from);
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -26,7 +27,7 @@ export default function Signup() {
     setSubmitting(true);
     try {
       rememberClaimInvitationPath(from);
-      const user = await register(name, email, password, confirmation);
+      const user = await register(firstName, lastName, email, password, confirmation);
       if (user === null) {
         // Email verification pending — stay here with guidance.
         setPendingEmail(email);
@@ -93,17 +94,30 @@ export default function Signup() {
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-field">
-            <label htmlFor="signup-name">Name</label>
+            <label htmlFor="signup-first-name">First name</label>
             <input
-              id="signup-name"
+              id="signup-first-name"
               type="text"
               required
               autoFocus
-              autoComplete="name"
-              placeholder="Your name"
-              maxLength={100}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              autoComplete="given-name"
+              placeholder="First name"
+              maxLength={50}
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+            />
+          </div>
+          <div className="auth-field">
+            <label htmlFor="signup-last-name">Last name</label>
+            <input
+              id="signup-last-name"
+              type="text"
+              required
+              autoComplete="family-name"
+              placeholder="Last name"
+              maxLength={50}
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
             />
           </div>
           <div className="auth-field">
