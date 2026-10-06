@@ -3,7 +3,7 @@ import { api, type Account } from "../api";
 import { useAuth } from "../auth/AuthContext";
 
 const emptyAccount: Account = {
-  id: null, first_name: null, last_name: null, phone: null, date_of_birth: null,
+  id: null, first_name: null, last_name: null, email: null, phone: null, date_of_birth: null,
   address: { street_address: null, city: null, state: null, postal_code: null, country: null },
 };
 
@@ -64,6 +64,7 @@ export default function AccountPage() {
       const saved = await api.updateAccount({
         first_name: account.first_name || null,
         last_name: account.last_name || null,
+        email: account.email || null,
         phone: account.phone || null,
         date_of_birth: account.date_of_birth || null,
         address: {
@@ -127,6 +128,10 @@ export default function AccountPage() {
           <div className="auth-field">
             <label htmlFor="last_name">Last name</label>
             <input id="last_name" type="text" maxLength={50} value={account.last_name ?? ""} onChange={(e) => updateField("last_name", e.target.value)} />
+          </div>
+          <div className="auth-field">
+            <label htmlFor="contact_email">Contact email</label>
+            <input id="contact_email" type="email" maxLength={254} value={account.email ?? ""} onChange={(e) => updateField("email", e.target.value)} />
           </div>
           <div className="auth-field">
             <label htmlFor="phone">Phone</label>
@@ -195,4 +200,3 @@ export default function AccountPage() {
     </div>
   );
 }
-

@@ -221,3 +221,36 @@ describe("Sidebar", () => {
     });
   });
 });
+
+describe("Sidebar impersonation banner", () => {
+  it("names who is being acted as and offers the way back", async () => {
+    const stopImpersonating = vi.fn();
+    authState = {
+      ...authState,
+      user: { name: "Anderson", email_address: "anderson@example.com", roles: ["player"] },
+      impersonation: {
+        active: true,
+        realAdmin: { id: 1, name: "Rita Admin", email_address: "rita@example.com" },
+      },
+      stopImpersonating,
+    };
+
+    renderSidebar();
+
+    expect(screen.getByText("Acting as Anderson")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /return to admin/i }));
+
+    expect(stopImpersonating).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays hidden when no admin is impersonating anybody", () => {
+    signInAs(["admin"]);
+
+    renderSidebar();
+
+    expect(
+      screen.queryByRole("button", { name: /return to admin/i }),
+    ).not.toBeInTheDocument();
+  });
+});

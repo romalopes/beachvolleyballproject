@@ -18,7 +18,9 @@ import {
   Star,
   Target,
   Trophy,
+  Undo2,
   UserCircle,
+  UserCog,
   Users,
   UsersRound,
   Volleyball,
@@ -286,12 +288,21 @@ export default function Sidebar() {
         </button>
       </div>
       {impersonation.active && impersonation.realAdmin && (
-        <div className="sidebar-impersonation">
+        <div
+          className="sidebar-impersonation"
+          role="note"
+          aria-label="Impersonation active"
+        >
+          <div className="sidebar-impersonation-status">
+            <span className="sidebar-impersonation-dot" aria-hidden="true" />
+            <UserCog aria-hidden="true" />
+            <span>Impersonating</span>
+          </div>
           <div className="sidebar-impersonation-title">
             Acting as {user?.name || user?.email_address}
           </div>
           <div className="sidebar-impersonation-sub">
-            Return to your admin account
+            Browsing with their permissions. Your admin session is preserved.
           </div>
           <button
             type="button"
@@ -301,6 +312,7 @@ export default function Sidebar() {
               stopImpersonating();
             }}
           >
+            <Undo2 aria-hidden="true" />
             Return to Admin
           </button>
         </div>

@@ -1552,6 +1552,7 @@ export interface Account {
   id: number | null;
   first_name: string | null;
   last_name: string | null;
+  email: string | null;
   phone: string | null;
   date_of_birth: string | null;
   address: AccountAddress;
@@ -2600,6 +2601,7 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
   updateAccount: (data: {
     first_name: string | null;
     last_name: string | null;
+    email: string | null;
     phone: string | null;
     date_of_birth: string | null;
     address: {

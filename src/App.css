@@ -3678,50 +3678,128 @@
 
 .health-history-row {
   display: flex;
-
-  /* ===== Admin impersonation banner ===== */
-  .sidebar-impersonation {
-    margin-top: 1.5rem;
-    padding: 0.85rem 1rem;
-    border-radius: var(--radius-md);
-    background: var(--amber-50);
-    border: 1px solid var(--amber-100);
-  }
-
-  .sidebar-impersonation-title {
-    font-weight: 700;
-    color: var(--amber-600);
-    font-size: 0.9rem;
-  }
-
-  .sidebar-impersonation-sub {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin-top: 0.15rem;
-  }
-
-  .sidebar-impersonation-btn {
-    margin-top: 0.5rem;
-    width: 100%;
-    background: var(--amber-600);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .sidebar-impersonation-btn:hover {
-    background: var(--amber-700);
-  }
-
   gap: 0.75rem;
   align-items: center;
   padding: 0.4rem 0;
   border-bottom: 1px solid var(--border);
   font-size: 0.85rem;
+}
+
+/* ===== Admin impersonation banner =====
+   Near the bottom of the fixed sidebar while an admin acts as another user.
+   Deliberately loud -- a status card with a live pulse -- so nobody forgets
+   they are browsing under a different identity, with a one-click way back to
+   the admin session.
+   NOTE: these rules were previously nested inside .health-history-row by
+   accident, which made every selector unreachable and left the banner
+   unstyled. Keep them top-level. */
+.sidebar-impersonation {
+  position: relative;
+  margin-top: 1.25rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: var(--radius-md);
+  background: var(--amber-50);
+  border: 1px solid var(--amber-100);
+  border-left: 3px solid var(--amber-500);
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar-impersonation-status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--amber-700);
+}
+
+.sidebar-impersonation-status svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Pulsing dot marks the state as live. */
+.sidebar-impersonation-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--amber-500);
+  animation: impersonationPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes impersonationPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-impersonation-dot {
+    animation: none;
+  }
+}
+
+.sidebar-impersonation-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--charcoal);
+  overflow-wrap: anywhere;
+}
+
+.sidebar-impersonation-sub {
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.sidebar-impersonation-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--amber-600);
+  color: var(--white);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition:
+    background var(--transition),
+    transform var(--transition);
+}
+
+.sidebar-impersonation-btn:hover {
+  background: var(--amber-700);
+}
+
+.sidebar-impersonation-btn:active {
+  transform: translateY(1px);
+}
+
+.sidebar-impersonation-btn:focus-visible {
+  outline: 2px solid var(--amber-500);
+  outline-offset: 2px;
+}
+
+.sidebar-impersonation-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* ===== Category Sections (Skills/Drills pages) ===== */
