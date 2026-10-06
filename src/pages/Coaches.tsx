@@ -17,7 +17,7 @@ import PageHeader from "../components/PageHeader";
 import Pagination from "../components/settings/Pagination";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
 import Tag from "../components/Tag";
-import PersonCreatePanel from "../components/people/PersonCreatePanel";
+import ProfileCreatePanel from "../components/people/ProfileCreatePanel";
 import ProfileInviteLinkButton from "../components/people/ProfileInviteLinkButton";
 import {
   archiveCoach,
@@ -34,8 +34,8 @@ const PER_PAGE = 20;
 /**
  * Coach catalogue.
  *
- * A CoachProfile describes what a person is in the volleyball domain — it is
- * not an authorization role. Being recorded here grants no application
+ * A CoachProfile describes a volleyball role — it is not an authorization
+ * role. Being recorded here grants no application
  * permissions; those stay on the User's roles, which is why an accountless
  * coach can be listed without having access to anything.
  */
@@ -146,7 +146,7 @@ export default function Coaches() {
   };
 
   const coachName = (coach: Coach) =>
-    coach.full_name ?? coach.person?.first_name ?? coach.display_name ?? `Coach profile #${coach.id}`;
+    coach.full_name ?? coach.display_name ?? `Coach profile #${coach.id}`;
 
   const handleDelete = async () => {
     if (!confirmingDelete) return;
@@ -250,10 +250,10 @@ export default function Coaches() {
       {confirmingArchive && (
         <DeleteConfirm
           entityName={
-            confirmingArchive.full_name ?? confirmingArchive.person?.first_name ?? confirmingArchive.display_name ?? `Coach profile #${confirmingArchive.id}`
+            confirmingArchive.full_name ?? confirmingArchive.display_name ?? `Coach profile #${confirmingArchive.id}`
           }
           title={`Archive “${
-            confirmingArchive.full_name ?? confirmingArchive.person?.first_name ?? confirmingArchive.display_name ?? `Coach profile #${confirmingArchive.id}`
+            confirmingArchive.full_name ?? confirmingArchive.display_name ?? `Coach profile #${confirmingArchive.id}`
           }”?`}
           warning="The coach leaves the catalogue. Their record is kept, and this can be undone."
           confirmLabel="Archive"
@@ -272,7 +272,7 @@ export default function Coaches() {
         <DeleteConfirm
           entityName={coachName(confirmingDelete)}
           title={`Permanently delete “${coachName(confirmingDelete)}” profile?`}
-          warning="This is only allowed when the profile and linked Person have no account, training, tournament, or assessment history. The Person record is retained."
+          warning="This is only allowed when the profile has no account, training, tournament, or assessment history."
           confirmLabel="Delete profile"
           pendingLabel="Deleting..."
           deleting={working}
@@ -283,7 +283,7 @@ export default function Coaches() {
       )}
 
       {creating && (
-        <PersonCreatePanel
+        <ProfileCreatePanel
           kind="coach"
           onCreated={reload}
           onClose={() => setCreating(false)}
@@ -312,15 +312,8 @@ export default function Coaches() {
               <div className="people-identity">
                 <Link to={`/coaches/${coach.id}`} className="people-name">
                   {coach.full_name ??
-                    (coach.person
-                      ? `${coach.person.first_name} ${coach.person.last_name ?? ""}`.trim()
-                      : coach.display_name || `Coach profile #${coach.id}`)}
+                    (coach.display_name || `Coach profile #${coach.id}`)}
                 </Link>
-                <span className="people-contact">
-                  {[coach.person?.email, coach.person?.phone]
-                    .filter(Boolean)
-                    .join(" · ") || "No contact details"}
-                </span>
               </div>
               <span className="people-meta">
                 {[coach.coaching_level, coach.qualifications]
@@ -335,7 +328,7 @@ export default function Coaches() {
               {isArchived(coach) && <Tag>Archived</Tag>}
               {coach.visibility === "private" && <Tag>Private</Tag>}
               {coach.status === "active" && coach.account_status !== "connected" &&
-                (coach.person || coach.display_name?.trim()) && user &&
+                (coach.full_name?.trim() || coach.display_name?.trim()) && user &&
                 (user.roles.includes("admin") ||
                   (user.roles.includes("coach") && coach.created_by?.id === user.id)) && (
                   <ProfileInviteLinkButton

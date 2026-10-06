@@ -499,43 +499,6 @@ describe("people, players and coaches", () => {
 });
 
 describe("identity API contracts", () => {
-  it("posts consolidation preview and explicit membership resolutions to their routes", async () => {
-    const previewFetch = mockFetchOnce({
-      ok: true,
-      status: 200,
-      body: { ready: false, conflicts: [], records_to_reassign: {} },
-    });
-    await api.personConsolidationPreview(10, 20);
-    expect(previewFetch.mock.calls[0][0]).toBe(
-      "/api/v1/person_consolidations/preview",
-    );
-
-    const resolveFetch = mockFetchOnce({
-      ok: true,
-      status: 201,
-      body: { id: 1 },
-    });
-    await api.resolvePersonConsolidation(10, 20, [
-      {
-        type: "organisation_membership_conflict",
-        container_id: 5,
-        keep_record_id: 7,
-        reason: "Confirmed by club administrator",
-      },
-    ]);
-    expect(resolveFetch.mock.calls[0][0]).toBe(
-      "/api/v1/person_consolidations/resolve",
-    );
-    const [, init] = resolveFetch.mock.calls[0] as [string, RequestInit];
-    expect(JSON.parse(String(init.body))).toMatchObject({
-      person_consolidation: {
-        source_person_id: 10,
-        canonical_person_id: 20,
-      },
-      membership_resolutions: [{ keep_record_id: 7 }],
-    });
-  });
-
   it("gets safe claim-invitation status by ID", async () => {
     const fetchMock = mockFetchOnce({
       ok: true,

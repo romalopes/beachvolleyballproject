@@ -35,7 +35,7 @@ import RankingConsolidations from "./pages/RankingConsolidations";
 import Groups from "./pages/Groups";
 import Organisations from "./pages/Organisations";
 import RankingConsolidationDetail from "./pages/RankingConsolidationDetail";
-import PersonProfileEditPage from "./pages/PersonProfileEditPage";
+import ProfileEditPage from "./pages/ProfileEditPage";
 import AdminUsers from "./pages/AdminUsers";
 import SettingsDashboard from "./pages/settings/SettingsDashboard";
 import SkillsSettings from "./pages/settings/Skills";
@@ -183,7 +183,7 @@ export default function App() {
               path="/players/:id/edit"
               element={
                 <ManagerRoute>
-                  <PersonProfileEditPage kind="player" />
+                  <ProfileEditPage kind="player" />
                 </ManagerRoute>
               }
             />
@@ -263,7 +263,7 @@ export default function App() {
               path="/coaches/:id/edit"
               element={
                 <ManagerRoute>
-                  <PersonProfileEditPage kind="coach" />
+                  <ProfileEditPage kind="coach" />
                 </ManagerRoute>
               }
             />

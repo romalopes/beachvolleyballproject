@@ -6,7 +6,6 @@ import { AuthProvider } from "../auth/AuthProvider";
 import {
   ApiValidationError,
   api,
-  type PersonIdentity,
   type Player,
 } from "../api";
 import { paginated } from "../test/paginated";
@@ -58,22 +57,6 @@ const player = (overrides: Partial<Player> & { id: number }): Player => ({
   ...overrides,
 });
 
-const person = (
-  overrides: Partial<PersonIdentity> & { id: number },
-): PersonIdentity => ({
-  first_name: "Pedro",
-  last_name: "Santos",
-  full_name: "Pedro Santos",
-  email: "pedro@example.com",
-  phone: null,
-  date_of_birth: null,
-  creation_source: "coach_created",
-  account_status: "profile_only",
-  player_profile_id: null,
-  coach_profile_id: null,
-  ...overrides,
-});
-
 const renderPlayers = () =>
   render(
     <MemoryRouter>
@@ -104,15 +87,10 @@ describe("Players", () => {
     renderPlayers();
 
     await userEvent.click(await screen.findByRole("button", { name: "New player" }));
-    await userEvent.click(
-      screen.getByRole("radio", { name: /no details yet/i }),
-    );
     await userEvent.type(screen.getByLabelText(/display name/i), "Pedro Santos");
     await userEvent.click(screen.getByRole("button", { name: "Add player" }));
 
     expect(mockedApi.createPlayer).toHaveBeenCalledWith({
-      person_id: undefined,
-      person: undefined,
       player_profile: expect.objectContaining({
         display_name: "Pedro Santos",
         visibility: "shared",
@@ -319,88 +297,27 @@ describe("Players", () => {
     expect(screen.getByText("Private")).toBeInTheDocument();
   });
 
-  it("links an existing person instead of recording a duplicate", async () => {
-    mockedApi.people.mockResolvedValue([person({ id: 42 })]);
-    mockedApi.createPlayer.mockResolvedValue({
-      ...player({ id: 9 }),
-      possible_duplicates: [],
-    });
+  it("does not expose Person lookup or contact fields when recording a profile", async () => {
     renderPlayers();
-
-    await userEvent.click(
-      await screen.findByRole("button", { name: /New player/ }),
-    );
-    await userEvent.type(screen.getByLabelText("Search people"), "pedro");
-    const match = await screen.findByText("Pedro Santos");
-    await userEvent.click(
-      within(match.closest("li")!).getByRole("button", {
-        name: "Use this person",
-      }),
-    );
-    await userEvent.click(screen.getByRole("button", { name: "Add player" }));
-
-    expect(mockedApi.createPlayer).toHaveBeenCalledWith({
-      person_id: 42,
-      person: undefined,
-      player_profile: {
-        preferred_position: null,
-        level: null,
-        visibility: "shared",
-      },
-    });
-  });
-
-  it("shows possible duplicates after recording a new person without merging", async () => {
-    mockedApi.createPlayer.mockResolvedValue({
-      ...player({ id: 9 }),
-      possible_duplicates: [person({ id: 77 })],
-    });
-    renderPlayers();
-
-    await userEvent.click(
-      await screen.findByRole("button", { name: /New player/ }),
-    );
-    await userEvent.type(screen.getByLabelText("First name"), "Pedro");
-    await userEvent.type(screen.getByLabelText("Last name"), "Santos");
-    await userEvent.click(screen.getByRole("button", { name: "Add player" }));
-
-    expect(mockedApi.createPlayer).toHaveBeenCalledWith({
-      person_id: undefined,
-      person: {
-        first_name: "Pedro",
-        last_name: "Santos",
-        email: null,
-        phone: null,
-        organisation_memberships_attributes: [],
-      },
-      player_profile: {
-        preferred_position: null,
-        level: null,
-        visibility: "shared",
-      },
-    });
-    expect(
-      await screen.findByText(/merged automatically/),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Pedro Santos is now a player"),
-    ).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "New player" }));
+    expect(screen.getByLabelText("Display name")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Search people")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Contact email")).not.toBeInTheDocument();
+    expect(mockedApi.people).not.toHaveBeenCalled();
   });
 
   it("surfaces API validation errors", async () => {
-    mockedApi.createPlayer.mockRejectedValue(
-      new ApiValidationError(["First name can't be blank"]),
-    );
+    mockedApi.createPlayer.mockRejectedValue(new ApiValidationError(["Display name can't be blank"]));
     renderPlayers();
 
     await userEvent.click(
       await screen.findByRole("button", { name: /New player/ }),
     );
-    await userEvent.type(screen.getByLabelText("First name"), "X");
+    await userEvent.type(screen.getByLabelText("Display name"), "X");
     await userEvent.click(screen.getByRole("button", { name: "Add player" }));
 
     expect(
-      await screen.findByText("First name can't be blank"),
+      await screen.findByText("Display name can't be blank"),
     ).toBeInTheDocument();
   });
 

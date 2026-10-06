@@ -40,7 +40,9 @@ export default function ProfileManagementDashboard() {
         setClaims(response.data); setMeta(response.meta);
       } else {
         const response = await api.managementClaimInvitations({ status: invitationStatus, claimableType: invitationType, page, perPage: 20 });
-        setInvitations(response.data); setMeta(response.meta);
+        // Person invitations are retained as legacy records during cutover, but
+        // the active workflow now manages profile invitations only.
+        setInvitations(response.data.filter((item) => item.claimable_type !== "Person")); setMeta(response.meta);
       }
     } catch (err) { setError(err instanceof Error ? err.message : "Could not load profile management records."); }
     finally { setLoading(false); }
@@ -151,13 +153,14 @@ export default function ProfileManagementDashboard() {
       <Pager meta={profileMeta} page={profilePage} setPage={setProfilePage} />
       <h3>Invitation history</h3>
       <div className="profile-management-filters">
-        <label className="auth-field">Invitation profile type<select aria-label="Invitation history profile type" value={invitationType} onChange={(event) => { setInvitationType(event.target.value); setPage(1); }}><option value="all">All subjects</option><option value="PlayerProfile">Players</option><option value="CoachProfile">Coaches</option><option value="Person">People</option></select></label>
+        <label className="auth-field">Invitation profile type<select aria-label="Invitation history profile type" value={invitationType} onChange={(event) => { setInvitationType(event.target.value); setPage(1); }}><option value="all">All profiles</option><option value="PlayerProfile">Players</option><option value="CoachProfile">Coaches</option></select></label>
         <label className="auth-field">Invitation status<select aria-label="Invitation status" value={invitationStatus} onChange={(event) => { setInvitationStatus(event.target.value); setPage(1); }}><option value="all">All history</option><option value="active">Active</option><option value="used">Accepted</option><option value="declined">Declined</option><option value="revoked">Cancelled</option><option value="expired">Expired</option></select></label>
       </div>
       {loading ? <p role="status">Loading invitation history…</p> : invitations.length ? <>
         <ul>{invitations.map((invitation) => {
-          const profile: ManagementClaimableProfile = { claimable_type: invitation.claimable_type === "Person" ? "PlayerProfile" : invitation.claimable_type, claimable_id: invitation.claimable_id, display_name: invitation.claimable_name || "Profile", status: "active", linked_to_account: false, can_invite: true };
-          const replacementEligible = invitation.status === "active" && invitation.claimable_type !== "Person";
+          if (invitation.claimable_type === "Person") return null;
+          const profile: ManagementClaimableProfile = { claimable_type: invitation.claimable_type, claimable_id: invitation.claimable_id, display_name: invitation.claimable_name || "Profile", status: "active", linked_to_account: false, can_invite: true };
+          const replacementEligible = invitation.status === "active";
           return <li key={invitation.id}>
             <strong>{invitation.claimable_name || `${invitation.claimable_type} #${invitation.claimable_id}`}</strong> · {invitation.invitee_email || "Open link"} · {invitation.status} · expires {new Date(invitation.expires_at).toLocaleDateString()}
             {invitation.status === "active" && <button className="admin-btn" disabled={busy === invitation.id} onClick={() => void revoke(invitation)}>Cancel invitation</button>}

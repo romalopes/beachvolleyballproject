@@ -73,17 +73,16 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("Coaches", () => {
-  it("now offers the accountless mode when recording a coach", async () => {
-    // Phase 18 reversed Phase 2's rule: a coach recorded with only a display
-    // name is the state a claim invitation is issued against.
+  it("records a profile without a Person lookup or contact fields", async () => {
     renderCoaches();
     await userEvent.click(
       await screen.findByRole("button", { name: "New coach" }),
     );
 
-    expect(
-      screen.getByRole("radio", { name: /no details yet/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Display name")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Search people")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Contact email")).not.toBeInTheDocument();
+    expect(mockedApi.people).not.toHaveBeenCalled();
   });
 
   it("lists coaches with their details and account status", async () => {
@@ -207,65 +206,36 @@ describe("Coaches", () => {
     await userEvent.click(
       await screen.findByRole("button", { name: /New coach/ }),
     );
-    await userEvent.type(screen.getByLabelText("First name"), "New");
+    await userEvent.type(screen.getByLabelText("Display name"), "New Coach");
     await userEvent.type(screen.getByLabelText("Coaching level"), "national");
     await userEvent.click(screen.getByRole("button", { name: "Add coach" }));
 
     expect(mockedApi.createCoach).toHaveBeenCalledWith({
-      person_id: undefined,
-      person: {
-        first_name: "New",
-        last_name: null,
-        email: null,
-        phone: null,
-        organisation_memberships_attributes: [],
-      },
       coach_profile: {
+        display_name: "New Coach",
         coaching_level: "national",
         qualifications: null,
         visibility: "shared",
       },
     });
     expect(
-      await screen.findByText("New Coach is now a coach"),
+      await screen.findByText("New Coach is now a coach profile"),
     ).toBeInTheDocument();
   });
 
-  it("can add another CoachProfile to a Person who is already a coach", async () => {
-    mockedApi.people.mockResolvedValue([
-      {
-        id: 42,
-        first_name: "Sam",
-        last_name: "Coach",
-        full_name: "Sam Coach",
-        email: "sam@example.com",
-        phone: null,
-        date_of_birth: null,
-        creation_source: "signup",
-        account_status: "connected",
-        player_profile_id: null,
-        coach_profile_id: 7,
-        player_profile_ids: [],
-        coach_profile_ids: [7],
-      },
-    ]);
-    mockedApi.createCoach.mockResolvedValue({
-      ...coach({ id: 8, person_id: 42, full_name: "Sam Coach" }),
-      possible_duplicates: [],
-    });
+  it("creates a new coach profile without attaching an existing Person", async () => {
+    mockedApi.createCoach.mockResolvedValue({ ...coach({ id: 8, person_id: null, display_name: "Sam Coach", full_name: "Sam Coach", person: null }), possible_duplicates: [] });
     renderCoaches();
 
     await userEvent.click(await screen.findByRole("button", { name: /New coach/ }));
-    await userEvent.type(screen.getByRole("searchbox", { name: "Search people" }), "Sam");
-    await userEvent.click(await screen.findByRole("button", { name: "Add another coach profile" }));
+    await userEvent.type(screen.getByLabelText("Display name"), "Sam Coach");
     await userEvent.type(screen.getByLabelText("Coaching level"), "national");
     await userEvent.click(screen.getByRole("button", { name: "Add coach" }));
 
     await waitFor(() =>
       expect(mockedApi.createCoach).toHaveBeenCalledWith({
-        person_id: 42,
-        person: undefined,
         coach_profile: {
+          display_name: "Sam Coach",
           coaching_level: "national",
           qualifications: null,
           visibility: "shared",

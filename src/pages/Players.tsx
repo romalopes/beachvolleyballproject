@@ -8,7 +8,7 @@ import PageHeader from "../components/PageHeader";
 import Pagination from "../components/settings/Pagination";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
 import Tag from "../components/Tag";
-import PersonCreatePanel from "../components/people/PersonCreatePanel";
+import ProfileCreatePanel from "../components/people/ProfileCreatePanel";
 import ProfileInviteLinkButton from "../components/people/ProfileInviteLinkButton";
 import {
   archivePlayer,
@@ -23,14 +23,13 @@ import {
 const PER_PAGE = 20;
 
 const playerName = (player: Player) =>
-  player.full_name?.trim() || player.person?.first_name || player.display_name || "Unnamed player";
+  player.full_name?.trim() || player.display_name || "Unnamed player";
 
 /**
  * Player catalogue: everyone the club can schedule.
  *
- * A player is a Person with a PlayerProfile, so the list shows the identity
- * facts that matter for scheduling and for reconciliation: the account status
- * (connected vs profile only) and the player's own attributes. Reading requires
+ * A player is represented by a PlayerProfile. The list shows account-link state
+ * and player-owned attributes. Reading requires
  * a training manager, which is why this page sits behind ManagerRoute.
  */
 export default function Players() {
@@ -263,7 +262,7 @@ export default function Players() {
         <DeleteConfirm
           entityName={playerName(confirmingDelete)}
           title={`Permanently delete “${playerName(confirmingDelete)}” profile?`}
-          warning="This is only allowed when the profile and linked Person have no account, training, tournament, or assessment history. The Person record is retained."
+          warning="This is only allowed when the profile has no account, training, tournament, or assessment history."
           confirmLabel="Delete profile"
           pendingLabel="Deleting..."
           deleting={working}
@@ -274,7 +273,7 @@ export default function Players() {
       )}
 
       {creating && (
-        <PersonCreatePanel
+        <ProfileCreatePanel
           kind="player"
           onCreated={reload}
           onClose={() => setCreating(false)}
@@ -304,11 +303,6 @@ export default function Players() {
                 <Link to={`/players/${player.id}`} className="people-name">
                   {playerName(player)}
                 </Link>
-                <span className="people-contact">
-                  {[player.person?.email, player.person?.phone]
-                    .filter(Boolean)
-                    .join(" · ") || "No contact details"}
-                </span>
               </div>
               <span className="people-meta">
                 {[player.preferred_position, player.level]
@@ -323,7 +317,7 @@ export default function Players() {
               {isArchived(player) && <Tag>Archived</Tag>}
               {player.visibility === "private" && <Tag>Private</Tag>}
               {player.status === "active" && player.account_status !== "connected" &&
-                (player.person || player.display_name?.trim()) && user &&
+                (player.full_name?.trim() || player.display_name?.trim()) && user &&
                 (user.roles.includes("admin") ||
                   (user.roles.includes("coach") && player.created_by?.id === user.id)) && (
                   <ProfileInviteLinkButton
@@ -332,7 +326,7 @@ export default function Players() {
                     profileName={playerName(player)}
                   />
                 )}
-              {canRecord && player.person && (
+              {canRecord && (
                 <Link
                   to={`/players/${player.id}/edit`}
                   className="admin-btn"

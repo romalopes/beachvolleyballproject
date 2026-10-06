@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { api, type ClaimInvitation, type MembershipConflictResolution, type PersonConsolidationConflict, type PersonIdentity, type PlayerClaim, type PlayerProfileCandidate, type PaginationMeta } from "../api";
+import { api, type ClaimInvitation, type PlayerClaim, type PlayerProfileCandidate, type PaginationMeta } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
 import ProfileManagementDashboard from "../components/identity/ProfileManagementDashboard";
 import { clearClaimInvitationPath, rememberClaimInvitationPath } from "../auth/invitationReturnPath";
-
-type ResolutionChoice = { keep_record_id: number; reason: string };
 
 /** Self-service identity context and the claim workflows supported by the API. */
 export default function IdentityPage() {
@@ -36,13 +34,8 @@ export default function IdentityPage() {
     const fragmentToken = new URLSearchParams(location.hash.replace(/^#/, "")).get("claim_token");
     return fragmentToken ?? searchParams.get("claim_token") ?? "";
   });
-  const [accountToken, setAccountToken] = useState(() => {
-    const fragmentToken = new URLSearchParams(location.hash.replace(/^#/, "")).get("account_claim_token");
-    return fragmentToken ?? searchParams.get("account_claim_token") ?? "";
-  });
 
   const canManageProfiles = Boolean(user?.roles.some((role) => role === "admin" || role === "coach" || role === "curator"));
-  const isAdmin = Boolean(user?.roles.includes("admin"));
   const userId = user?.id;
   const personId = user?.person_id;
   const invitationReturnPath = `${location.pathname}${location.search}${location.hash}`;
@@ -103,18 +96,6 @@ export default function IdentityPage() {
     finally { setBusy(false); }
   };
 
-  const redeemAccountInvitation = async () => {
-    if (!accountToken.trim()) return;
-    setBusy(true); setError(null); setNotice(null);
-    try {
-      const result = await api.redeemPersonAccountInvitation(accountToken.trim());
-      setAccountToken("");
-      navigate({ pathname: location.pathname, search: "", hash: "" }, { replace: true });
-      setNotice(`Your account is now linked to ${result.person.full_name}. Refresh the page to load the updated identity.`);
-    } catch (err) { setError(err instanceof Error ? err.message : "Account invitation could not be accepted."); }
-    finally { setBusy(false); }
-  };
-
   const submitClaims = async () => {
     if (!selected.length) return;
     setBusy(true); setError(null); setNotice(null);
@@ -165,20 +146,14 @@ export default function IdentityPage() {
   if (loading) return <div className="loading">Loading identity…</div>;
 
   return <div className="page identity-page">
-    <header className="page-header"><h1>Identity</h1><p>Your account, profiles, memberships, and player claim requests.</p></header>
+    <header className="page-header"><h1>Identity</h1><p>Your account, profiles, memberships, and profile claim requests.</p></header>
     {error && <div className="auth-flash auth-flash-error" role="alert">{error}</div>}
     {notice && <div className="auth-flash auth-flash-notice" role="status">{notice}</div>}
 
     <section className="detail-section" aria-labelledby="account-context-heading">
       <h2 id="account-context-heading">Account</h2>
-      <dl className="identity-context"><dt>Account</dt><dd>{user.account_id ? `#${user.account_id}` : "No linked account"}</dd><dt>Person</dt><dd>{user.person_id ? `#${user.person_id}` : "No linked Person"}</dd></dl>
+      <dl className="identity-context"><dt>Account</dt><dd>{user.account_id ? `#${user.account_id}` : "No linked account"}</dd></dl>
     </section>
-    {accountToken && <section className="detail-section"><h2>Connect to your recorded Person</h2>
-      <p>Accepting this invitation connects your verified email account to the Person already recorded by the club. Their player and coach profiles stay with that Person.</p>
-      <label className="auth-field">Invitation token<input aria-label="Account invitation token" value={accountToken} onChange={(event) => setAccountToken(event.target.value)} autoComplete="off" /></label>
-      <button className="auth-submit" disabled={busy || !accountToken.trim()} onClick={() => void redeemAccountInvitation()}>{busy ? "Connecting…" : "Accept account invitation"}</button>
-      {notice?.includes("Refresh the page") && <button className="admin-btn" onClick={() => window.location.reload()}>Refresh identity</button>}
-    </section>}
     <section className="detail-section"><h2>Player profiles</h2>
       {user.player_profiles?.length ? <ul>{user.player_profiles.map((profile) => <li key={profile.id}>{profile.display_name || `Player profile #${profile.id}`} · {profile.status}{profile.level ? ` · ${profile.level}` : ""}</li>)}</ul> : <p>No player profiles are linked to this account.</p>}
     </section>
@@ -192,7 +167,7 @@ export default function IdentityPage() {
       {user.group_memberships?.length ? <ul>{user.group_memberships.map((membership) => <li key={membership.id}>{membership.group.name} · {membership.role} · {membership.status}{membership.group.organisation ? ` · ${membership.group.organisation.name}` : ""}</li>)}</ul> : <p>No group memberships.</p>}
     </section>
 
-    <section className="detail-section"><h2>Redeem a claim invitation</h2><p>A verified email matching the invitation links you to the recorded Person or profile. An open link without a matching email is sent to a coach or administrator to review.</p>
+    <section className="detail-section"><h2>Redeem a claim invitation</h2><p>A verified email matching the invitation links the profile to your account. An open link without a matching email is sent to a coach or administrator to review.</p>
       <label className="auth-field">Invitation token<input aria-label="Invitation token" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="off" /></label>
       <button className="auth-submit" disabled={busy || !token.trim()} onClick={() => void redeem()}>{busy ? "Submitting…" : "Redeem invitation"}</button>
     </section>
@@ -200,8 +175,7 @@ export default function IdentityPage() {
     <section className="detail-section"><h2>Claim profiles</h2>
       {!personId ? (
         <p role="note">
-          Your account has no linked Person, so the club cannot match you to profile
-          suggestions yet. Ask a coach or administrator to create an invite link
+          Your account is not yet linked to a profile, so profile suggestions are not available yet. Ask a coach or administrator to create an invite link
           from your player or coach profile, then redeem it above while signed in.
           If the link is tied to your recorded email, verify that email first.
         </p>
@@ -245,52 +219,5 @@ export default function IdentityPage() {
     </section>
 
     {canManageProfiles && <ProfileManagementDashboard />}
-    {isAdmin && <PersonConsolidation />}
   </div>;
 }
-
-function PersonConsolidation() {
-  const [query, setQuery] = useState("");
-  const [people, setPeople] = useState<PersonIdentity[]>([]);
-  const [source, setSource] = useState(0);
-  const [canonical, setCanonical] = useState(0);
-  const [preview, setPreview] = useState<Awaited<ReturnType<typeof api.personConsolidationPreview>> | null>(null);
-  const [choices, setChoices] = useState<Record<string, ResolutionChoice>>({});
-  const [auditId, setAuditId] = useState("");
-  const [result, setResult] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const conflicts = useMemo(() => preview?.conflicts.filter((item) => item.type !== "account_conflict") ?? [], [preview]);
-
-  const search = async () => { setError(null); try { setPeople(await api.people({ q: query })); } catch (err) { setError(err instanceof Error ? err.message : "Could not search people."); } };
-  const loadPreview = async () => { setBusy(true); setError(null); setResult(null); try { setPreview(await api.personConsolidationPreview(source, canonical)); setChoices({}); } catch (err) { setPreview(null); setError(err instanceof Error ? err.message : "Could not preview consolidation."); } finally { setBusy(false); } };
-  const execute = async () => {
-    if (!preview) return;
-    setBusy(true); setError(null);
-    try {
-      let audit;
-      if (conflicts.length) {
-        const resolutions: MembershipConflictResolution[] = conflicts.map((conflict: PersonConsolidationConflict) => ({ type: conflict.type as MembershipConflictResolution["type"], container_id: conflict.container_id!, keep_record_id: choices[conflictKey(conflict)].keep_record_id, reason: choices[conflictKey(conflict)].reason.trim() }));
-        audit = await api.resolvePersonConsolidation(source, canonical, resolutions);
-      } else audit = await api.consolidatePeople(source, canonical);
-      setResult(JSON.stringify(audit, null, 2)); setPreview(null);
-    } catch (err) { setError(err instanceof Error ? err.message : "Consolidation was not completed."); }
-    finally { setBusy(false); }
-  };
-  const loadAudit = async () => { setBusy(true); setError(null); try { setResult(JSON.stringify(await api.personConsolidation(Number(auditId)), null, 2)); } catch (err) { setError(err instanceof Error ? err.message : "Could not load consolidation audit."); } finally { setBusy(false); } };
-  const canExecute = Boolean(preview && !preview.conflicts.some((conflict) => conflict.type === "account_conflict") && conflicts.every((conflict) => choices[conflictKey(conflict)]?.keep_record_id && choices[conflictKey(conflict)]?.reason.trim()));
-
-  return <section className="detail-section"><h2>Person consolidation</h2><p>Administrative tool to preview duplicate Person records, resolve membership conflicts, and retain an audit record. Account conflicts block consolidation.</p>
-    {error && <div className="auth-flash auth-flash-error" role="alert">{error}</div>}
-    <div className="auth-field"><label htmlFor="consolidation-search">Find people</label><input id="consolidation-search" value={query} onChange={(event) => setQuery(event.target.value)} /><button className="admin-btn" disabled={busy || !query.trim()} onClick={() => void search()}>Search</button></div>
-    {people.length > 0 && <div className="identity-pair-picker"><label>Source record<select value={source} onChange={(event) => setSource(Number(event.target.value))}><option value={0}>Choose a source</option>{people.map((person) => <option key={person.id} value={person.id}>{person.full_name} · #{person.id}</option>)}</select></label><label>Keep this Person<select value={canonical} onChange={(event) => setCanonical(Number(event.target.value))}><option value={0}>Choose canonical record</option>{people.map((person) => <option key={person.id} value={person.id}>{person.full_name} · #{person.id}</option>)}</select></label><button className="admin-btn" disabled={busy || !source || !canonical || source === canonical} onClick={() => void loadPreview()}>Preview</button></div>}
-    {preview && <div className="identity-preview"><h3>{preview.source_person.full_name} → {preview.canonical_person.full_name}</h3><p>{preview.ready ? "Ready to consolidate." : "Review conflicts before continuing."}</p>
-      {preview.conflicts.length === 0 ? <p>No conflicts found.</p> : <ul>{preview.conflicts.map((conflict) => <li key={conflictKey(conflict)}>{conflict.type.replaceAll("_", " ")} · records #{conflict.source_record_id} and #{conflict.canonical_record_id}{conflict.type === "account_conflict" ? <strong> Account conflict blocks this action.</strong> : <div><label>Keep record<select value={choices[conflictKey(conflict)]?.keep_record_id ?? ""} onChange={(event) => setChoices((old) => ({ ...old, [conflictKey(conflict)]: { ...old[conflictKey(conflict)], keep_record_id: Number(event.target.value), reason: old[conflictKey(conflict)]?.reason ?? "" } }))}><option value="">Choose</option><option value={conflict.source_record_id}>Source record #{conflict.source_record_id}</option><option value={conflict.canonical_record_id}>Canonical record #{conflict.canonical_record_id}</option></select></label><label>Reason<input value={choices[conflictKey(conflict)]?.reason ?? ""} onChange={(event) => setChoices((old) => ({ ...old, [conflictKey(conflict)]: { ...old[conflictKey(conflict)], keep_record_id: old[conflictKey(conflict)]?.keep_record_id ?? 0, reason: event.target.value } }))} /></label></div>}</li>)}</ul>}
-      <button className="auth-submit" disabled={busy || !canExecute} onClick={() => void execute()}>{busy ? "Consolidating…" : "Confirm consolidation"}</button>
-    </div>}
-    <div className="auth-field"><label htmlFor="consolidation-audit-id">Load audit by ID</label><input id="consolidation-audit-id" inputMode="numeric" value={auditId} onChange={(event) => setAuditId(event.target.value)} /><button className="admin-btn" disabled={busy || !Number(auditId)} onClick={() => void loadAudit()}>Load audit</button></div>
-    {result && <pre className="identity-audit-result">{result}</pre>}
-  </section>;
-}
-
-function conflictKey(conflict: PersonConsolidationConflict) { return `${conflict.type}:${conflict.container_id}:${conflict.source_record_id}:${conflict.canonical_record_id}`; }

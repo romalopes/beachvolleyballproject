@@ -171,11 +171,12 @@ describe("PlayerDetail", () => {
       );
     });
 
-    it("offers a link to connect an account to the Person on a profile", async () => {
+    it("offers a profile invitation without exposing Person data", async () => {
       renderDetail();
       await screen.findByRole("heading", { name: "Pedro Santos" });
 
-      expect(screen.getByText(/a profile entered by a coach/)).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Account link" })).toBeInTheDocument();
+      expect(screen.queryByText("pedro@example.com")).not.toBeInTheDocument();
       expect(
         await screen.findByRole("button", { name: "Create new invite link" }),
       ).toBeInTheDocument();
@@ -265,12 +266,13 @@ describe("PlayerDetail", () => {
       ).toHaveTextContent(/linked Person is required/i);
     });
   });
-  it("shows the identity, its provenance and the training history", async () => {
+  it("shows account-link status and training history without Person details", async () => {
     renderDetail();
 
     expect(await screen.findByRole("heading", { name: "Pedro Santos" })).toBeInTheDocument();
     expect(screen.getByText("Profile only")).toBeInTheDocument();
-    expect(screen.getByText(/a profile entered by a coach/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Account link" })).toBeInTheDocument();
+    expect(screen.queryByText("+61400000001")).not.toBeInTheDocument();
     expect(screen.getByText("Serve Reception Training")).toBeInTheDocument();
     expect(screen.getByText("Attended")).toBeInTheDocument();
   });

@@ -204,50 +204,16 @@ export default function PlayerDetail() {
       )}
 
       <section className="detail-section">
-        <h2>Identity</h2>
-        {player.person ? (
-          <>
-            <p>
-              {player.person.first_name} {player.person.last_name ?? ""}
-              <br />
-              {player.person.email ?? "No email"} · {player.person.phone ?? "No phone"}
-            </p>
-            <p className="related-item-meta">
-              Recorded as {player.person.creation_source === "coach_created"
-                ? "a profile entered by a coach"
-                : player.person.creation_source}
-              {player.person.date_of_birth ? ` · born ${player.person.date_of_birth}` : ""}
-            </p>
-            {player.account_status !== "connected" && (
-              <>
-                <p className="related-item-meta">
-                  This profile already belongs to this Person. The invitation connects
-                  the Person&apos;s account to the player profile.
-                </p>
-                <ClaimInvitationPanel
-                  key={`${player.id}:${player.status}`}
-                  claimableType="PlayerProfile"
-                  claimableId={player.id}
-                  blockedReason={invitationBlockedReason}
-                  ineligibleReason={isArchived(player) ? "Restore this profile before creating claim invitations." : null}
-                  inviteeEmail={player.person.email}
-                />
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            <p className="related-item-meta">This player profile has not been linked to a Person yet, so the player signs in themselves and claims it. A claim invitation lets them request that link.</p>
-            <ClaimInvitationPanel
-              key={`${player.id}:${player.status}`}
-              claimableType="PlayerProfile"
-              claimableId={player.id}
-              blockedReason={invitationBlockedReason}
-              ineligibleReason={isArchived(player) ? "Restore this profile before creating claim invitations." : null}
-              inviteeEmail={null}
-            />
-          </>
-        )}
+        <h2>Account link</h2>
+        <p className="related-item-meta">{player.account_status === "connected" ? "This profile is linked to an account." : "This profile has no linked account. Create an invitation to let its owner claim it."}</p>
+        {player.account_status !== "connected" && <ClaimInvitationPanel
+          key={`${player.id}:${player.status}`}
+          claimableType="PlayerProfile"
+          claimableId={player.id}
+          blockedReason={invitationBlockedReason}
+          ineligibleReason={isArchived(player) ? "Restore this profile before creating claim invitations." : null}
+          inviteeEmail={null}
+        />}
       </section>
 
       {player.person?.organisation_memberships?.length ? (

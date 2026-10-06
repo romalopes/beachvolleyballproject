@@ -187,58 +187,16 @@ export default function CoachDetail() {
       )}
 
       <section className="detail-section">
-        <h2>Identity</h2>
-        {coach.person ? (
-          <>
-            <p>
-              {coach.person.first_name} {coach.person.last_name ?? ""}
-              <br />
-              {coach.person.email ?? "No email"} · {coach.person.phone ?? "No phone"}
-            </p>
-            <p className="related-item-meta">
-              Recorded as{" "}
-              {coach.person.creation_source === "coach_created"
-                ? "a profile entered by a coach"
-                : coach.person.creation_source}
-              {coach.person.date_of_birth
-                ? ` · born ${coach.person.date_of_birth}`
-                : ""}
-              {coach.created_by ? ` · recorded by ${coach.created_by.name}` : ""}
-            </p>
-            {coach.account_status !== "connected" && (
-              <>
-                <p className="related-item-meta">
-                  This profile already belongs to this Person. The invitation connects
-                  the Person&apos;s account to the coach profile.
-                </p>
-                <ClaimInvitationPanel
-                  key={`${coach.id}:${coach.status}`}
-                  claimableType="CoachProfile"
-                  claimableId={coach.id}
-                  blockedReason={invitationBlockedReason}
-                  ineligibleReason={isArchived(coach) ? "Restore this profile before creating claim invitations." : null}
-                  inviteeEmail={coach.person.email}
-                />
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            <p className="related-item-meta">
-              This coach profile has not been linked to a Person yet, so the
-              coach signs in themselves and claims it. A claim invitation lets
-              them request that link.
-            </p>
-            <ClaimInvitationPanel
-              key={`${coach.id}:${coach.status}`}
-              claimableType="CoachProfile"
-              claimableId={coach.id}
-              blockedReason={invitationBlockedReason}
-              ineligibleReason={isArchived(coach) ? "Restore this profile before creating claim invitations." : null}
-              inviteeEmail={null}
-            />
-          </>
-        )}
+        <h2>Account link</h2>
+        <p className="related-item-meta">{coach.account_status === "connected" ? "This profile is linked to an account." : "This profile has no linked account. Create an invitation to let its owner claim it."}</p>
+        {coach.account_status !== "connected" && <ClaimInvitationPanel
+          key={`${coach.id}:${coach.status}`}
+          claimableType="CoachProfile"
+          claimableId={coach.id}
+          blockedReason={invitationBlockedReason}
+          ineligibleReason={isArchived(coach) ? "Restore this profile before creating claim invitations." : null}
+          inviteeEmail={null}
+        />}
       </section>
 
       {coach.person?.organisation_memberships?.length ? (

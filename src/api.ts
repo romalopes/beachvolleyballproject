@@ -1334,51 +1334,7 @@ export type ClaimRedemptionOutcome =
       message: string;
     };
 
-/** One-time invitation to connect an Account to an already recorded Person. */
-export interface PersonAccountInvitation {
-  id: number;
-  person_id: number;
-  invitee_email: string;
-  status: "active" | "used" | "revoked" | "expired";
-  expires_at: string;
-  used_at: string | null;
-  revoked_at: string | null;
-  created_at: string;
-}
-
-export interface PersonConsolidationConflict {
-  type: "account_conflict" | "organisation_membership_conflict" | "group_membership_conflict" | string;
-  container_id?: number;
-  source_record_id: number;
-  canonical_record_id: number;
-  source_membership?: Record<string, unknown>;
-  canonical_membership?: Record<string, unknown>;
-}
-
-export interface PersonConsolidationPreview {
-  source_person: { id: number; full_name: string; status: string };
-  canonical_person: { id: number; full_name: string; status: string };
-  conflicts: PersonConsolidationConflict[];
-  ready: boolean;
-  records_to_reassign: Record<string, number>;
-}
-
-export interface MembershipConflictResolution {
-  type: "organisation_membership_conflict" | "group_membership_conflict";
-  container_id: number;
-  keep_record_id: number;
-  reason: string;
-}
-
-export interface PersonConsolidationAudit {
-  id: number;
-  source_person: { id: number; full_name: string };
-  canonical_person: { id: number; full_name: string };
-  performed_by_id: number;
-  completed_at: string;
-  result: Record<string, unknown>;
-}
-
+/** One-time invitation for an Account to claim a PlayerProfile or CoachProfile. */
 export interface CreatedPlayerClaimInvitation {
   invitation: ClaimInvitation;
   /** Returned only when the invitation is created. Keep it out of persistent client storage. */
@@ -1418,6 +1374,7 @@ export interface CoachInput {
     date_of_birth?: string | null;
   };
   coach_profile?: {
+    display_name?: string;
     coaching_level?: string | null;
     qualifications?: string | null;
     status?: ProfileStatus;
@@ -1730,12 +1687,7 @@ export const api = {
   deleteTrainingSession: (id: number) =>
     postJSON<void>(`/training_sessions/${id}`, {}, "DELETE"),
 
-  // ---------- People search (identity lookup, staff only) ----------
-  /**
-   * "Has this human already been recorded?" — the lookup the create-player /
-   * create-coach flow runs before recording a new person, so a coach can pick
-   * an existing identity instead of duplicating it.
-   */
+  // ---------- Legacy identity search (staff only) ----------
   /**
    * The identity typeahead: a bare array, hard-capped server-side at 25. It is a
    * shape stays stable for profile creation and organisation roster workflows.
@@ -1747,36 +1699,6 @@ export const api = {
     const query = qs.toString();
     return fetchAPI<PersonIdentity[]>(`/people/search${query ? `?${query}` : ""}`);
   },
-
-  // ---------- Person consolidation (admin; identity phases 7–8) ----------
-  personConsolidationPreview: (sourcePersonId: number, canonicalPersonId: number) =>
-    postJSON<PersonConsolidationPreview>("/person_consolidations/preview", {
-      person_consolidation: {
-        source_person_id: sourcePersonId,
-        canonical_person_id: canonicalPersonId,
-      },
-    }),
-  consolidatePeople: (sourcePersonId: number, canonicalPersonId: number) =>
-    postJSON<PersonConsolidationAudit>("/person_consolidations", {
-      person_consolidation: {
-        source_person_id: sourcePersonId,
-        canonical_person_id: canonicalPersonId,
-      },
-    }),
-  resolvePersonConsolidation: (
-    sourcePersonId: number,
-    canonicalPersonId: number,
-    membershipResolutions: MembershipConflictResolution[],
-  ) =>
-    postJSON<PersonConsolidationAudit>("/person_consolidations/resolve", {
-      person_consolidation: {
-        source_person_id: sourcePersonId,
-        canonical_person_id: canonicalPersonId,
-      },
-      membership_resolutions: membershipResolutions,
-    }),
-  personConsolidation: (id: number) =>
-    fetchAPI<PersonConsolidationAudit>(`/person_consolidations/${id}`),
 
   // ---------- Players (read: training managers; create: coach/admin) ----------
   /**
@@ -1934,13 +1856,6 @@ export const api = {
     postJSON<ClaimRedemptionOutcome>("/player_claim_invitations/redeem", { token }),
   revokePlayerClaimInvitation: (id: number) =>
     postJSON<ClaimInvitation>(`/player_claim_invitations/${id}/revoke`, {}),
-
-  // ---------- Redeem legacy invitations linking an Account to a Person ----------
-  redeemPersonAccountInvitation: (token: string) =>
-    postJSON<{ invitation: PersonAccountInvitation; account_id: number; person: PersonIdentity }>(
-      "/person_account_invitations/redeem",
-      { token },
-    ),
 
   // ---------- Coaches (read: training managers; create: coach/admin) ----------
   /** Paginated catalogue — see `players`. */

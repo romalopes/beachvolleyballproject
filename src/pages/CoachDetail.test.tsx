@@ -103,28 +103,28 @@ describe("CoachDetail", () => {
       ).toBeInTheDocument();
     });
 
-    it("offers a link to connect an account to the Person on a coach profile", async () => {
+    it("offers a profile invitation without exposing Person data", async () => {
       mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
       renderDetail();
       await screen.findByRole("heading", { name: /Olga Reyes/ });
 
-      expect(screen.getByText(/a profile entered by a coach/)).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Account link" })).toBeInTheDocument();
+      expect(screen.queryByText("ana@example.com")).not.toBeInTheDocument();
       expect(
         await screen.findByRole("button", { name: "Create new invite link" }),
       ).toBeInTheDocument();
     });
 
-    it("renders a personless coach without crashing on contact fields", async () => {
-      // `coach.person.first_name` used to be read unguarded, which a
-      // personless profile would turn into a blank crash.
+    it("renders profile account-link status without contact fields", async () => {
       mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
       mockedApi.coach.mockResolvedValue(unlinkedCoach());
       renderDetail();
 
-      expect(await screen.findByText(/has not been linked to a Person yet/)).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "Account link" })).toBeInTheDocument();
+      expect(screen.queryByText("No email")).not.toBeInTheDocument();
     });
   });
-  it("shows the identity, coaching details and profile state", async () => {
+  it("shows account-link status, coaching details and profile state", async () => {
     renderDetail();
 
     expect(
@@ -132,7 +132,7 @@ describe("CoachDetail", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Profile only")).toBeInTheDocument();
     expect(screen.getByText("club")).toBeInTheDocument();
-    expect(screen.getByText(/a profile entered by a coach/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Account link" })).toBeInTheDocument();
     expect(screen.getByText(/Level 1/)).toBeInTheDocument();
     expect(screen.getByText("Visibility: Shared")).toBeInTheDocument();
   });

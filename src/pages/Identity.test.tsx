@@ -52,7 +52,7 @@ describe("Identity", () => {
     expect(screen.getByRole("tab", { name: "Invitations" })).toBeInTheDocument();
   });
 
-  it("explains that an account without a linked Person needs a profile invitation", async () => {
+  it("explains that an account without a linked profile needs a profile invitation", async () => {
     const unlinkedAccount = { ...user, person_id: null, account_id: null };
     renderPage("/identity", unlinkedAccount);
 
@@ -204,7 +204,7 @@ const claim = {
     expect(await screen.findByLabelText("Invitation token")).toHaveValue("legacy-token");
   });
 
-  it("shows load errors and blocks consolidation on an account conflict", async () => {
+  it("shows load errors and no longer exposes Person consolidation", async () => {
     mockedApi.playerClaims.mockRejectedValueOnce(new Error("Claims unavailable"));
     const admin = { ...user, roles: ["admin"] };
     const { unmount } = renderPage("/identity", admin);
@@ -212,18 +212,9 @@ const claim = {
     unmount();
 
     mockedApi.playerClaims.mockResolvedValue([]);
-    mockedApi.people.mockResolvedValue([
-      { id: 1, first_name: "Alex", last_name: "Source", full_name: "Alex Source", email: null, phone: null, date_of_birth: null, creation_source: "system", account_status: "profile_only", player_profile_id: null, coach_profile_id: null },
-      { id: 2, first_name: "Alex", last_name: "Keep", full_name: "Alex Keep", email: null, phone: null, date_of_birth: null, creation_source: "system", account_status: "profile_only", player_profile_id: null, coach_profile_id: null },
-    ]);
-    mockedApi.personConsolidationPreview.mockResolvedValue({ source_person: { id: 1, full_name: "Alex Source", status: "active" }, canonical_person: { id: 2, full_name: "Alex Keep", status: "active" }, conflicts: [{ type: "account_conflict", source_record_id: 8, canonical_record_id: 9 }], ready: false, records_to_reassign: {} });
     renderPage("/identity", admin);
-    await userEvent.type(await screen.findByLabelText("Find people"), "Alex");
-    await userEvent.click(screen.getAllByRole("button", { name: "Search" })[1]);
-    await userEvent.selectOptions(screen.getByLabelText("Source record"), "1");
-    await userEvent.selectOptions(screen.getByLabelText("Keep this Person"), "2");
-    await userEvent.click(screen.getByRole("button", { name: "Preview" }));
-    expect(await screen.findByText(/account conflict blocks this action/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Confirm consolidation" })).toBeDisabled();
+    expect(await screen.findByText("Identity")).toBeInTheDocument();
+    expect(screen.queryByText("Person consolidation")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Find people")).not.toBeInTheDocument();
   });
 });
