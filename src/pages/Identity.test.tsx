@@ -12,7 +12,7 @@ vi.mock("../api", async (importOriginal) => {
 });
 
 const mockedApi = vi.mocked(api, true);
-const user = { id: 7, name: "Alex Player", email_address: "alex@example.com", roles: ["player"], person_id: 4, account_id: 9,
+const user = { id: 7, name: "Alex Player", email_address: "alex@example.com", roles: ["player"], account_id: 9,
   player_profiles: [{ id: 12, display_name: "Alex Player", preferred_position: null, level: "advanced", status: "active" as const, visibility: "shared" as const }],
   coach_profiles: [], organisation_memberships: [], group_memberships: [] };
 const authValue = { user, loading: false, login: vi.fn(), register: vi.fn(), resetPassword: vi.fn(), logout: vi.fn(), impersonation: { active: false, realAdmin: null }, startImpersonating: vi.fn(), stopImpersonating: vi.fn() } as unknown as AuthContextValue;
@@ -53,7 +53,7 @@ describe("Identity", () => {
   });
 
   it("explains that an account without a linked profile needs a profile invitation", async () => {
-    const unlinkedAccount = { ...user, person_id: null, account_id: null };
+    const unlinkedAccount = { ...user, account_id: null };
     renderPage("/identity", unlinkedAccount);
 
     expect(await screen.findByRole("heading", { name: "Claim profiles" })).toBeInTheDocument();

@@ -146,7 +146,7 @@ afterEach(() => vi.clearAllMocks());
 describe("PlayerDetail", () => {
   describe("claim invitations", () => {
     it("offers the owner a claim invitation for an unlinked profile and reveals the link", async () => {
-      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.me.mockResolvedValue({ ...coachUser });
       mockedApi.player.mockResolvedValue(unlinkedPlayer());
       mockedApi.createClaimInvitation.mockResolvedValue({
         invitation: invitation(),
@@ -183,7 +183,7 @@ describe("PlayerDetail", () => {
     });
 
     it("tells a coach who did not record the profile why they cannot invite", async () => {
-      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.me.mockResolvedValue({ ...coachUser });
       mockedApi.player.mockResolvedValue(
         unlinkedPlayer({ created_by: { id: 99, name: "Other Coach" } }),
       );
@@ -199,7 +199,7 @@ describe("PlayerDetail", () => {
     });
 
     it("lets a profile owner invite even without a linked Person", async () => {
-      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: undefined });
+      mockedApi.me.mockResolvedValue({ ...coachUser });
       mockedApi.player.mockResolvedValue(unlinkedPlayer());
       renderDetail();
       await screen.findByRole("heading", { name: "Pedro Santos" });
@@ -222,7 +222,7 @@ describe("PlayerDetail", () => {
     });
 
     it("restores invitation state on reload instead of losing it with the token", async () => {
-      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.me.mockResolvedValue({ ...coachUser });
       mockedApi.player.mockResolvedValue(unlinkedPlayer());
       mockedApi.claimInvitations.mockResolvedValue([invitation()]);
       renderDetail();
@@ -235,7 +235,7 @@ describe("PlayerDetail", () => {
     });
 
     it("revokes an active invitation through the API", async () => {
-      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.me.mockResolvedValue({ ...coachUser });
       mockedApi.player.mockResolvedValue(unlinkedPlayer());
       mockedApi.claimInvitations.mockResolvedValue([invitation()]);
       mockedApi.revokeClaimInvitation.mockResolvedValue(
@@ -250,10 +250,10 @@ describe("PlayerDetail", () => {
     });
 
     it("surfaces a failed invitation instead of failing silently", async () => {
-      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.me.mockResolvedValue({ ...coachUser });
       mockedApi.player.mockResolvedValue(unlinkedPlayer());
       mockedApi.createClaimInvitation.mockRejectedValue(
-        new Error("A linked Person is required to create an invitation"),
+        new Error("Profile cannot be claimed"),
       );
       renderDetail();
 
@@ -263,7 +263,7 @@ describe("PlayerDetail", () => {
 
       expect(
         await screen.findByRole("alert"),
-      ).toHaveTextContent(/linked Person is required/i);
+      ).toHaveTextContent(/profile cannot be claimed/i);
     });
   });
   it("shows account-link status and training history without Person details", async () => {

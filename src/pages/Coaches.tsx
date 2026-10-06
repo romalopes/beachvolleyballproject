@@ -272,7 +272,7 @@ export default function Coaches() {
         <DeleteConfirm
           entityName={coachName(confirmingDelete)}
           title={`Permanently delete “${coachName(confirmingDelete)}” profile?`}
-          warning="This is only allowed when the profile has no account, training, tournament, or assessment history."
+          warning="This is only allowed when the profile has no protected history, such as training, tournament, or assessment records. Any linked Account and Person are retained."
           confirmLabel="Delete profile"
           pendingLabel="Deleting..."
           deleting={working}

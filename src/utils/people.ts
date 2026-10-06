@@ -44,8 +44,6 @@ export function deleteCoachProfile(id: number) {
 }
 
 const PROFILE_DELETE_BLOCKER_LABELS: Record<string, string> = {
-  profile_account: "the profile is linked to an account",
-  person_account: "the linked Person has an account",
   person_group_memberships: "the linked identity is in a group roster",
   person_training_session_participants: "the linked Person has training history",
   person_assessment_session_participants: "the linked Person has assessment session history",

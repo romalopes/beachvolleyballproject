@@ -598,7 +598,7 @@ export interface Group {
    */
   organisation: { id: number; name: string } | null;
   /** Who runs it, from the membership rather than from `created_by`. */
-  owner: { id: number; name: string | null } | null;
+  owner: { id: number; account_id?: number | null; person_id?: number | null; name: string | null } | null;
   created_by: { id: number; name: string } | null;
   created_at: string;
   updated_at: string;
@@ -1131,6 +1131,7 @@ export interface OrganisationMembershipInput {
 export interface UserGroupMembership {
   id: number;
   group_id: number;
+  account_id?: number | null;
   role: "owner" | "coach" | "member";
   status: "active" | "ended";
   joined_at: string | null;
@@ -1270,7 +1271,7 @@ export interface PlayerClaim {
   claimable_type?: string | null;
   claimable_id?: number | null;
   claimant_account_id?: number | null;
-  person_id: number;
+  person_id?: number | null;
   status: "pending" | "approved" | "rejected" | "cancelled";
   created_at: string;
   reviewed_at: string | null;
@@ -1408,10 +1409,8 @@ export interface User {
   name: string;
   email_address: string;
   roles: string[];
-  /** Present for the signed-in user; used to default assessment attribution. */
-  person_id?: number | null;
   coach_profile_id?: number | null;
-  /** All coaching records for the authenticated Person; the singular ID is a legacy default. */
+  /** All coaching profiles owned by this Account; the singular ID is a legacy default. */
   coach_profile_ids?: number[];
   coach_profiles?: CoachContext[];
   player_profile_id?: number | null;

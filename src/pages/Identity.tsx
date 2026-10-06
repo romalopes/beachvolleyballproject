@@ -37,7 +37,7 @@ export default function IdentityPage() {
 
   const canManageProfiles = Boolean(user?.roles.some((role) => role === "admin" || role === "coach" || role === "curator"));
   const userId = user?.id;
-  const personId = user?.person_id;
+  const accountId = user?.account_id;
   const invitationReturnPath = `${location.pathname}${location.search}${location.hash}`;
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export default function IdentityPage() {
 
   const reloadClaims = async () => {
     const mine = await api.playerClaims();
-    setClaims(mine.filter((claim) => claim.person_id === user?.person_id));
+    setClaims(mine.filter((claim) => claim.claimant_account_id === user?.account_id));
     setReceivedInvitations(await api.receivedClaimInvitations());
   };
 
@@ -55,16 +55,16 @@ export default function IdentityPage() {
     let cancelled = false;
     Promise.all([api.playerClaims(), api.receivedClaimInvitations()]).then(([userClaims, received]) => {
       if (cancelled) return;
-      setClaims(userClaims.filter((claim) => claim.person_id === personId));
+      setClaims(userClaims.filter((claim) => claim.claimant_account_id === accountId));
       setReceivedInvitations(received);
     }).catch((err: unknown) => {
       if (!cancelled) setError(err instanceof Error ? err.message : "Could not load identity information.");
     }).finally(() => { if (!cancelled) setLoadedUserId(userId); });
     return () => { cancelled = true; };
-  }, [userId, personId]);
+  }, [userId, accountId]);
 
   useEffect(() => {
-    if (!personId) return;
+    if (!accountId) return;
     let cancelled = false;
     const search = async () => {
       await Promise.resolve();
@@ -82,7 +82,7 @@ export default function IdentityPage() {
     };
     void search();
     return () => { cancelled = true; };
-  }, [personId, profileType, submittedQuery, organisationId, candidatePage]);
+  }, [accountId, profileType, submittedQuery, organisationId, candidatePage]);
 
   const redeem = async () => {
     if (!token.trim()) return;
@@ -183,7 +183,7 @@ export default function IdentityPage() {
     </section>
 
     <section className="detail-section"><h2>Claim profiles</h2>
-      {!personId ? (
+      {!accountId ? (
         <p role="note">
           Your account is not yet linked to a profile, so profile suggestions are not available yet. Ask a coach or administrator to create an invite link
           from your player or coach profile, then redeem it above while signed in.

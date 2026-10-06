@@ -93,7 +93,7 @@ describe("CoachDetail", () => {
     it("offers an invitation for a coach profile with no Person", async () => {
       // Coach parity: Phase 18 made a personless coach profile possible, which
       // is the state a claim invitation can be issued against.
-      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.me.mockResolvedValue({ ...coachUser });
       mockedApi.coach.mockResolvedValue(unlinkedCoach());
       renderDetail();
       await screen.findByRole("heading", { name: /Olga Reyes/ });
@@ -104,7 +104,7 @@ describe("CoachDetail", () => {
     });
 
     it("offers a profile invitation without exposing Person data", async () => {
-      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.me.mockResolvedValue({ ...coachUser });
       renderDetail();
       await screen.findByRole("heading", { name: /Olga Reyes/ });
 
@@ -116,7 +116,7 @@ describe("CoachDetail", () => {
     });
 
     it("renders profile account-link status without contact fields", async () => {
-      mockedApi.me.mockResolvedValue({ ...coachUser, person_id: 9 });
+      mockedApi.me.mockResolvedValue({ ...coachUser });
       mockedApi.coach.mockResolvedValue(unlinkedCoach());
       renderDetail();
 
