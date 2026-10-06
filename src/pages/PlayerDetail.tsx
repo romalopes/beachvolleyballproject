@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import AssessmentList from "../components/people/AssessmentList";
 import ClaimInvitationPanel from "../components/people/ClaimInvitationPanel";
 import CoachingRelationships from "../components/people/CoachingRelationships";
+import ProfileMergePanel from "../components/identity/ProfileMergePanel";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
@@ -34,6 +35,7 @@ export default function PlayerDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const canEdit = canManageProfiles(user);
+  const canMerge = Boolean(user?.roles.some((role) => role === "admin" || role === "curator"));
   const numericId = Number(id);
   const invalidId = !id || Number.isNaN(numericId);
   const [player, setPlayer] = useState<Player | null>(null);
@@ -150,14 +152,14 @@ export default function PlayerDetail() {
         {canEdit && (
           <div className="admin-actions-bar">
             <div className="admin-table-actions">
-              {player.person && <button
+              <button
                 type="button"
                 className="admin-btn admin-btn-add"
                 onClick={() => navigate(`/players/${player.id}/edit`)}
               >
                 <Pencil size={14} />
                 Edit
-              </button>}
+              </button>
               {isArchived(player) ? (
                 <button
                   type="button"
@@ -215,6 +217,13 @@ export default function PlayerDetail() {
           inviteeEmail={null}
         />}
       </section>
+
+      {canMerge && player.status === "active" && <ProfileMergePanel
+        kind="player"
+        sourceId={player.id}
+        sourceName={playerName}
+        onMerged={(canonicalId) => navigate(`/players/${canonicalId}`, { replace: true })}
+      />}
 
       {player.person?.organisation_memberships?.length ? (
         <section className="detail-section">

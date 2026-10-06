@@ -1227,6 +1227,14 @@ export interface Player {
   }[];
 }
 
+export interface ProfileMergeResult {
+  id: number;
+  source_profile_id: number;
+  canonical_profile_id: number;
+  reference_counts: Record<string, number>;
+  merged_at: string;
+}
+
 /**
  * Create payload. Name the human either way:
  *   * `person_id` — link a profile to a person that already exists (the result
@@ -1742,6 +1750,11 @@ export const api = {
   updatePlayer: (id: number, data: PlayerInput) =>
     postJSON<PlayerCreateResponse>(`/players/${id}`, { player: data }, "PATCH"),
   deletePlayer: (id: number) => postJSON<void>(`/players/${id}`, {}, "DELETE"),
+  mergePlayerProfile: (id: number, canonicalProfileId: number, reason: string) =>
+    postJSON<ProfileMergeResult>(`/players/${id}/merge`, {
+      canonical_profile_id: canonicalProfileId,
+      reason,
+    }),
 
   // ---------- Player claims (self-service request; coach/admin review) ----------
   playerProfileCandidates: () =>
@@ -1889,6 +1902,11 @@ export const api = {
   updateCoach: (id: number, data: CoachInput) =>
     postJSON<CoachCreateResponse>(`/coaches/${id}`, { coach: data }, "PATCH"),
   deleteCoach: (id: number) => postJSON<void>(`/coaches/${id}`, {}, "DELETE"),
+  mergeCoachProfile: (id: number, canonicalProfileId: number, reason: string) =>
+    postJSON<ProfileMergeResult>(`/coaches/${id}/merge`, {
+      canonical_profile_id: canonicalProfileId,
+      reason,
+    }),
 
   // ---------- Assessments (canonical score is derived by the server) ----------
   assessments: (filters: AssessmentFilters = {}) => {

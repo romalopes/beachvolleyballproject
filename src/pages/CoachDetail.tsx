@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import AssessmentList from "../components/people/AssessmentList";
 import ClaimInvitationPanel from "../components/people/ClaimInvitationPanel";
 import CoachingRelationships from "../components/people/CoachingRelationships";
+import ProfileMergePanel from "../components/identity/ProfileMergePanel";
 import EmptyState from "../components/EmptyState";
 import Tag from "../components/Tag";
 import DeleteConfirm from "../components/settings/DeleteConfirm";
@@ -29,6 +30,7 @@ export default function CoachDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const canEdit = canManageProfiles(user);
+  const canMerge = Boolean(user?.roles.some((role) => role === "admin" || role === "curator"));
   const numericId = Number(id);
   const invalidId = !id || Number.isNaN(numericId);
   const [coach, setCoach] = useState<Coach | null>(null);
@@ -198,6 +200,13 @@ export default function CoachDetail() {
           inviteeEmail={null}
         />}
       </section>
+
+      {canMerge && coach.status === "active" && <ProfileMergePanel
+        kind="coach"
+        sourceId={coach.id}
+        sourceName={coachName}
+        onMerged={(canonicalId) => navigate(`/coaches/${canonicalId}`, { replace: true })}
+      />}
 
       {coach.person?.organisation_memberships?.length ? (
         <section className="detail-section">
