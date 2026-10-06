@@ -1,15 +1,19 @@
-import { useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';
-import { api } from '../api';
-import { CLAIM_INVITATION_RETURN_PATH_KEY, clearClaimInvitationPath, safeInternalReturnPath } from '../auth/invitationReturnPath';
+import { useState, type FormEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
+import { api } from "../api";
+import {
+  CLAIM_INVITATION_RETURN_PATH_KEY,
+  clearClaimInvitationPath,
+  safeInternalReturnPath,
+} from "../auth/invitationReturnPath";
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
@@ -36,7 +40,7 @@ export default function Login() {
       clearClaimInvitationPath();
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign in failed.');
+      setError(err instanceof Error ? err.message : "Sign in failed.");
     } finally {
       setSubmitting(false);
     }
@@ -50,7 +54,11 @@ export default function Login() {
       await api.resendVerification(pendingEmail);
       setResent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not resend the verification email.');
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not resend the verification email.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -61,24 +69,27 @@ export default function Login() {
       <div className="auth-card">
         <div className="auth-logo">
           <span className="sidebar-logo-icon">
-<img src="/ball.png" width="28" height="28" alt="" />
+            <img src="/ball.png" width="28" height="28" alt="" />
           </span>
-          BVB Project
+          BVB Hub
         </div>
         <h2>Sign in</h2>
-        <p className="auth-subtitle">Welcome back. Sign in to access your training database.</p>
+        <p className="auth-subtitle">
+          Welcome back. Sign in to access your training database.
+        </p>
 
         {error && <div className="auth-flash auth-flash-error">{error}</div>}
 
         {pendingEmail && (
           <div className="auth-flash auth-flash-error" role="alert">
-            <p style={{ margin: '0 0 8px' }}>
+            <p style={{ margin: "0 0 8px" }}>
               Please verify your email address ({pendingEmail}) before signing
               in. We sent you a verification link.
             </p>
             {resent && (
-              <p style={{ margin: '0 0 8px' }}>
-                A new verification email has been sent — please check your inbox.
+              <p style={{ margin: "0 0 8px" }}>
+                A new verification email has been sent — please check your
+                inbox.
               </p>
             )}
             <button
@@ -87,7 +98,7 @@ export default function Login() {
               onClick={handleResend}
               disabled={submitting}
             >
-              {submitting ? 'Sending...' : 'Resend verification email'}
+              {submitting ? "Sending..." : "Resend verification email"}
             </button>
           </div>
         )}
@@ -120,13 +131,15 @@ export default function Login() {
             />
           </div>
           <button type="submit" className="auth-submit" disabled={submitting}>
-            {submitting ? 'Signing in...' : 'Sign in'}
+            {submitting ? "Signing in..." : "Sign in"}
           </button>
         </form>
 
         <div className="auth-links">
           <Link to="/forgot-password">Forgot your password?</Link>
-          <Link to="/signup" state={{ from }}>Create an account</Link>
+          <Link to="/signup" state={{ from }}>
+            Create an account
+          </Link>
         </div>
       </div>
     </div>

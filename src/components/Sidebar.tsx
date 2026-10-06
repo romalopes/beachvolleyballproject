@@ -144,10 +144,13 @@ function readCollapsedGroups(): CollapsedGroups {
     if (!stored) return {};
 
     const parsed: unknown = JSON.parse(stored);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return {};
 
     const collapsed: CollapsedGroups = {};
-    for (const [id, value] of Object.entries(parsed as Record<string, unknown>)) {
+    for (const [id, value] of Object.entries(
+      parsed as Record<string, unknown>,
+    )) {
       if (typeof value === "boolean") collapsed[id] = value;
     }
     return collapsed;
@@ -222,7 +225,7 @@ export default function Sidebar() {
           <img src="/ball.png" width="24" height="24" alt="" />
         </span>
         <NavLink to="/" className="logo-text">
-          BVB Project
+          BVB Hub
         </NavLink>
       </div>
       <nav className="sidebar-nav" aria-label="Main">

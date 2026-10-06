@@ -88,7 +88,9 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function ManagerRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  const canManage = user?.roles?.some((role) => role === "coach" || role === "curator" || role === "admin");
+  const canManage = user?.roles?.some(
+    (role) => role === "coach" || role === "curator" || role === "admin",
+  );
   if (!canManage) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
@@ -134,7 +136,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        <span className="mobile-logo">BVB Project - React</span>
+        <span className="mobile-logo">BVB Hub</span>
         <div style={{ width: 24 }} />
       </div>
       <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
@@ -164,295 +166,330 @@ export default function App() {
               <Routes>
                 <Route path="/test-access" element={<TestAccessPage />} />
                 <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/" element={<Home />} />
-            <Route path="/skills" element={<Skills />} />
-            <Route path="/skills/:slug" element={<SkillDetail />} />
-            <Route path="/drills" element={<Drills />} />
-            <Route path="/drills/:slug" element={<DrillDetail />} />
-            <Route path="/videos" element={<Videos />} />
-            <Route path="/videos/:id" element={<VideosDetail />} />
-            <Route path="/training" element={<Training />} />
-            <Route path="/training/new" element={<ManagerRoute><TrainingFormPage /></ManagerRoute>} />
-            <Route path="/training/:id/edit" element={<ManagerRoute><TrainingFormPage /></ManagerRoute>} />
-            <Route path="/training/:id" element={<ManagerRoute><TrainingDetail /></ManagerRoute>} />
-            <Route path="/calendar" element={<TrainingCalendar />} />
-            <Route path="/schedule" element={<Schedule />} />
-            <Route
-              path="/players"
-              element={
-                <ManagerRoute>
-                  <Players />
-                </ManagerRoute>
-              }
-            />
-            <Route
-              path="/players/:id/edit"
-              element={
-                <ManagerRoute>
-                  <ProfileEditPage kind="player" />
-                </ManagerRoute>
-              }
-            />
-            <Route
-              path="/players/:id"
-              element={
-                <AuthenticatedRoute>
-                  <PlayerDetail />
-                </AuthenticatedRoute>
-              }
-            />
-            <Route
-              path="/assessments"
-              element={
-                <ManagerRoute>
-                  <Assessments />
-                </ManagerRoute>
-              }
-            />
-            <Route
-              path="/assessment-sessions"
-              element={
-                <ManagerRoute>
-                  <AssessmentSessions />
-                </ManagerRoute>
-              }
-            />
-            <Route
-              path="/assessment-sessions/:id"
-              element={
-                <ManagerRoute>
-                  <AssessmentSessionDetail />
-                </ManagerRoute>
-              }
-            />
-            <Route
-              path="/ranking-consolidations"
-              element={
-                <ManagerRoute>
-                  <RankingConsolidations />
-                </ManagerRoute>
-              }
-            />
-            <Route
-              path="/ranking-consolidations/:id"
-              element={
-                <ManagerRoute>
-                  <RankingConsolidationDetail />
-                </ManagerRoute>
-              }
-            />
-            <Route
-              path="/groups"
-              element={
-                <ManagerRoute>
-                  <Groups />
-                </ManagerRoute>
-              }
-            />
-            <Route path="/groups/:id" element={<AuthenticatedRoute><GroupDetail /></AuthenticatedRoute>} />
-            <Route
-              path="/organisations"
-              element={
-                <ManagerRoute>
-                  <Organisations />
-                </ManagerRoute>
-              }
-            />
-            <Route path="/organisations/:id" element={<AuthenticatedRoute><OrganisationDetail /></AuthenticatedRoute>} />
-            <Route
-              path="/assessment-definitions"
-              element={
-                <ManagerRoute>
-                  <AssessmentDefinitions />
-                </ManagerRoute>
-              }
-            />
-            <Route
-              path="/coaches/:id/edit"
-              element={
-                <ManagerRoute>
-                  <ProfileEditPage kind="coach" />
-                </ManagerRoute>
-              }
-            />
-            <Route
-              path="/coaches/:id"
-              element={
-                <AuthenticatedRoute>
-                  <CoachDetail />
-                </AuthenticatedRoute>
-              }
-            />
-            <Route
-              path="/coaches"
-              element={
-                <ManagerRoute>
-                  <Coaches />
-                </ManagerRoute>
-              }
-            />
-            <Route
-              path="/admin/users"
-              element={
-                <AdminRoute>
-                  <AdminUsers />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <AdminRoute>
-                  <SettingsDashboard />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/skills"
-              element={
-                <AdminRoute>
-                  <SkillsSettings />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/skills/new"
-              element={
-                <AdminRoute>
-                  <SkillFormPage />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/skills/:slug/edit"
-              element={
-                <AdminRoute>
-                  <SkillFormPage />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/categories"
-              element={
-                <AdminRoute>
-                  <CategoriesSettings />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/categories/new"
-              element={
-                <AdminRoute>
-                  <CategoryFormPage />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/categories/:slug/edit"
-              element={
-                <AdminRoute>
-                  <CategoryFormPage />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/categories/:slug"
-              element={
-                <AdminRoute>
-                  <CategoryDetailSettings />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/drills"
-              element={
-                <AdminRoute>
-                  <DrillsSettings />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/drills/new"
-              element={
-                <AdminRoute>
-                  <DrillFormPage />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/drills/:slug/edit"
-              element={
-                <AdminRoute>
-                  <DrillFormPage />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/logs"
-              element={
-                <AdminRoute>
-                  <Logs />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/logs/:id"
-              element={
-                <AdminRoute>
-                  <LogDetail />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/configuration"
-              element={
-                <AdminRoute>
-                  <ConfigurationSettings />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/system-logs"
-              element={
-                <AdminRoute>
-                  <SystemLogs />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/api-health"
-              element={
-                <AdminRoute>
-                  <ApiHealth />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/video-categories"
-              element={
-                <AdminRoute>
-                  <VideoCategoriesSettings />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/settings/video-tags"
-              element={
-                <AdminRoute>
-                  <VideoTagsSettings />
-                </AdminRoute>
-              }
-            />
-            <Route path="/account" element={<AccountPage />} />
-            <Route path="/accounts/:id" element={<AccountDetail />} />
-            <Route path="/identity" element={<IdentityPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Layout>
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/verify-email" element={<VerifyEmail />} />
+                <Route path="/" element={<Home />} />
+                <Route path="/skills" element={<Skills />} />
+                <Route path="/skills/:slug" element={<SkillDetail />} />
+                <Route path="/drills" element={<Drills />} />
+                <Route path="/drills/:slug" element={<DrillDetail />} />
+                <Route path="/videos" element={<Videos />} />
+                <Route path="/videos/:id" element={<VideosDetail />} />
+                <Route path="/training" element={<Training />} />
+                <Route
+                  path="/training/new"
+                  element={
+                    <ManagerRoute>
+                      <TrainingFormPage />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/training/:id/edit"
+                  element={
+                    <ManagerRoute>
+                      <TrainingFormPage />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/training/:id"
+                  element={
+                    <ManagerRoute>
+                      <TrainingDetail />
+                    </ManagerRoute>
+                  }
+                />
+                <Route path="/calendar" element={<TrainingCalendar />} />
+                <Route path="/schedule" element={<Schedule />} />
+                <Route
+                  path="/players"
+                  element={
+                    <ManagerRoute>
+                      <Players />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/players/:id/edit"
+                  element={
+                    <ManagerRoute>
+                      <ProfileEditPage kind="player" />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/players/:id"
+                  element={
+                    <AuthenticatedRoute>
+                      <PlayerDetail />
+                    </AuthenticatedRoute>
+                  }
+                />
+                <Route
+                  path="/assessments"
+                  element={
+                    <ManagerRoute>
+                      <Assessments />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/assessment-sessions"
+                  element={
+                    <ManagerRoute>
+                      <AssessmentSessions />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/assessment-sessions/:id"
+                  element={
+                    <ManagerRoute>
+                      <AssessmentSessionDetail />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/ranking-consolidations"
+                  element={
+                    <ManagerRoute>
+                      <RankingConsolidations />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/ranking-consolidations/:id"
+                  element={
+                    <ManagerRoute>
+                      <RankingConsolidationDetail />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/groups"
+                  element={
+                    <ManagerRoute>
+                      <Groups />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/groups/:id"
+                  element={
+                    <AuthenticatedRoute>
+                      <GroupDetail />
+                    </AuthenticatedRoute>
+                  }
+                />
+                <Route
+                  path="/organisations"
+                  element={
+                    <ManagerRoute>
+                      <Organisations />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/organisations/:id"
+                  element={
+                    <AuthenticatedRoute>
+                      <OrganisationDetail />
+                    </AuthenticatedRoute>
+                  }
+                />
+                <Route
+                  path="/assessment-definitions"
+                  element={
+                    <ManagerRoute>
+                      <AssessmentDefinitions />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/coaches/:id/edit"
+                  element={
+                    <ManagerRoute>
+                      <ProfileEditPage kind="coach" />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/coaches/:id"
+                  element={
+                    <AuthenticatedRoute>
+                      <CoachDetail />
+                    </AuthenticatedRoute>
+                  }
+                />
+                <Route
+                  path="/coaches"
+                  element={
+                    <ManagerRoute>
+                      <Coaches />
+                    </ManagerRoute>
+                  }
+                />
+                <Route
+                  path="/admin/users"
+                  element={
+                    <AdminRoute>
+                      <AdminUsers />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <AdminRoute>
+                      <SettingsDashboard />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/skills"
+                  element={
+                    <AdminRoute>
+                      <SkillsSettings />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/skills/new"
+                  element={
+                    <AdminRoute>
+                      <SkillFormPage />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/skills/:slug/edit"
+                  element={
+                    <AdminRoute>
+                      <SkillFormPage />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/categories"
+                  element={
+                    <AdminRoute>
+                      <CategoriesSettings />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/categories/new"
+                  element={
+                    <AdminRoute>
+                      <CategoryFormPage />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/categories/:slug/edit"
+                  element={
+                    <AdminRoute>
+                      <CategoryFormPage />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/categories/:slug"
+                  element={
+                    <AdminRoute>
+                      <CategoryDetailSettings />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/drills"
+                  element={
+                    <AdminRoute>
+                      <DrillsSettings />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/drills/new"
+                  element={
+                    <AdminRoute>
+                      <DrillFormPage />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/drills/:slug/edit"
+                  element={
+                    <AdminRoute>
+                      <DrillFormPage />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/logs"
+                  element={
+                    <AdminRoute>
+                      <Logs />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/logs/:id"
+                  element={
+                    <AdminRoute>
+                      <LogDetail />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/configuration"
+                  element={
+                    <AdminRoute>
+                      <ConfigurationSettings />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/system-logs"
+                  element={
+                    <AdminRoute>
+                      <SystemLogs />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/api-health"
+                  element={
+                    <AdminRoute>
+                      <ApiHealth />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/video-categories"
+                  element={
+                    <AdminRoute>
+                      <VideoCategoriesSettings />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/settings/video-tags"
+                  element={
+                    <AdminRoute>
+                      <VideoTagsSettings />
+                    </AdminRoute>
+                  }
+                />
+                <Route path="/account" element={<AccountPage />} />
+                <Route path="/accounts/:id" element={<AccountDetail />} />
+                <Route path="/identity" element={<IdentityPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Layout>
           </AuthProvider>
         </TestAccessGate>
       </BrowserRouter>

@@ -1,19 +1,25 @@
-import { useState, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';
-import { api } from '../api';
-import { clearClaimInvitationPath, rememberClaimInvitationPath, safeInternalReturnPath } from '../auth/invitationReturnPath';
+import { useState, type FormEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
+import { api } from "../api";
+import {
+  clearClaimInvitationPath,
+  rememberClaimInvitationPath,
+  safeInternalReturnPath,
+} from "../auth/invitationReturnPath";
 
 export default function Signup() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = safeInternalReturnPath((location.state as { from?: string } | null)?.from);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmation, setConfirmation] = useState('');
+  const from = safeInternalReturnPath(
+    (location.state as { from?: string } | null)?.from,
+  );
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
@@ -27,7 +33,13 @@ export default function Signup() {
     setSubmitting(true);
     try {
       rememberClaimInvitationPath(from);
-      const user = await register(firstName, lastName, email, password, confirmation);
+      const user = await register(
+        firstName,
+        lastName,
+        email,
+        password,
+        confirmation,
+      );
       if (user === null) {
         // Email verification pending — stay here with guidance.
         setPendingEmail(email);
@@ -36,7 +48,7 @@ export default function Signup() {
       clearClaimInvitationPath();
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign up failed.');
+      setError(err instanceof Error ? err.message : "Sign up failed.");
     } finally {
       setSubmitting(false);
     }
@@ -50,7 +62,11 @@ export default function Signup() {
       await api.resendVerification(pendingEmail);
       setResent(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not resend the verification email.');
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not resend the verification email.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -64,21 +80,24 @@ export default function Signup() {
             <span className="sidebar-logo-icon">
               <img src="/ball.png" width="28" height="28" alt="" />
             </span>
-            BVB Project
+            BVB Hub
           </div>
           <h2>One click away</h2>
-          <p className="auth-subtitle">We just need to know it&apos;s really you.</p>
+          <p className="auth-subtitle">
+            We just need to know it&apos;s really you.
+          </p>
 
           {error && <div className="auth-flash auth-flash-error">{error}</div>}
 
           <div className="auth-flash auth-flash-notice" role="alert">
-            <p style={{ margin: '0 0 8px' }}>
+            <p style={{ margin: "0 0 8px" }}>
               Account created! We sent a verification link to ({pendingEmail}).
               Please verify your email address before signing in.
             </p>
             {resent && (
-              <p style={{ margin: '0 0 8px' }}>
-                A new verification email has been sent — please check your inbox.
+              <p style={{ margin: "0 0 8px" }}>
+                A new verification email has been sent — please check your
+                inbox.
               </p>
             )}
           </div>
@@ -96,7 +115,7 @@ export default function Signup() {
             onClick={handleResend}
             disabled={submitting}
           >
-            {submitting ? 'Sending...' : 'Resend verification email'}
+            {submitting ? "Sending..." : "Resend verification email"}
           </button>
 
           <div className="auth-links">
@@ -114,12 +133,14 @@ export default function Signup() {
       <div className="auth-card">
         <div className="auth-logo">
           <span className="sidebar-logo-icon">
-<img src="/ball.png" width="28" height="28" alt="" />
+            <img src="/ball.png" width="28" height="28" alt="" />
           </span>
-          BVB Project
+          BVB Hub
         </div>
         <h2>Create your account</h2>
-        <p className="auth-subtitle">Sign up to organise skills, drills and training sessions.</p>
+        <p className="auth-subtitle">
+          Sign up to organise skills, drills and training sessions.
+        </p>
 
         {error && <div className="auth-flash auth-flash-error">{error}</div>}
 
@@ -191,12 +212,14 @@ export default function Signup() {
             />
           </div>
           <button type="submit" className="auth-submit" disabled={submitting}>
-            {submitting ? 'Creating account...' : 'Sign up'}
+            {submitting ? "Creating account..." : "Sign up"}
           </button>
         </form>
 
         <div className="auth-links">
-          <Link to="/login" state={{ from }}>Already have an account? Sign in</Link>
+          <Link to="/login" state={{ from }}>
+            Already have an account? Sign in
+          </Link>
         </div>
       </div>
     </div>
