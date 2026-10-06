@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "../auth/AuthProvider";
 import { api } from "../api";
@@ -21,14 +21,22 @@ vi.mock("../api", async (importOriginal) => {
 
 const mockedApi = vi.mocked(api, true);
 
-function renderLogin() {
+function renderLogin(initialEntry: string | { pathname: string; state?: unknown } = "/login", withDestination = false) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <AuthProvider>
-        <Login />
+        {withDestination ? <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<RouteState />} />
+        </Routes> : <Login />}
       </AuthProvider>
     </MemoryRouter>
   );
+}
+
+function RouteState() {
+  const location = useLocation();
+  return <output data-testid="route-state">{JSON.stringify(location.state)}</output>;
 }
 
 beforeEach(() => {
@@ -48,6 +56,12 @@ describe("Login page", () => {
     expect(screen.getByLabelText("Password")).toBeInTheDocument();
     expect(screen.getByText("Forgot your password?")).toBeInTheDocument();
     expect(screen.getByText("Create an account")).toBeInTheDocument();
+  });
+
+  it("carries the saved invitation destination into account registration", async () => {
+    renderLogin({ pathname: "/login", state: { from: "/identity#claim_token=invite-secret" } }, true);
+    await userEvent.click(await screen.findByRole("link", { name: "Create an account" }));
+    expect(screen.getByTestId("route-state")).toHaveTextContent("/identity#claim_token=invite-secret");
   });
 
   it("submits the credentials via the auth context", async () => {

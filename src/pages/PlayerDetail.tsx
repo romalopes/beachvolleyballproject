@@ -111,7 +111,7 @@ export default function PlayerDetail() {
   // silently rendering nothing.
   const invitationBlockedReason = !user
     ? "Sign in to invite this player to claim their profile."
-    : !user.roles.includes("admin") &&
+    : !user.roles.includes("admin") && !user.roles.includes("curator") &&
         !(user.roles.includes("coach") && player.created_by?.id === user.id)
       ? "Only an administrator or the coach who recorded this profile can invite a player to claim it."
       : null;

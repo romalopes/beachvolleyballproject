@@ -1,11 +1,14 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { api } from '../api';
+import { clearClaimInvitationPath, rememberClaimInvitationPath, safeInternalReturnPath } from '../auth/invitationReturnPath';
 
 export default function Signup() {
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = safeInternalReturnPath((location.state as { from?: string } | null)?.from);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -22,13 +25,15 @@ export default function Signup() {
     setResent(false);
     setSubmitting(true);
     try {
+      rememberClaimInvitationPath(from);
       const user = await register(name, email, password, confirmation);
       if (user === null) {
         // Email verification pending — stay here with guidance.
         setPendingEmail(email);
         return;
       }
-      navigate('/', { replace: true });
+      clearClaimInvitationPath();
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign up failed.');
     } finally {
@@ -146,7 +151,7 @@ export default function Signup() {
         </form>
 
         <div className="auth-links">
-          <Link to="/login">Already have an account? Sign in</Link>
+          <Link to="/login" state={{ from }}>Already have an account? Sign in</Link>
         </div>
       </div>
     </div>

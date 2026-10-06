@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api';
+import { CLAIM_INVITATION_RETURN_PATH_KEY, safeInternalReturnPath } from '../auth/invitationReturnPath';
 
 interface VerifyResult {
   status: string;
@@ -28,6 +29,9 @@ function verifyOnce(token: string): Promise<VerifyResult> {
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
+  const invitationReturnPath = safeInternalReturnPath(
+    window.localStorage.getItem(CLAIM_INVITATION_RETURN_PATH_KEY),
+  );
 
   const [state, setState] = useState<'verifying' | 'success' | 'error'>(
     token ? 'verifying' : 'error',
@@ -88,7 +92,7 @@ export default function VerifyEmail() {
               verified. You can now sign in to your account.
             </p>
             <div className="auth-links">
-              <Link to="/login">Go to sign in</Link>
+              <Link to="/login" state={{ from: invitationReturnPath }}>Go to sign in</Link>
             </div>
           </>
         )}

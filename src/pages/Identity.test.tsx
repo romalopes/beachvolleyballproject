@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ClaimInvitation } from "../api";
 import { AuthContext, type AuthContextValue } from "../auth/AuthContext";
@@ -17,6 +17,10 @@ const user = { id: 7, name: "Alex Player", email_address: "alex@example.com", ro
   coach_profiles: [], organisation_memberships: [], group_memberships: [] };
 const authValue = { user, loading: false, login: vi.fn(), register: vi.fn(), resetPassword: vi.fn(), logout: vi.fn(), impersonation: { active: false, realAdmin: null }, startImpersonating: vi.fn(), stopImpersonating: vi.fn() } as unknown as AuthContextValue;
 const renderPage = (entry = "/identity", currentUser: AuthContextValue["user"] = user) => render(<AuthContext.Provider value={{ ...authValue, user: currentUser } as unknown as AuthContextValue}><MemoryRouter initialEntries={[entry]}><IdentityPage /></MemoryRouter></AuthContext.Provider>);
+function RouteState() {
+  const location = useLocation();
+  return <output data-testid="route-state">{JSON.stringify(location.state)}</output>;
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -127,7 +131,20 @@ const claim = {
   it("preserves an invitation link through the sign-in route", async () => {
     renderPage("/identity#claim_token=keep-me", null as never);
     expect(await screen.findByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/login");
-    expect(screen.getByText(/redeem a player claim invitation/i)).toBeInTheDocument();
+    expect(screen.getByText(/sign in or create an account to redeem this invitation/i)).toBeInTheDocument();
+  });
+
+  it("passes an invitation link through the sign-in action for new registrants", async () => {
+    render(<AuthContext.Provider value={{ ...authValue, user: null } as unknown as AuthContextValue}>
+      <MemoryRouter initialEntries={["/identity#claim_token=preserve-this"]}>
+        <Routes>
+          <Route path="/identity" element={<IdentityPage />} />
+          <Route path="/login" element={<RouteState />} />
+        </Routes>
+      </MemoryRouter>
+    </AuthContext.Provider>);
+    await userEvent.click(await screen.findByRole("link", { name: "Sign in" }));
+    expect(screen.getByTestId("route-state")).toHaveTextContent("/identity#claim_token=preserve-this");
   });
 
   it("continues to accept a legacy query-token invitation", async () => {

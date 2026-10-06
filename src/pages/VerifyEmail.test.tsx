@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { api } from "../api";
 import VerifyEmail from "./VerifyEmail";
 
@@ -22,7 +23,13 @@ const renderPage = (token: string) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  window.localStorage.clear();
 });
+
+function RouteState() {
+  const location = useLocation();
+  return <output data-testid="route-state">{JSON.stringify(location.state)}</output>;
+}
 
 afterEach(cleanup);
 
@@ -36,6 +43,22 @@ describe("VerifyEmail page", () => {
     renderPage("good-token");
     expect(await screen.findByText("Email verified")).toBeInTheDocument();
     expect(screen.getByText(/thanks, bea/i)).toBeInTheDocument();
+  });
+
+  it("returns to the saved invitation after email verification", async () => {
+    window.localStorage.setItem("claimInvitationReturnPath", "/identity#claim_token=after-verification");
+    mockedApi.verifyEmail.mockResolvedValue({ status: "verified", email_address: "a@b.c", name: "Bea" });
+    render(
+      <MemoryRouter initialEntries={["/verify-email?token=resume-token"]}>
+        <Routes>
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/login" element={<RouteState />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByRole("link", { name: "Go to sign in" }));
+    expect(screen.getByTestId("route-state")).toHaveTextContent("/identity#claim_token=after-verification");
   });
 
   it("calls the endpoint exactly once per token even when remounted", async () => {

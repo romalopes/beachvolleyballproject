@@ -4,6 +4,7 @@ import { api, type MembershipConflictResolution, type PersonConsolidationConflic
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
 import ClaimInviteList from "../components/people/ClaimInviteList";
+import { clearClaimInvitationPath, rememberClaimInvitationPath } from "../auth/invitationReturnPath";
 
 type ResolutionChoice = { keep_record_id: number; reason: string };
 
@@ -34,15 +35,21 @@ export default function IdentityPage() {
     return fragmentToken ?? searchParams.get("account_claim_token") ?? "";
   });
 
-  const isReviewer = Boolean(user?.roles.some((role) => role === "admin" || role === "coach"));
+  const isClaimReviewer = Boolean(user?.roles.some((role) => role === "admin" || role === "coach"));
+  const canIssueInvitations = Boolean(user?.roles.some((role) => role === "admin" || role === "coach" || role === "curator"));
   const isAdmin = Boolean(user?.roles.includes("admin"));
   const userId = user?.id;
   const personId = user?.person_id;
+  const invitationReturnPath = `${location.pathname}${location.search}${location.hash}`;
+
+  useEffect(() => {
+    if (token) rememberClaimInvitationPath(invitationReturnPath);
+  }, [token, invitationReturnPath]);
 
   const reloadClaims = async () => {
     const mine = await api.playerClaims();
     setClaims(mine.filter((claim) => claim.person_id === user?.person_id));
-    if (isReviewer) setReviewClaims(await api.playerClaims());
+    if (isClaimReviewer) setReviewClaims(await api.playerClaims());
   };
 
   useEffect(() => {
@@ -60,12 +67,12 @@ export default function IdentityPage() {
       if (cancelled) return;
       setCandidates([...suggestions, ...coachSuggestions]);
       setClaims(userClaims.filter((claim) => claim.person_id === personId));
-      if (isReviewer) setReviewClaims(userClaims);
+      if (isClaimReviewer) setReviewClaims(userClaims);
     }).catch((err: unknown) => {
       if (!cancelled) setError(err instanceof Error ? err.message : "Could not load identity information.");
     }).finally(() => { if (!cancelled) setLoadedUserId(userId); });
     return () => { cancelled = true; };
-  }, [userId, personId, isReviewer]);
+  }, [userId, personId, isClaimReviewer]);
 
   const redeem = async () => {
     if (!token.trim()) return;
@@ -80,6 +87,7 @@ export default function IdentityPage() {
           : result.message,
       );
       setToken("");
+      clearClaimInvitationPath();
       const next = new URLSearchParams(searchParams);
       next.delete("claim_token");
       navigate({ pathname: location.pathname, search: next.toString() ? `?${next}` : "", hash: "" }, { replace: true });
@@ -136,7 +144,7 @@ export default function IdentityPage() {
     finally { setBusy(false); }
   };
 
-  if (!user) return <div className="page"><EmptyState title="Sign in to view your identity" description="Sign in to review your identity context or redeem a player claim invitation." /><Link className="auth-submit" to="/login" state={{ from: `${location.pathname}${location.search}${location.hash}` }}>Sign in</Link></div>;
+  if (!user) return <div className="page"><EmptyState title="Sign in to view your identity" description="Sign in or create an account to redeem this invitation. The invitation link will be restored after email verification." /><Link className="auth-submit" to="/login" state={{ from: invitationReturnPath }}>Sign in</Link></div>;
   if (loading) return <div className="loading">Loading identity…</div>;
 
   return <div className="page identity-page">
@@ -203,9 +211,9 @@ export default function IdentityPage() {
       {claims.length ? <ul>{claims.map((claim) => <li key={claim.id}>Claim #{claim.id} · {claim.claimable_type?.replace("Profile", " profile ") || "Profile"} #{claim.claimable_id ?? claim.player_profile_id ?? "—"} · {claim.status}{claim.status === "pending" && <button className="admin-btn" disabled={busy} onClick={() => void actOnClaim(claim, "cancel")}>Cancel request</button>}</li>)}</ul> : <p>You have no claim requests.</p>}
     </section>
 
-    {isReviewer && <section className="detail-section"><h2>Invitations you can issue</h2><p>These are your unlinked player and coach profiles. Add an email to allow immediate linking after verification, or leave it blank to require staff review.</p><ClaimInviteList /></section>}
+    {canIssueInvitations && <section className="detail-section"><h2>Invitations you can issue</h2><p>These are unlinked player and coach profiles in your authorized scope. Enter an email to allow immediate linking after verification, or leave it blank to require staff review.</p><ClaimInviteList /></section>}
 
-    {isReviewer && <ClaimReview claims={reviewClaims.filter((claim) => claim.claimant_account_id ? claim.claimant_account_id !== user.account_id : claim.person_id !== user.person_id)} busy={busy} reason={rejectReason} setReason={setRejectReason} verificationMethod={verificationMethod} setVerificationMethod={setVerificationMethod} act={actOnClaim} />}
+    {isClaimReviewer && <ClaimReview claims={reviewClaims.filter((claim) => claim.claimant_account_id ? claim.claimant_account_id !== user.account_id : claim.person_id !== user.person_id)} busy={busy} reason={rejectReason} setReason={setRejectReason} verificationMethod={verificationMethod} setVerificationMethod={setVerificationMethod} act={actOnClaim} />}
     {isAdmin && <PersonConsolidation />}
   </div>;
 }

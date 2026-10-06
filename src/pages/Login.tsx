@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { api } from '../api';
+import { CLAIM_INVITATION_RETURN_PATH_KEY, clearClaimInvitationPath, safeInternalReturnPath } from '../auth/invitationReturnPath';
 
 export default function Login() {
   const { login } = useAuth();
@@ -14,7 +15,10 @@ export default function Login() {
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
 
-  const from = (location.state as { from?: string } | null)?.from || '/';
+  const from = safeInternalReturnPath(
+    (location.state as { from?: string } | null)?.from ||
+      window.localStorage.getItem(CLAIM_INVITATION_RETURN_PATH_KEY),
+  );
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -29,6 +33,7 @@ export default function Login() {
         return;
       }
       setPendingEmail(null);
+      clearClaimInvitationPath();
       navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed.');
@@ -121,7 +126,7 @@ export default function Login() {
 
         <div className="auth-links">
           <Link to="/forgot-password">Forgot your password?</Link>
-          <Link to="/signup">Create an account</Link>
+          <Link to="/signup" state={{ from }}>Create an account</Link>
         </div>
       </div>
     </div>

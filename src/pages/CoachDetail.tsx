@@ -105,7 +105,7 @@ export default function CoachDetail() {
   // coach who recorded it. Computed after the loading guards so `coach` is known.
   const invitationBlockedReason = !user
     ? "Sign in to invite this coach to claim their profile."
-    : !user.roles.includes("admin") &&
+    : !user.roles.includes("admin") && !user.roles.includes("curator") &&
         !(user.roles.includes("coach") && coach.created_by?.id === user.id)
       ? "Only an administrator or the coach who recorded this profile can invite a coach to claim it."
       : null;

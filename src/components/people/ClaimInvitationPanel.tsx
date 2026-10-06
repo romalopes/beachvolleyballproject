@@ -13,11 +13,7 @@ interface ClaimInvitationPanelProps {
   blockedReason: string | null;
   /** Why no new invitation may be issued even when the viewer owns the record. */
   ineligibleReason: string | null;
-  /**
-   * An address the invitation is restricted to. When the club emails it, the
-   * recipient can be linked without a human reviewing the claim; otherwise the
-   * request waits for staff review.
-   */
+  /** Optional initial recipient address; an authorized issuer may edit it. */
   inviteeEmail: string | null;
 }
 
@@ -43,6 +39,7 @@ export default function ClaimInvitationPanel({
   inviteeEmail,
 }: ClaimInvitationPanelProps) {
   const [invitations, setInvitations] = useState<ClaimInvitation[]>([]);
+  const [recipientEmail, setRecipientEmail] = useState(inviteeEmail ?? "");
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
@@ -82,6 +79,10 @@ export default function ClaimInvitationPanel({
     return () => { cancelled = true; };
   }, [loadInvitations, blockedReason]);
 
+  useEffect(() => {
+    setRecipientEmail(inviteeEmail ?? "");
+  }, [inviteeEmail]);
+
   // Derived rather than assigned in an effect: a blocked viewer never loads, so
   // there is nothing to wait for.
   const pending = loading && !blockedReason;
@@ -98,7 +99,7 @@ export default function ClaimInvitationPanel({
       const created = await api.createClaimInvitation(
         claimableType,
         claimableId,
-        inviteeEmail ?? undefined,
+        recipientEmail.trim() || undefined,
       );
       setToken(created.token);
       // A matching verified email authorizes linking even when staff share the
@@ -106,8 +107,8 @@ export default function ClaimInvitationPanel({
       setNotice(
         created.email_delivered
           ? `Invitation emailed to ${created.invitation.invitee_email}. A matching verified account can link immediately.`
-          : inviteeEmail
-            ? `Invitation created for ${inviteeEmail}, but the email could not be sent. Share the link; that verified address can still link immediately.`
+          : recipientEmail.trim()
+            ? `Invitation created for ${recipientEmail.trim()}, but the email could not be sent. Share the link; that verified address can still link immediately.`
             : "Invitation created. Share the link; the recipient's request will need staff review.",
       );
       await reload();
@@ -162,8 +163,8 @@ export default function ClaimInvitationPanel({
       {link ? (
         <div role="status">
           <p className="related-item-meta">
-            {inviteeEmail
-              ? `This one-time link can only be redeemed by ${inviteeEmail}. `
+            {recipientEmail.trim()
+              ? `This one-time link can only be redeemed by ${recipientEmail.trim()}. `
               : "Copy this one-time link and share it with the player. "}
             The token is shown only now.
           </p>
@@ -186,14 +187,25 @@ export default function ClaimInvitationPanel({
           </button>
         </div>
       ) : (
-      <button
-          type="button"
-          className="admin-btn admin-btn-add"
-          disabled={working || pending || Boolean(ineligibleReason)}
-          onClick={() => void create()}
-        >
-          {working ? "Creating invitation…" : "Create new invite link"}
-        </button>
+        <>
+          <label className="auth-field">Recipient email (optional; leave blank to require staff review)
+            <input
+              type="email"
+              autoComplete="email"
+              value={recipientEmail}
+              onChange={(event) => setRecipientEmail(event.target.value)}
+              placeholder="name@example.com"
+            />
+          </label>
+          <button
+            type="button"
+            className="admin-btn admin-btn-add"
+            disabled={working || pending || Boolean(ineligibleReason)}
+            onClick={() => void create()}
+          >
+            {working ? "Creating invitation…" : "Create new invite link"}
+          </button>
+        </>
       )}
       {ineligibleReason && <p className="related-item-meta">{ineligibleReason}</p>}
       {!pending && invitations.length > 0 && (
