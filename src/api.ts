@@ -1304,6 +1304,20 @@ export interface ClaimInvitation {
   revoked_at: string | null;
   declined_at?: string | null;
   created_at: string;
+  claimable_name?: string | null;
+}
+
+export interface ManagementClaim extends PlayerClaim {
+  can_review: boolean;
+}
+
+export interface ManagementClaimableProfile {
+  claimable_type: "PlayerProfile" | "CoachProfile";
+  claimable_id: number;
+  display_name: string;
+  status: ProfileStatus;
+  linked_to_account: boolean;
+  can_invite: boolean;
 }
 
 /** What redeeming an invitation actually did. */
@@ -1827,6 +1841,12 @@ export const api = {
     fetchAPI<PlayerClaim[] | PaginatedResponse<PlayerClaim>>(
       "/player_claims?per_page=100",
     ).then((response) => normalizePaginatedResponse(response).data),
+  managementPlayerClaims: (params: { status?: string; claimableType?: string; page?: number; perPage?: number } = {}) => {
+    const query = new URLSearchParams({ management: "1", page: String(params.page ?? 1), per_page: String(params.perPage ?? 20) });
+    if (params.status) query.set("status", params.status);
+    if (params.claimableType) query.set("claimable_type", params.claimableType);
+    return fetchAPI<PaginatedResponse<ManagementClaim>>(`/player_claims?${query}`);
+  },
   requestPlayerClaim: (playerProfileId: number) =>
     postJSON<PlayerClaim>("/player_claims", { player_profile_id: playerProfileId }),
   requestProfileClaim: (type: "PlayerProfile" | "CoachProfile", profileId: number) =>
@@ -1859,6 +1879,20 @@ export const api = {
         ? `/claim_invitations?claimable_type=${claimableType}&claimable_id=${claimableId}`
         : "/claim_invitations",
     ),
+  managementClaimInvitations: (params: { status?: string; claimableType?: string; page?: number; perPage?: number } = {}) => {
+    const query = new URLSearchParams({ management: "1", page: String(params.page ?? 1), per_page: String(params.perPage ?? 20) });
+    if (params.status) query.set("status", params.status);
+    if (params.claimableType) query.set("claimable_type", params.claimableType);
+    return fetchAPI<PaginatedResponse<ClaimInvitation>>(`/claim_invitations?${query}`);
+  },
+  managementClaimables: (params: { claimableType?: string; status?: string; linkState?: string; q?: string; page?: number; perPage?: number } = {}) => {
+    const query = new URLSearchParams({ page: String(params.page ?? 1), per_page: String(params.perPage ?? 20) });
+    if (params.claimableType) query.set("claimable_type", params.claimableType);
+    if (params.status) query.set("status", params.status);
+    if (params.linkState) query.set("link_state", params.linkState);
+    if (params.q?.trim()) query.set("q", params.q.trim());
+    return fetchAPI<PaginatedResponse<ManagementClaimableProfile>>(`/claim_invitations/claimables?${query}`);
+  },
   receivedClaimInvitations: () => fetchAPI<ClaimInvitation[]>("/claim_invitations/received"),
   acceptReceivedClaimInvitation: (id: number) => postJSON<ClaimRedemptionOutcome>(`/claim_invitations/${id}/accept`, {}),
   declineReceivedClaimInvitation: (id: number) => postJSON<ClaimInvitation>(`/claim_invitations/${id}/decline`, {}),

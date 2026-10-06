@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router-do
 import { api, type ClaimInvitation, type MembershipConflictResolution, type PersonConsolidationConflict, type PersonIdentity, type PlayerClaim, type PlayerProfileCandidate, type PaginationMeta } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
-import ClaimInviteList from "../components/people/ClaimInviteList";
+import ProfileManagementDashboard from "../components/identity/ProfileManagementDashboard";
 import { clearClaimInvitationPath, rememberClaimInvitationPath } from "../auth/invitationReturnPath";
 
 type ResolutionChoice = { keep_record_id: number; reason: string };
@@ -27,7 +27,6 @@ export default function IdentityPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [profileType, setProfileType] = useState<"PlayerProfile" | "CoachProfile">("PlayerProfile");
   const [claims, setClaims] = useState<PlayerClaim[]>([]);
-  const [reviewClaims, setReviewClaims] = useState<PlayerClaim[]>([]);
   const [loadedUserId, setLoadedUserId] = useState<number | null>(null);
   const loading = Boolean(user) && loadedUserId !== user?.id;
   const [error, setError] = useState<string | null>(null);
@@ -37,15 +36,12 @@ export default function IdentityPage() {
     const fragmentToken = new URLSearchParams(location.hash.replace(/^#/, "")).get("claim_token");
     return fragmentToken ?? searchParams.get("claim_token") ?? "";
   });
-  const [rejectReason, setRejectReason] = useState("");
-  const [verificationMethod, setVerificationMethod] = useState<NonNullable<PlayerClaim["verification_method"]> | "">("");
   const [accountToken, setAccountToken] = useState(() => {
     const fragmentToken = new URLSearchParams(location.hash.replace(/^#/, "")).get("account_claim_token");
     return fragmentToken ?? searchParams.get("account_claim_token") ?? "";
   });
 
-  const isClaimReviewer = Boolean(user?.roles.some((role) => role === "admin" || role === "coach"));
-  const canIssueInvitations = Boolean(user?.roles.some((role) => role === "admin" || role === "coach" || role === "curator"));
+  const canManageProfiles = Boolean(user?.roles.some((role) => role === "admin" || role === "coach" || role === "curator"));
   const isAdmin = Boolean(user?.roles.includes("admin"));
   const userId = user?.id;
   const personId = user?.person_id;
@@ -59,7 +55,6 @@ export default function IdentityPage() {
     const mine = await api.playerClaims();
     setClaims(mine.filter((claim) => claim.person_id === user?.person_id));
     setReceivedInvitations(await api.receivedClaimInvitations());
-    if (isClaimReviewer) setReviewClaims(await api.playerClaims());
   };
 
   useEffect(() => {
@@ -69,12 +64,11 @@ export default function IdentityPage() {
       if (cancelled) return;
       setClaims(userClaims.filter((claim) => claim.person_id === personId));
       setReceivedInvitations(received);
-      if (isClaimReviewer) setReviewClaims(userClaims);
     }).catch((err: unknown) => {
       if (!cancelled) setError(err instanceof Error ? err.message : "Could not load identity information.");
     }).finally(() => { if (!cancelled) setLoadedUserId(userId); });
     return () => { cancelled = true; };
-  }, [userId, personId, isClaimReviewer]);
+  }, [userId, personId]);
 
   useEffect(() => {
     if (!personId) return;
@@ -157,19 +151,13 @@ export default function IdentityPage() {
     finally { setBusy(false); }
   };
 
-  const actOnClaim = async (claim: PlayerClaim, action: "approve" | "reject" | "cancel") => {
+  const actOnClaim = async (claim: PlayerClaim) => {
     setBusy(true); setError(null); setNotice(null);
     try {
-      if (action === "approve") {
-        if (!verificationMethod) throw new Error("Choose how the claimant's identity was verified.");
-        await api.approvePlayerClaim(claim.id, verificationMethod);
-      }
-      if (action === "reject") await api.rejectPlayerClaim(claim.id, rejectReason.trim());
-      if (action === "cancel") await api.cancelPlayerClaim(claim.id);
+      await api.cancelPlayerClaim(claim.id);
       await reloadClaims();
-      const pastTense = { approve: "approved", reject: "rejected", cancel: "cancelled" }[action];
-      setNotice(`Claim ${claim.id} ${pastTense}.`);
-    } catch (err) { setError(err instanceof Error ? err.message : `Could not ${action} claim.`); }
+      setNotice(`Claim ${claim.id} cancelled.`);
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not cancel claim."); }
     finally { setBusy(false); }
   };
 
@@ -245,7 +233,7 @@ export default function IdentityPage() {
     </section>
 
     <section className="detail-section"><h2>My claim requests</h2>
-      {claims.length ? <ul>{claims.map((claim) => <li key={claim.id}>Claim #{claim.id} · {claim.claimable_type?.replace("Profile", " profile ") || "Profile"} #{claim.claimable_id ?? claim.player_profile_id ?? "—"} · {claim.status}{claim.status === "pending" && <button className="admin-btn" disabled={busy} onClick={() => void actOnClaim(claim, "cancel")}>Cancel request</button>}</li>)}</ul> : <p>You have no claim requests.</p>}
+      {claims.length ? <ul>{claims.map((claim) => <li key={claim.id}>Claim #{claim.id} · {claim.claimable_type?.replace("Profile", " profile ") || "Profile"} #{claim.claimable_id ?? claim.player_profile_id ?? "—"} · {claim.status}{claim.status === "pending" && <button className="admin-btn" disabled={busy} onClick={() => void actOnClaim(claim)}>Cancel request</button>}</li>)}</ul> : <p>You have no claim requests.</p>}
     </section>
 
     <section className="detail-section"><h2>Invitations received</h2>
@@ -256,30 +244,9 @@ export default function IdentityPage() {
       {claims.some((claim) => claim.status !== "pending") || receivedInvitations.some((invitation) => invitation.status !== "active") ? <ul>{claims.filter((claim) => claim.status !== "pending").map((claim) => <li key={`claim-${claim.id}`}>Claim #{claim.id} · {claim.claimable_type?.replace("Profile", " profile ") || "Profile"} · {claim.status}{claim.reviewed_at ? ` · ${new Date(claim.reviewed_at).toLocaleDateString()}` : ""}</li>)}{receivedInvitations.filter((invitation) => invitation.status !== "active").map((invitation) => <li key={`invitation-${invitation.id}`}>Invitation #{invitation.id} · {invitation.claimable_type.replace("Profile", " profile ")} · {invitation.status}</li>)}</ul> : <p>No claim or invitation history yet.</p>}
     </section>
 
-    {canIssueInvitations && <section className="detail-section"><h2>Invitations you can issue</h2><p>These are unlinked player and coach profiles in your authorized scope. Enter an email to allow immediate linking after verification, or leave it blank to require staff review.</p><ClaimInviteList /></section>}
-
-    {isClaimReviewer && <ClaimReview claims={reviewClaims.filter((claim) => claim.claimant_account_id ? claim.claimant_account_id !== user.account_id : claim.person_id !== user.person_id)} busy={busy} reason={rejectReason} setReason={setRejectReason} verificationMethod={verificationMethod} setVerificationMethod={setVerificationMethod} act={actOnClaim} />}
+    {canManageProfiles && <ProfileManagementDashboard />}
     {isAdmin && <PersonConsolidation />}
   </div>;
-}
-
-function ClaimReview({ claims, busy, reason, setReason, verificationMethod, setVerificationMethod, act }: { claims: PlayerClaim[]; busy: boolean; reason: string; setReason: (value: string) => void; verificationMethod: NonNullable<PlayerClaim["verification_method"]> | ""; setVerificationMethod: (value: NonNullable<PlayerClaim["verification_method"]> | "") => void; act: (claim: PlayerClaim, action: "approve" | "reject" | "cancel") => Promise<void> }) {
-  const pending = claims.filter((claim) => claim.status === "pending");
-  return <section className="detail-section"><h2>Profile requests</h2>
-    {pending.length ? <>
-      <label className="auth-field">How was identity verified?
-        <select aria-label="How was identity verified?" value={verificationMethod} onChange={(event) => setVerificationMethod(event.target.value as NonNullable<PlayerClaim["verification_method"]>)}>
-          <option value="">Choose a verification method</option>
-          <option value="staff_confirmed">Confirmed by club staff</option>
-          <option value="government_id">Government ID checked</option>
-          <option value="in_person">Confirmed in person</option>
-          <option value="other">Other verification</option>
-        </select>
-      </label>
-      <label className="auth-field">Internal reason when rejecting (optional)<input value={reason} onChange={(event) => setReason(event.target.value)} /></label>
-      <ul>{pending.map((claim) => <li key={claim.id}>Claim #{claim.id} · {claim.player_name || `${claim.claimable_type || "Profile"} #${claim.claimable_id ?? claim.player_profile_id}`} · Account #{claim.claimant_account_id ?? claim.person_id} <button className="admin-btn" disabled={busy || !verificationMethod} onClick={() => void act(claim, "approve")}>Approve</button> <button className="admin-btn" disabled={busy} onClick={() => void act(claim, "reject")}>Reject</button></li>)}</ul>
-    </> : <p>No pending claims to review.</p>}
-  </section>;
 }
 
 function PersonConsolidation() {

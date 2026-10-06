@@ -8,7 +8,7 @@ import IdentityPage from "./Identity";
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, api: { ...actual.api, playerProfileCandidates: vi.fn(), searchProfileCandidates: vi.fn(), receivedClaimInvitations: vi.fn(), acceptReceivedClaimInvitation: vi.fn(), declineReceivedClaimInvitation: vi.fn(), claimInvitations: vi.fn(), playerClaims: vi.fn(), requestPlayerClaim: vi.fn(), approvePlayerClaim: vi.fn(), redeemClaimInvitation: vi.fn(), people: vi.fn(), personConsolidationPreview: vi.fn() } };
+  return { ...actual, api: { ...actual.api, playerProfileCandidates: vi.fn(), searchProfileCandidates: vi.fn(), receivedClaimInvitations: vi.fn(), acceptReceivedClaimInvitation: vi.fn(), declineReceivedClaimInvitation: vi.fn(), claimInvitations: vi.fn(), managementPlayerClaims: vi.fn(), managementClaimInvitations: vi.fn(), managementClaimables: vi.fn(), playerClaims: vi.fn(), requestPlayerClaim: vi.fn(), approvePlayerClaim: vi.fn(), rejectPlayerClaim: vi.fn(), redeemClaimInvitation: vi.fn(), people: vi.fn(), personConsolidationPreview: vi.fn() } };
 });
 
 const mockedApi = vi.mocked(api, true);
@@ -28,6 +28,9 @@ beforeEach(() => {
   mockedApi.searchProfileCandidates.mockResolvedValue({ data: [], meta: { page: 1, per_page: 20, total: 0, total_pages: 0 } });
   mockedApi.receivedClaimInvitations.mockResolvedValue([]);
   mockedApi.claimInvitations.mockResolvedValue([]);
+  mockedApi.managementPlayerClaims.mockResolvedValue({ data: [], meta: { page: 1, per_page: 20, total: 0, total_pages: 0 } });
+  mockedApi.managementClaimInvitations.mockResolvedValue({ data: [], meta: { page: 1, per_page: 20, total: 0, total_pages: 0 } });
+  mockedApi.managementClaimables.mockResolvedValue({ data: [], meta: { page: 1, per_page: 20, total: 0, total_pages: 0 } });
   mockedApi.playerClaims.mockResolvedValue([]);
 });
 
@@ -39,6 +42,14 @@ describe("Identity", () => {
     expect(screen.getByText("Player profiles")).toBeInTheDocument();
     expect(await screen.findByText(/no eligible profiles found/i)).toBeInTheDocument();
     expect(screen.getByText("You have no claim requests.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Profile management" })).not.toBeInTheDocument();
+  });
+
+  it("shows the management dashboard to a coach account", async () => {
+    renderPage("/identity", { ...user, roles: ["coach"] });
+    expect(await screen.findByRole("heading", { name: "Profile management" })).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "Claims" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Invitations" })).toBeInTheDocument();
   });
 
   it("explains that an account without a linked Person needs a profile invitation", async () => {
@@ -97,13 +108,13 @@ describe("Identity", () => {
 
   it("requires a verification method before a reviewer can approve a claim", async () => {
     const admin = { ...user, roles: ["admin"] };
-    mockedApi.playerClaims.mockResolvedValue([{ id: 18, player_profile_id: 31, claimable_type: "PlayerProfile", claimable_id: 31, claimant_account_id: 20, person_id: 10, status: "pending", created_at: "2026-01-01", reviewed_at: null }]);
+    mockedApi.managementPlayerClaims.mockResolvedValue({ data: [{ id: 18, player_profile_id: 31, claimable_type: "PlayerProfile", claimable_id: 31, claimant_account_id: 20, person_id: 10, status: "pending", created_at: "2026-01-01", reviewed_at: null, can_review: true }], meta: { page: 1, per_page: 20, total: 1, total_pages: 1 } });
     mockedApi.approvePlayerClaim.mockResolvedValue({ id: 18, player_profile_id: 31, person_id: 10, status: "approved", created_at: "2026-01-01", reviewed_at: "2026-01-02" });
     renderPage("/identity", admin);
 
     const approve = await screen.findByRole("button", { name: "Approve" });
     expect(approve).toBeDisabled();
-    await userEvent.selectOptions(screen.getByLabelText("How was identity verified?"), "government_id");
+    await userEvent.selectOptions(screen.getByLabelText("Verification method for claim 18"), "government_id");
     expect(approve).toBeEnabled();
     await userEvent.click(approve);
     await waitFor(() => expect(mockedApi.approvePlayerClaim).toHaveBeenCalledWith(18, "government_id"));
