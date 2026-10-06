@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api, type Account } from "../api";
 import { useAuth } from "../auth/AuthContext";
 
@@ -9,6 +10,8 @@ const emptyAccount: Account = {
 
 export default function AccountPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const accountId = Number(searchParams.get("account_id")) || undefined;
   const [account, setAccount] = useState<Account>(emptyAccount);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -26,13 +29,13 @@ export default function AccountPage() {
     // it reads `loading`, so there is nothing to reset here.
     if (!user) return;
     api
-      .account()
+      .account(accountId)
       .then(setAccount)
       .catch((e: unknown) =>
         setError(e instanceof Error ? e.message : "Failed to load the account."),
       )
       .finally(() => setLoading(false));
-  }, [user]);
+  }, [user, accountId]);
 
   if (!user) {
     return (
@@ -74,7 +77,7 @@ export default function AccountPage() {
           postal_code: account.address.postal_code || null,
           country: account.address.country || null,
         },
-      });
+      }, accountId);
       setAccount(saved);
       setSuccess("Account updated successfully.");
     } catch (e: unknown) {
@@ -111,8 +114,8 @@ export default function AccountPage() {
   return (
     <div className="page">
       <header className="page-header">
-        <h1>Account</h1>
-        <p>Manage your personal information and address.</p>
+        <h1>{accountId ? "Edit account" : "Account"}</h1>
+        <p>{accountId ? "Manage this account's personal information and address." : "Manage your personal information and address."}</p>
       </header>
 
       {error && <div className="auth-flash auth-flash-error">{error}</div>}
@@ -172,7 +175,7 @@ export default function AccountPage() {
         </button>
       </form>
 
-      <section className="detail-section">
+      {!accountId && <section className="detail-section">
         <h2>Security</h2>
           <p style={{ marginBottom: "1rem", fontSize: "0.875rem", color: "var(--text-secondary)" }}>
             Choose a strong password you don't use anywhere else.
@@ -196,7 +199,7 @@ export default function AccountPage() {
               {passwordSaving ? "Changing..." : "Change password"}
             </button>
           </form>
-      </section>
+      </section>}
     </div>
   );
 }

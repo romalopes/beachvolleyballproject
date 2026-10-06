@@ -55,6 +55,7 @@ import VideoTagsSettings from "./pages/settings/VideoTags";
 import VideosDetail from "./pages/VideosDetail";
 
 import AccountPage from "./pages/Account";
+import AccountDetail from "./pages/AccountDetail";
 import IdentityPage from "./pages/Identity";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -436,6 +437,7 @@ export default function App() {
               }
             />
             <Route path="/account" element={<AccountPage />} />
+            <Route path="/accounts/:id" element={<AccountDetail />} />
             <Route path="/identity" element={<IdentityPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

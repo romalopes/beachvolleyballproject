@@ -1205,6 +1205,7 @@ export interface Player {
   updated_at: string;
   full_name?: string;
   account_status?: AccountStatus;
+  account?: ProfileAccount | null;
   player_profile_id?: number;
   training_session_count?: number;
   assessment_count?: number;
@@ -1367,6 +1368,7 @@ export interface Coach {
   updated_at: string;
   full_name?: string;
   account_status?: AccountStatus;
+  account?: ProfileAccount | null;
   coach_profile_id?: number;
   assessments_recorded_count?: number;
   recent_assessments?: Assessment[];
@@ -1534,10 +1536,19 @@ export interface Account {
   id: number | null;
   first_name: string | null;
   last_name: string | null;
+  full_name?: string;
   email: string | null;
   phone: string | null;
   date_of_birth: string | null;
   address: AccountAddress;
+  can_edit?: boolean;
+  player_profiles?: { id: number; name: string }[];
+  coach_profiles?: { id: number; name: string }[];
+}
+
+export interface ProfileAccount {
+  id: number;
+  full_name: string;
 }
 
 
@@ -2586,7 +2597,9 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
     postJSON<void>(`/admin/app_settings/${encodeURIComponent(key)}`, {}, "DELETE"),
 
   // Account
-  account: (): Promise<Account> => fetchAPI<Account>("/account"),
+  account: (accountId?: number): Promise<Account> =>
+    fetchAPI<Account>(`/account${accountId ? `?account_id=${accountId}` : ""}`),
+  accountDetail: (id: number): Promise<Account> => fetchAPI<Account>(`/accounts/${id}`),
   updateAccount: (data: {
     first_name: string | null;
     last_name: string | null;
@@ -2600,8 +2613,8 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
       postal_code: string | null;
       country: string | null;
     };
-  }): Promise<Account> =>
-    postJSON<Account>("/account", data, "PATCH"),
+  }, accountId?: number): Promise<Account> =>
+    postJSON<Account>(`/account${accountId ? `?account_id=${accountId}` : ""}`, data, "PATCH"),
   updatePassword: (data: {
     current_password: string;
     password: string;

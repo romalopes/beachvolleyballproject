@@ -309,11 +309,15 @@ export default function Players() {
                   .filter(Boolean)
                   .join(" · ") || "No player attributes yet"}
               </span>
-              <Tag>
-                {player.account_status === "connected"
-                  ? "Account connected"
-                  : "Profile only"}
-              </Tag>
+              {player.account_status === "connected" && player.account ? (
+                <Tag>
+                  <Link to={`/accounts/${player.account.id}`}>
+                    Account: {player.account.full_name}
+                  </Link>
+                </Tag>
+              ) : (
+                <Tag>Profile only</Tag>
+              )}
               {isArchived(player) && <Tag>Archived</Tag>}
               {player.visibility === "private" && <Tag>Private</Tag>}
               {player.status === "active" && player.account_status !== "connected" &&

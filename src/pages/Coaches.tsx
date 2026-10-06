@@ -320,11 +320,15 @@ export default function Coaches() {
                   .filter(Boolean)
                   .join(" · ") || "No coaching details yet"}
               </span>
-              <Tag>
-                {coach.account_status === "connected"
-                  ? "Account connected"
-                  : "Profile only"}
-              </Tag>
+              {coach.account_status === "connected" && coach.account ? (
+                <Tag>
+                  <Link to={`/accounts/${coach.account.id}`}>
+                    Account: {coach.account.full_name}
+                  </Link>
+                </Tag>
+              ) : (
+                <Tag>Profile only</Tag>
+              )}
               {isArchived(coach) && <Tag>Archived</Tag>}
               {coach.visibility === "private" && <Tag>Private</Tag>}
               {coach.status === "active" && coach.account_status !== "connected" &&
