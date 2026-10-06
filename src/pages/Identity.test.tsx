@@ -8,7 +8,7 @@ import IdentityPage from "./Identity";
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, api: { ...actual.api, playerProfileCandidates: vi.fn(), playerClaims: vi.fn(), requestPlayerClaim: vi.fn(), redeemClaimInvitation: vi.fn(), people: vi.fn(), personConsolidationPreview: vi.fn() } };
+  return { ...actual, api: { ...actual.api, playerProfileCandidates: vi.fn(), playerClaims: vi.fn(), requestPlayerClaim: vi.fn(), approvePlayerClaim: vi.fn(), redeemClaimInvitation: vi.fn(), people: vi.fn(), personConsolidationPreview: vi.fn() } };
 });
 
 const mockedApi = vi.mocked(api, true);
@@ -54,6 +54,20 @@ describe("Identity", () => {
     await userEvent.click(screen.getByRole("button", { name: "Request selected claims (1)" }));
     await waitFor(() => expect(mockedApi.requestPlayerClaim).toHaveBeenCalledWith(31));
     expect(await screen.findByText(/still need review/)).toBeInTheDocument();
+  });
+
+  it("requires a verification method before a reviewer can approve a claim", async () => {
+    const admin = { ...user, roles: ["admin"] };
+    mockedApi.playerClaims.mockResolvedValue([{ id: 18, player_profile_id: 31, claimable_type: "PlayerProfile", claimable_id: 31, claimant_account_id: 20, person_id: 10, status: "pending", created_at: "2026-01-01", reviewed_at: null }]);
+    mockedApi.approvePlayerClaim.mockResolvedValue({ id: 18, player_profile_id: 31, person_id: 10, status: "approved", created_at: "2026-01-01", reviewed_at: "2026-01-02" });
+    renderPage("/identity", admin);
+
+    const approve = await screen.findByRole("button", { name: "Approve" });
+    expect(approve).toBeDisabled();
+    await userEvent.selectOptions(screen.getByLabelText("How was identity verified?"), "government_id");
+    expect(approve).toBeEnabled();
+    await userEvent.click(approve);
+    await waitFor(() => expect(mockedApi.approvePlayerClaim).toHaveBeenCalledWith(18, "government_id"));
   });
 
   const invitation: ClaimInvitation = {

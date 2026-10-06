@@ -1261,10 +1261,14 @@ export interface PlayerClaim {
   player_profile_id: number | null;
   claimable_type?: string | null;
   claimable_id?: number | null;
+  claimant_account_id?: number | null;
   person_id: number;
   status: "pending" | "approved" | "rejected" | "cancelled";
   created_at: string;
   reviewed_at: string | null;
+  verification_method?: "staff_confirmed" | "government_id" | "in_person" | "other" | null;
+  reviewed_by_account_id?: number | null;
+  rejection_reason?: string | null;
   player_name?: string;
 }
 
@@ -1819,8 +1823,13 @@ export const api = {
     postJSON<PlayerClaim>("/player_claims", { player_profile_id: playerProfileId }),
   requestProfileClaim: (type: "PlayerProfile" | "CoachProfile", profileId: number) =>
     postJSON<PlayerClaim>("/player_claims", { claimable_type: type, claimable_id: profileId }),
-  approvePlayerClaim: (id: number) =>
-    postJSON<PlayerClaim>(`/player_claims/${id}/approve`, {}),
+  approvePlayerClaim: (
+    id: number,
+    verificationMethod: NonNullable<PlayerClaim["verification_method"]>,
+  ) =>
+    postJSON<PlayerClaim>(`/player_claims/${id}/approve`, {
+      verification_method: verificationMethod,
+    }),
   rejectPlayerClaim: (id: number, rejectionReason: string) =>
     postJSON<PlayerClaim>(`/player_claims/${id}/reject`, { rejection_reason: rejectionReason }),
   cancelPlayerClaim: (id: number) =>
