@@ -56,6 +56,59 @@ export default function Signup() {
     }
   };
 
+  if (pendingEmail) {
+    return (
+      <div className="page auth-page">
+        <div className="auth-card">
+          <div className="auth-logo">
+            <span className="sidebar-logo-icon">
+              <img src="/ball.png" width="28" height="28" alt="" />
+            </span>
+            BVB Project
+          </div>
+          <h2>One click away</h2>
+          <p className="auth-subtitle">We just need to know it&apos;s really you.</p>
+
+          {error && <div className="auth-flash auth-flash-error">{error}</div>}
+
+          <div className="auth-flash auth-flash-notice" role="alert">
+            <p style={{ margin: '0 0 8px' }}>
+              Account created! We sent a verification link to ({pendingEmail}).
+              Please verify your email address before signing in.
+            </p>
+            {resent && (
+              <p style={{ margin: '0 0 8px' }}>
+                A new verification email has been sent — please check your inbox.
+              </p>
+            )}
+          </div>
+
+          <ol className="verify-steps">
+            <li>Open your inbox</li>
+            <li>Locate our verification email</li>
+            <li>Click the verification link</li>
+          </ol>
+          <p className="verify-hint">No email yet? Check your spam folder.</p>
+
+          <button
+            type="button"
+            className="auth-submit verify-resend"
+            onClick={handleResend}
+            disabled={submitting}
+          >
+            {submitting ? 'Sending...' : 'Resend verification email'}
+          </button>
+
+          <div className="auth-links">
+            <Link to="/login" state={{ from }}>
+              Back to sign in
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page auth-page">
       <div className="auth-card">
@@ -69,28 +122,6 @@ export default function Signup() {
         <p className="auth-subtitle">Sign up to organise skills, drills and training sessions.</p>
 
         {error && <div className="auth-flash auth-flash-error">{error}</div>}
-
-        {pendingEmail && (
-          <div className="auth-flash auth-flash-error" role="alert">
-            <p style={{ margin: '0 0 8px' }}>
-              Account created! Please verify your email address ({pendingEmail})
-              before signing in. We sent you a verification link.
-            </p>
-            {resent && (
-              <p style={{ margin: '0 0 8px' }}>
-                A new verification email has been sent — please check your inbox.
-              </p>
-            )}
-            <button
-              type="button"
-              className="auth-submit"
-              onClick={handleResend}
-              disabled={submitting}
-            >
-              {submitting ? 'Sending...' : 'Resend verification email'}
-            </button>
-          </div>
-        )}
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-field">

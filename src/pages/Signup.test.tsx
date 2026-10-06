@@ -8,7 +8,7 @@ import Signup from "./Signup";
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, api: { ...actual.api, me: vi.fn(), register: vi.fn() } };
+  return { ...actual, api: { ...actual.api, me: vi.fn(), register: vi.fn(), resendVerification: vi.fn() } };
 });
 
 const mockedApi = vi.mocked(api, true);
@@ -43,6 +43,45 @@ describe("Signup", () => {
 
     await waitFor(() => expect(mockedApi.register).toHaveBeenCalled());
     expect(window.localStorage.getItem("claimInvitationReturnPath")).toBe("/identity#claim_token=profile-token");
-    expect(await screen.findByText(/account created.*verify your email/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /one click away/i })).toBeInTheDocument();
+    expect(screen.getByText(/we just need to know/i)).toBeInTheDocument();
+    // Registration fields are hidden once the account is created.
+    expect(screen.queryByLabelText("First name")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Last name")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^sign up$/i })).not.toBeInTheDocument();
+    // Verification guidance is shown instead.
+    expect(screen.getByText(/open your inbox/i)).toBeInTheDocument();
+    expect(screen.getByText(/locate our verification email/i)).toBeInTheDocument();
+    expect(screen.getByText(/click the verification link/i)).toBeInTheDocument();
+    expect(screen.getByText(/check your spam folder/i)).toBeInTheDocument();
+  });
+
+  it("resends the verification email from the pending-verification panel", async () => {
+    mockedApi.register.mockResolvedValue({
+      id: 92,
+      name: "Second User",
+      email_address: "second@example.com",
+      roles: ["player"],
+      status: "pending_verification",
+    });
+    mockedApi.resendVerification.mockResolvedValue({ status: "ok" });
+    render(
+      <MemoryRouter initialEntries={["/signup"]}>
+        <AuthProvider><Signup /></AuthProvider>
+      </MemoryRouter>,
+    );
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("First name"), "Second");
+    await user.type(screen.getByLabelText("Last name"), "User");
+    await user.type(screen.getByLabelText("Email"), "second@example.com");
+    await user.type(screen.getByLabelText("Password"), "password123");
+    await user.type(screen.getByLabelText("Confirm password"), "password123");
+    await user.click(screen.getByRole("button", { name: "Sign up" }));
+
+    await screen.findByRole("heading", { name: /one click away/i });
+    await user.click(screen.getByRole("button", { name: /resend verification email/i }));
+    await waitFor(() => expect(mockedApi.resendVerification).toHaveBeenCalledWith("second@example.com"));
+    expect(await screen.findByText(/a new verification email has been sent/i)).toBeInTheDocument();
   });
 });
