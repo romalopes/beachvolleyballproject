@@ -190,7 +190,7 @@ export default function IdentityPage() {
       {user.player_profiles?.length ? <ul className="identity-link-list">{user.player_profiles.map((profile) => <li key={profile.id}><Link className="identity-link" to={`/players/${profile.id}`}>{profile.display_name || `Player profile #${profile.id}`}</Link> · {profile.status}{profile.level ? ` · ${profile.level}` : ""}</li>)}</ul> : <p>No player profiles are linked to this account.</p>}
     </section>
     <section className="detail-section"><h2>Coach profiles</h2>
-      {user.coach_profiles?.length ? <ul className="identity-link-list">{user.coach_profiles.map((profile) => <li key={profile.id}><Link className="identity-link" to={`/coaches/${profile.id}`}>Coach profile #{profile.id}</Link> · {profile.coaching_level || "Level not set"} · {profile.status}</li>)}</ul> : <p>No coach profiles are linked to this account.</p>}
+      {user.coach_profiles?.length ? <ul className="identity-link-list">{user.coach_profiles.map((profile) => <li key={profile.id}><Link className="identity-link" to={`/coaches/${profile.id}`}>{profile.display_name || profile.name || `Coach profile #${profile.id}`}</Link> · {profile.coaching_level || "Level not set"} · {profile.status}</li>)}</ul> : <p>No coach profiles are linked to this account.</p>}
     </section>
     <section className="detail-section"><h2>Organisation memberships</h2>
       {user.organisation_memberships?.length ? <ul className="identity-link-list">{user.organisation_memberships.map((membership) => <li key={membership.id}><Link className="identity-link" to={`/organisations/${membership.organisation_id}`}>{membership.organisation?.name || `Organisation #${membership.organisation_id}`}</Link> · {membership.role} · {membership.status}</li>)}</ul> : <p>No organisation memberships.</p>}
@@ -243,7 +243,21 @@ export default function IdentityPage() {
     </section>
 
     <section className="detail-section"><h2>Invitations received</h2>
-      {receivedInvitations.length ? <ul>{receivedInvitations.map((invitation) => <li key={invitation.id}>{invitation.claimable_type.replace("Profile", " profile ")} #{invitation.claimable_id} · {invitation.status}{invitation.status === "active" && <><button className="admin-btn" disabled={busy} onClick={() => void invitationAction(invitation, "accept")}>Accept</button><button className="admin-btn" disabled={busy} onClick={() => void invitationAction(invitation, "decline")}>Decline</button></>}</li>)}</ul> : <p>No invitations have been sent to your verified account email.</p>}
+      {receivedInvitations.length ? <ul>{receivedInvitations.map((invitation) => {
+        const name = invitation.claimable_name ?? `${invitation.claimable_type.replace("Profile", " profile ")} #${invitation.claimable_id}`;
+        const href = invitation.claimable_type === "PlayerProfile" ? `/players/${invitation.claimable_id}` :
+                     invitation.claimable_type === "CoachProfile" ? `/coaches/${invitation.claimable_id}` : null;
+        return <li key={invitation.id}>
+          {href ? <a href={href}><strong>{name}</strong></a> : <span><strong>{name}</strong></span>}
+          · {invitation.status}
+          {invitation.status === "active" && (
+            <>
+              <button className="admin-btn" disabled={busy} onClick={() => void invitationAction(invitation, "accept")}>Accept</button>
+              <button className="admin-btn" disabled={busy} onClick={() => void invitationAction(invitation, "decline")}>Decline</button>
+            </>
+          )}
+        </li>;
+      })}</ul> : <p>No invitations have been sent to your verified account email.</p>}
     </section>
 
     <section className="detail-section"><h2>Claim and invitation history</h2>

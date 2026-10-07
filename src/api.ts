@@ -3,8 +3,7 @@
 //   - On Vercel / deployed:           set VITE_API_BASE_URL (e.g. "https://api.example.com/api/v1")
 // Base URL of the JSON API. Exported so the health-check runner can issue
 // raw requests (it needs status codes + payloads, not throwing helpers).
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "/api/v1";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 // ---------- Private test-access gate ----------
 // While the Rails API has TEST_ACCESS_PASSWORD configured, every request must
@@ -92,7 +91,9 @@ export interface HealthDetailed {
   counts: Record<string, number>;
 }
 
-function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+function authHeaders(
+  extra: Record<string, string> = {},
+): Record<string, string> {
   const token = getToken();
   const headers: Record<string, string> = { ...extra };
   if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -110,11 +111,7 @@ export interface TestAccessErrorBody {
   code?: string;
 }
 
-function throwApiError(
-  status: number,
-  data: unknown,
-  fallback: string,
-): Error {
+function throwApiError(status: number, data: unknown, fallback: string): Error {
   if (Array.isArray((data as { errors?: string[] })?.errors)) {
     return new ApiValidationError((data as { errors: string[] }).errors);
   }
@@ -127,7 +124,10 @@ function throwApiError(
     err.status = status;
     err.code = (data as { code?: string })?.code;
     const blockers = (data as { blockers?: unknown })?.blockers;
-    if (Array.isArray(blockers) && blockers.every((item) => typeof item === "string")) {
+    if (
+      Array.isArray(blockers) &&
+      blockers.every((item) => typeof item === "string")
+    ) {
       err.blockers = blockers;
     }
     return err;
@@ -143,7 +143,10 @@ async function fetchAPI<T>(endpoint: string): Promise<T> {
   });
   if (!response.ok) {
     const data = await response.json().catch(() => null);
-    if (response.status === 401 && (data as TestAccessErrorBody)?.code === "test_access_required") {
+    if (
+      response.status === 401 &&
+      (data as TestAccessErrorBody)?.code === "test_access_required"
+    ) {
       clearTestAccessToken();
       if (!window.location.pathname.startsWith("/test-access")) {
         window.location.assign("/test-access?expired=1");
@@ -154,7 +157,9 @@ async function fetchAPI<T>(endpoint: string): Promise<T> {
   return response.json();
 }
 
-function normalizePaginatedResponse<T>(response: T[] | PaginatedResponse<T>): PaginatedResponse<T> {
+function normalizePaginatedResponse<T>(
+  response: T[] | PaginatedResponse<T>,
+): PaginatedResponse<T> {
   if (Array.isArray(response)) {
     return {
       data: response,
@@ -174,7 +179,6 @@ export interface Category {
   name: string;
   slug: string;
 }
-
 
 export interface CategoryCustom {
   id: number;
@@ -261,8 +265,8 @@ export interface Drill {
   title: string;
   slug: string;
   setup_instructions: string;
-  training_stage: 'warmup' | 'beginning' | 'middle' | 'end' | null;
-  difficulty_level: 'beginner' | 'intermediate' | 'advanced' | null;
+  training_stage: "warmup" | "beginning" | "middle" | "end" | null;
+  difficulty_level: "beginner" | "intermediate" | "advanced" | null;
   min_players: number | null;
   max_players: number | null;
   ideal_num_players: number | null;
@@ -314,7 +318,7 @@ export interface VideoCategory {
 export interface VideoTag {
   id: number;
   name: string;
-    /** Admin-curated drag-and-drop order (app-managed, never edited directly).
+  /** Admin-curated drag-and-drop order (app-managed, never edited directly).
    *  Optional on the frontend type: the API always returns it for persisted
    *  records, but mock/test fixtures and in-flight objects may omit it.
    */
@@ -364,8 +368,11 @@ export interface VideoInput {
   video_tag_ids?: number[];
 }
 
-
-export type TrainingSessionStatus = "draft" | "scheduled" | "cancelled" | "completed";
+export type TrainingSessionStatus =
+  | "draft"
+  | "scheduled"
+  | "cancelled"
+  | "completed";
 
 export interface TrainingFocusSkill {
   id: number;
@@ -531,7 +538,9 @@ export interface AssessmentInput {
   }>;
 }
 
-export type AssessmentUpdateInput = Partial<Omit<AssessmentInput, "player_profile_id">>;
+export type AssessmentUpdateInput = Partial<
+  Omit<AssessmentInput, "player_profile_id">
+>;
 export interface AssessmentFilters {
   player_id?: number;
   coach_id?: number;
@@ -542,7 +551,6 @@ export interface AssessmentFilters {
   page?: number;
   per_page?: number;
 }
-
 
 export type AssessmentSessionStatus = "draft" | "published" | "withdrawn";
 export type AssessmentSessionInclusion = "included" | "excluded";
@@ -598,7 +606,12 @@ export interface Group {
    */
   organisation: { id: number; name: string } | null;
   /** Who runs it, from the membership rather than from `created_by`. */
-  owner: { id: number; account_id?: number | null; person_id?: number | null; name: string | null } | null;
+  owner: {
+    id: number;
+    account_id?: number | null;
+    person_id?: number | null;
+    name: string | null;
+  } | null;
   created_by: { id: number; name: string } | null;
   created_at: string;
   updated_at: string;
@@ -712,7 +725,11 @@ export interface OrganisationMembership {
   updated_at: string;
 }
 
-export type OrganisationMembershipRole = "owner" | "administrator" | "coach" | "member";
+export type OrganisationMembershipRole =
+  | "owner"
+  | "administrator"
+  | "coach"
+  | "member";
 
 export interface OrganisationMembershipList {
   organisation: { id: number; name: string };
@@ -855,7 +872,6 @@ export interface AssessmentSessionScoreInput {
   player_profile_id: number;
   category_scores: AssessmentSessionCategoryScoreInput[];
 }
-
 
 // ---------- Ranking consolidation (Phase 4) ----------
 // A consolidation is an immutable snapshot merging several coaches' published
@@ -1088,7 +1104,11 @@ export interface ProfileOwner {
  * self-signup from a staff-recorded profile — claiming and duplicate
  * resolution both branch on it.
  */
-export type CreationSource = "signup" | "coach_created" | "player_created" | "system";
+export type CreationSource =
+  | "signup"
+  | "coach_created"
+  | "player_created"
+  | "system";
 
 /**
  * Compact identity payload: returned by the people search (`GET /api/v1/people`)
@@ -1276,7 +1296,12 @@ export interface PlayerClaim {
   status: "pending" | "approved" | "rejected" | "cancelled";
   created_at: string;
   reviewed_at: string | null;
-  verification_method?: "staff_confirmed" | "government_id" | "in_person" | "other" | null;
+  verification_method?:
+    | "staff_confirmed"
+    | "government_id"
+    | "in_person"
+    | "other"
+    | null;
   reviewed_by_account_id?: number | null;
   rejection_reason?: string | null;
   player_name?: string;
@@ -1429,6 +1454,8 @@ export interface CoachContext {
   coaching_level: string | null;
   qualifications: string | null;
   status: "active" | "archived";
+  name?: string;
+  display_name?: string;
 }
 
 export interface PlayerContext {
@@ -1452,6 +1479,8 @@ export interface AdminUser {
   id: number;
   name: string;
   email_address: string;
+  first_name?: string | null;
+  last_name?: string | null;
   roles: { id: number; name: string }[];
 }
 
@@ -1551,8 +1580,11 @@ export interface ProfileAccount {
   full_name: string;
 }
 
-
-async function postJSON<T>(endpoint: string, body: unknown, method = "POST"): Promise<T> {
+async function postJSON<T>(
+  endpoint: string,
+  body: unknown,
+  method = "POST",
+): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     method,
     headers: authHeaders({ "Content-Type": "application/json" }),
@@ -1561,7 +1593,10 @@ async function postJSON<T>(endpoint: string, body: unknown, method = "POST"): Pr
   });
   if (!response.ok) {
     const data = await response.json().catch(() => null);
-    if (response.status === 401 && (data as TestAccessErrorBody)?.code === "test_access_required") {
+    if (
+      response.status === 401 &&
+      (data as TestAccessErrorBody)?.code === "test_access_required"
+    ) {
       clearTestAccessToken();
       if (!window.location.pathname.startsWith("/test-access")) {
         window.location.assign("/test-access?expired=1");
@@ -1611,16 +1646,17 @@ export const testAccessApi = {
   submit: (password: string) =>
     postJSON<TestAccessResponse>("/test_access", { password }),
   /** Verify the stored token (used on boot to detect expiry). */
-  verify: () =>
-    fetchAPI<TestAccessResponse>("/test_access"),
+  verify: () => fetchAPI<TestAccessResponse>("/test_access"),
 };
 
 export const api = {
   categories: () => fetchAPI<Category[]>("/categories"),
   skills: () => fetchAPI<Skill[]>("/skills"),
-  skill: (slugOrId: string) => fetchAPI<Skill>(`/skills/${encodeURIComponent(slugOrId)}`),
+  skill: (slugOrId: string) =>
+    fetchAPI<Skill>(`/skills/${encodeURIComponent(slugOrId)}`),
   drills: () => fetchAPI<Drill[]>("/drills"),
-  drill: (slugOrId: string) => fetchAPI<Drill>(`/drills/${encodeURIComponent(slugOrId)}`),
+  drill: (slugOrId: string) =>
+    fetchAPI<Drill>(`/drills/${encodeURIComponent(slugOrId)}`),
   videos: () => fetchAPI<VideoSummary[]>("/videos"),
   video: (id: number | string) =>
     fetchAPI<VideoSummary>(`/videos/${encodeURIComponent(String(id))}`),
@@ -1639,10 +1675,9 @@ export const api = {
     targetId: number,
     data: VideoReferenceInput,
   ) =>
-    postJSON<VideoReference>(
-      `/${target}/${targetId}/video_references`,
-      { video_reference: data },
-    ),
+    postJSON<VideoReference>(`/${target}/${targetId}/video_references`, {
+      video_reference: data,
+    }),
   updateVideoReference: (
     target: VideoReferenceTarget,
     targetId: number,
@@ -1658,12 +1693,19 @@ export const api = {
     target: VideoReferenceTarget,
     targetId: number,
     id: number,
-  ) => postJSON<void>(`/${target}/${targetId}/video_references/${id}`, {}, "DELETE"),
+  ) =>
+    postJSON<void>(
+      `/${target}/${targetId}/video_references/${id}`,
+      {},
+      "DELETE",
+    ),
 
   // ---------- Video categories (public read) ----------
   videoCategories: () => fetchAPI<VideoCategory[]>("/video_categories"),
   videoCategory: (id: number | string) =>
-    fetchAPI<VideoCategory>(`/video_categories/${encodeURIComponent(String(id))}`),
+    fetchAPI<VideoCategory>(
+      `/video_categories/${encodeURIComponent(String(id))}`,
+    ),
 
   // ---------- Video tags (public read, optional search) ----------
   videoTags: (search?: string) => {
@@ -1688,7 +1730,7 @@ export const api = {
     if (params?.mine) qs.set("mine", "1");
     const query = qs.toString();
     return fetchAPI<TrainingSession[]>(
-      `/training_sessions${query ? `?${query}` : ""}`
+      `/training_sessions${query ? `?${query}` : ""}`,
     );
   },
   trainingSession: (id: number) =>
@@ -1699,7 +1741,7 @@ export const api = {
     postJSON<TrainingSession>(
       `/training_sessions/${id}`,
       { training_session: data },
-      "PATCH"
+      "PATCH",
     ),
   deleteTrainingSession: (id: number) =>
     postJSON<void>(`/training_sessions/${id}`, {}, "DELETE"),
@@ -1714,7 +1756,9 @@ export const api = {
     if (params?.q) qs.set("q", params.q);
     if (params?.email) qs.set("email", params.email);
     const query = qs.toString();
-    return fetchAPI<PersonIdentity[]>(`/people/search${query ? `?${query}` : ""}`);
+    return fetchAPI<PersonIdentity[]>(
+      `/people/search${query ? `?${query}` : ""}`,
+    );
   },
 
   // ---------- Players (read: training managers; create: coach/admin) ----------
@@ -1759,7 +1803,11 @@ export const api = {
   updatePlayer: (id: number, data: PlayerInput) =>
     postJSON<PlayerCreateResponse>(`/players/${id}`, { player: data }, "PATCH"),
   deletePlayer: (id: number) => postJSON<void>(`/players/${id}`, {}, "DELETE"),
-  mergePlayerProfile: (id: number, canonicalProfileId: number, reason: string) =>
+  mergePlayerProfile: (
+    id: number,
+    canonicalProfileId: number,
+    reason: string,
+  ) =>
     postJSON<ProfileMergeResult>(`/players/${id}/merge`, {
       canonical_profile_id: canonicalProfileId,
       reason,
@@ -1767,34 +1815,72 @@ export const api = {
 
   // ---------- Player claims (self-service request; coach/admin review) ----------
   playerProfileCandidates: () =>
-    fetchAPI<PlayerProfileCandidate[] | PaginatedResponse<PlayerProfileCandidate>>(
-      "/player_claims/candidates?per_page=100",
-    ).then((response) => normalizePaginatedResponse(response).data),
+    fetchAPI<
+      PlayerProfileCandidate[] | PaginatedResponse<PlayerProfileCandidate>
+    >("/player_claims/candidates?per_page=100").then(
+      (response) => normalizePaginatedResponse(response).data,
+    ),
   profileCandidates: (type: "PlayerProfile" | "CoachProfile") =>
-    fetchAPI<PlayerProfileCandidate[] | PaginatedResponse<PlayerProfileCandidate>>(
-      `/player_claims/candidates?claimable_type=${type}&per_page=100`,
-    ).then((response) => normalizePaginatedResponse(response).data),
-  searchProfileCandidates: async (params: { type: "PlayerProfile" | "CoachProfile"; q?: string; organisationId?: number; page?: number; perPage?: number }) => {
-    const query = new URLSearchParams({ claimable_type: params.type, page: String(params.page ?? 1), per_page: String(params.perPage ?? 20) });
+    fetchAPI<
+      PlayerProfileCandidate[] | PaginatedResponse<PlayerProfileCandidate>
+    >(`/player_claims/candidates?claimable_type=${type}&per_page=100`).then(
+      (response) => normalizePaginatedResponse(response).data,
+    ),
+  searchProfileCandidates: async (params: {
+    type: "PlayerProfile" | "CoachProfile";
+    q?: string;
+    organisationId?: number;
+    page?: number;
+    perPage?: number;
+  }) => {
+    const query = new URLSearchParams({
+      claimable_type: params.type,
+      page: String(params.page ?? 1),
+      per_page: String(params.perPage ?? 20),
+    });
     if (params.q?.trim()) query.set("q", params.q.trim());
-    if (params.organisationId) query.set("organisation_id", String(params.organisationId));
-    const response = await fetchAPI<PaginatedResponse<PlayerProfileCandidate>>(`/player_claims/candidates?${query}`);
+    if (params.organisationId)
+      query.set("organisation_id", String(params.organisationId));
+    const response = await fetchAPI<PaginatedResponse<PlayerProfileCandidate>>(
+      `/player_claims/candidates?${query}`,
+    );
     return normalizePaginatedResponse(response);
   },
   playerClaims: () =>
     fetchAPI<PlayerClaim[] | PaginatedResponse<PlayerClaim>>(
       "/player_claims?per_page=100",
     ).then((response) => normalizePaginatedResponse(response).data),
-  managementPlayerClaims: (params: { status?: string; claimableType?: string; page?: number; perPage?: number } = {}) => {
-    const query = new URLSearchParams({ management: "1", page: String(params.page ?? 1), per_page: String(params.perPage ?? 20) });
+  managementPlayerClaims: (
+    params: {
+      status?: string;
+      claimableType?: string;
+      page?: number;
+      perPage?: number;
+    } = {},
+  ) => {
+    const query = new URLSearchParams({
+      management: "1",
+      page: String(params.page ?? 1),
+      per_page: String(params.perPage ?? 20),
+    });
     if (params.status) query.set("status", params.status);
     if (params.claimableType) query.set("claimable_type", params.claimableType);
-    return fetchAPI<PaginatedResponse<ManagementClaim>>(`/player_claims?${query}`);
+    return fetchAPI<PaginatedResponse<ManagementClaim>>(
+      `/player_claims?${query}`,
+    );
   },
   requestPlayerClaim: (playerProfileId: number) =>
-    postJSON<PlayerClaim>("/player_claims", { player_profile_id: playerProfileId }),
-  requestProfileClaim: (type: "PlayerProfile" | "CoachProfile", profileId: number) =>
-    postJSON<PlayerClaim>("/player_claims", { claimable_type: type, claimable_id: profileId }),
+    postJSON<PlayerClaim>("/player_claims", {
+      player_profile_id: playerProfileId,
+    }),
+  requestProfileClaim: (
+    type: "PlayerProfile" | "CoachProfile",
+    profileId: number,
+  ) =>
+    postJSON<PlayerClaim>("/player_claims", {
+      claimable_type: type,
+      claimable_id: profileId,
+    }),
   approvePlayerClaim: (
     id: number,
     verificationMethod: NonNullable<PlayerClaim["verification_method"]>,
@@ -1803,7 +1889,9 @@ export const api = {
       verification_method: verificationMethod,
     }),
   rejectPlayerClaim: (id: number, rejectionReason: string) =>
-    postJSON<PlayerClaim>(`/player_claims/${id}/reject`, { rejection_reason: rejectionReason }),
+    postJSON<PlayerClaim>(`/player_claims/${id}/reject`, {
+      rejection_reason: rejectionReason,
+    }),
   cancelPlayerClaim: (id: number) =>
     postJSON<PlayerClaim>(`/player_claims/${id}/cancel`, {}),
 
@@ -1823,23 +1911,53 @@ export const api = {
         ? `/claim_invitations?claimable_type=${claimableType}&claimable_id=${claimableId}`
         : "/claim_invitations",
     ),
-  managementClaimInvitations: (params: { status?: string; claimableType?: string; page?: number; perPage?: number } = {}) => {
-    const query = new URLSearchParams({ management: "1", page: String(params.page ?? 1), per_page: String(params.perPage ?? 20) });
+  managementClaimInvitations: (
+    params: {
+      status?: string;
+      claimableType?: string;
+      page?: number;
+      perPage?: number;
+    } = {},
+  ) => {
+    const query = new URLSearchParams({
+      management: "1",
+      page: String(params.page ?? 1),
+      per_page: String(params.perPage ?? 20),
+    });
     if (params.status) query.set("status", params.status);
     if (params.claimableType) query.set("claimable_type", params.claimableType);
-    return fetchAPI<PaginatedResponse<ClaimInvitation>>(`/claim_invitations?${query}`);
+    return fetchAPI<PaginatedResponse<ClaimInvitation>>(
+      `/claim_invitations?${query}`,
+    );
   },
-  managementClaimables: (params: { claimableType?: string; status?: string; linkState?: string; q?: string; page?: number; perPage?: number } = {}) => {
-    const query = new URLSearchParams({ page: String(params.page ?? 1), per_page: String(params.perPage ?? 20) });
+  managementClaimables: (
+    params: {
+      claimableType?: string;
+      status?: string;
+      linkState?: string;
+      q?: string;
+      page?: number;
+      perPage?: number;
+    } = {},
+  ) => {
+    const query = new URLSearchParams({
+      page: String(params.page ?? 1),
+      per_page: String(params.perPage ?? 20),
+    });
     if (params.claimableType) query.set("claimable_type", params.claimableType);
     if (params.status) query.set("status", params.status);
     if (params.linkState) query.set("link_state", params.linkState);
     if (params.q?.trim()) query.set("q", params.q.trim());
-    return fetchAPI<PaginatedResponse<ManagementClaimableProfile>>(`/claim_invitations/claimables?${query}`);
+    return fetchAPI<PaginatedResponse<ManagementClaimableProfile>>(
+      `/claim_invitations/claimables?${query}`,
+    );
   },
-  receivedClaimInvitations: () => fetchAPI<ClaimInvitation[]>("/claim_invitations/received"),
-  acceptReceivedClaimInvitation: (id: number) => postJSON<ClaimRedemptionOutcome>(`/claim_invitations/${id}/accept`, {}),
-  declineReceivedClaimInvitation: (id: number) => postJSON<ClaimInvitation>(`/claim_invitations/${id}/decline`, {}),
+  receivedClaimInvitations: () =>
+    fetchAPI<ClaimInvitation[]>("/claim_invitations/received"),
+  acceptReceivedClaimInvitation: (id: number) =>
+    postJSON<ClaimRedemptionOutcome>(`/claim_invitations/${id}/accept`, {}),
+  declineReceivedClaimInvitation: (id: number) =>
+    postJSON<ClaimInvitation>(`/claim_invitations/${id}/decline`, {}),
   createClaimInvitation: (
     claimableType: ClaimInvitation["claimable_type"],
     claimableId: number,
@@ -1861,7 +1979,9 @@ export const api = {
 
   /** @deprecated Use the unified `claimInvitations` family above. */
   playerClaimInvitations: (playerProfileId: number) =>
-    fetchAPI<ClaimInvitation[]>(`/player_claim_invitations?player_profile_id=${playerProfileId}`),
+    fetchAPI<ClaimInvitation[]>(
+      `/player_claim_invitations?player_profile_id=${playerProfileId}`,
+    ),
   playerClaimInvitation: (id: number) =>
     fetchAPI<ClaimInvitation>(`/player_claim_invitations/${id}`),
   /**
@@ -1869,13 +1989,18 @@ export const api = {
    * email matches may redeem it. Omit for an open bearer link (today's
    * behaviour). The server lowercases and trims before comparing.
    */
-  createPlayerClaimInvitation: (playerProfileId: number, inviteeEmail?: string) =>
+  createPlayerClaimInvitation: (
+    playerProfileId: number,
+    inviteeEmail?: string,
+  ) =>
     postJSON<CreatedPlayerClaimInvitation>("/player_claim_invitations", {
       player_profile_id: playerProfileId,
       invitee_email: inviteeEmail,
     }),
   redeemPlayerClaimInvitation: (token: string) =>
-    postJSON<ClaimRedemptionOutcome>("/player_claim_invitations/redeem", { token }),
+    postJSON<ClaimRedemptionOutcome>("/player_claim_invitations/redeem", {
+      token,
+    }),
   revokePlayerClaimInvitation: (id: number) =>
     postJSON<ClaimInvitation>(`/player_claim_invitations/${id}/revoke`, {}),
 
@@ -1920,16 +2045,21 @@ export const api = {
   // ---------- Assessments (canonical score is derived by the server) ----------
   assessments: (filters: AssessmentFilters = {}) => {
     const qs = new URLSearchParams();
-    if (filters.player_id != null) qs.set("player_id", String(filters.player_id));
+    if (filters.player_id != null)
+      qs.set("player_id", String(filters.player_id));
     if (filters.coach_id != null) qs.set("coach_id", String(filters.coach_id));
-    if (filters.category_id != null) qs.set("category_id", String(filters.category_id));
-    if (filters.training_session_id != null) qs.set("training_session_id", String(filters.training_session_id));
+    if (filters.category_id != null)
+      qs.set("category_id", String(filters.category_id));
+    if (filters.training_session_id != null)
+      qs.set("training_session_id", String(filters.training_session_id));
     if (filters.status) qs.set("status", filters.status);
     if (filters.mine) qs.set("mine", "1");
     if (filters.page != null) qs.set("page", String(filters.page));
     if (filters.per_page != null) qs.set("per_page", String(filters.per_page));
     const query = qs.toString();
-    return fetchAPI<PaginatedResponse<Assessment>>(`/assessments${query ? `?${query}` : ""}`);
+    return fetchAPI<PaginatedResponse<Assessment>>(
+      `/assessments${query ? `?${query}` : ""}`,
+    );
   },
   assessment: (id: number) => fetchAPI<Assessment>(`/assessments/${id}`),
   createAssessment: (data: AssessmentInput) =>
@@ -1943,8 +2073,13 @@ export const api = {
   assessmentDefinition: (id: number) =>
     fetchAPI<AssessmentDefinition>(`/assessment_definitions/${id}`),
   createAssessmentDefinition: (data: AssessmentDefinitionInput) =>
-    postJSON<AssessmentDefinition>("/assessment_definitions", { assessment_definition: data }),
-  updateAssessmentDefinition: (id: number, data: Partial<AssessmentDefinitionInput>) =>
+    postJSON<AssessmentDefinition>("/assessment_definitions", {
+      assessment_definition: data,
+    }),
+  updateAssessmentDefinition: (
+    id: number,
+    data: Partial<AssessmentDefinitionInput>,
+  ) =>
     postJSON<AssessmentDefinition>(
       `/assessment_definitions/${id}`,
       { assessment_definition: data },
@@ -1962,10 +2097,18 @@ export const api = {
    * are still scoring against loses nothing. Admin only.
    */
   archiveAssessmentDefinition: (id: number) =>
-    postJSON<AssessmentDefinition>(`/assessment_definitions/${id}/archive`, {}, "POST"),
+    postJSON<AssessmentDefinition>(
+      `/assessment_definitions/${id}/archive`,
+      {},
+      "POST",
+    ),
   /** Undo an archive, returning the definition to draft. Admin only. */
   restoreAssessmentDefinition: (id: number) =>
-    postJSON<AssessmentDefinition>(`/assessment_definitions/${id}/restore`, {}, "POST"),
+    postJSON<AssessmentDefinition>(
+      `/assessment_definitions/${id}/restore`,
+      {},
+      "POST",
+    ),
   /**
    * Hard delete, admin only, and only for a definition nothing references. The
    * server refuses when it is in use, so `deletable` is the gate to check first:
@@ -1990,8 +2133,10 @@ export const api = {
     status?: "current" | "historical" | "all";
   }) => {
     const qs = new URLSearchParams();
-    if (params.player_profile_id) qs.set("player_profile_id", String(params.player_profile_id));
-    if (params.coach_profile_id) qs.set("coach_profile_id", String(params.coach_profile_id));
+    if (params.player_profile_id)
+      qs.set("player_profile_id", String(params.player_profile_id));
+    if (params.coach_profile_id)
+      qs.set("coach_profile_id", String(params.coach_profile_id));
     if (params.status) qs.set("status", params.status);
     const query = qs.toString();
     const response = await fetchAPI<{ data: PlayerCoach[] }>(
@@ -2008,7 +2153,11 @@ export const api = {
     postJSON<PlayerCoach>("/player_coaches", { player_coach: data }),
   /** Correct the dates of a period. Re-pointing it is a new relationship. */
   updatePlayerCoach: (id: number, data: Partial<PlayerCoachInput>) =>
-    postJSON<PlayerCoach>(`/player_coaches/${id}`, { player_coach: data }, "PATCH"),
+    postJSON<PlayerCoach>(
+      `/player_coaches/${id}`,
+      { player_coach: data },
+      "PATCH",
+    ),
   /**
    * End the period. Deliberately `POST /end_relationship`, not DELETE: an ended
    * relationship is the context that makes a past assessment explicable, so the
@@ -2067,7 +2216,11 @@ export const api = {
    * and only a mistake is deleted.
    */
   deleteOrganisation: (id: number) =>
-    postJSON<{ message: string; id: number }>(`/organisations/${id}`, {}, "DELETE"),
+    postJSON<{ message: string; id: number }>(
+      `/organisations/${id}`,
+      {},
+      "DELETE",
+    ),
 
   // ---------- Organisation membership -----------------------------------------
   // Delegated to the organisation's own officers, not the site admin, so these
@@ -2093,10 +2246,13 @@ export const api = {
     personId: number,
     data: { role?: OrganisationMembershipRole; status?: string },
   ) =>
-    postJSON<OrganisationMembership>(`/organisations/${id}/members/${personId}`, {
-      membership: data,
-    },
-    "PATCH"),
+    postJSON<OrganisationMembership>(
+      `/organisations/${id}/members/${personId}`,
+      {
+        membership: data,
+      },
+      "PATCH",
+    ),
   /**
    * Leave or withdraw. A real member's membership ends and the row survives; an
    * unaccepted invitation is withdrawn and removed. `removed` says which happened.
@@ -2119,20 +2275,33 @@ export const api = {
   },
 
   assessmentSessions: () =>
-    fetchAPI<{ assessment_sessions: AssessmentSession[] }>("/assessment_sessions"),
+    fetchAPI<{ assessment_sessions: AssessmentSession[] }>(
+      "/assessment_sessions",
+    ),
   assessmentSession: (id: number) =>
-    fetchAPI<{ assessment_session: AssessmentSession }>(`/assessment_sessions/${id}`),
+    fetchAPI<{ assessment_session: AssessmentSession }>(
+      `/assessment_sessions/${id}`,
+    ),
   createAssessmentSession: (data: AssessmentSessionInput) =>
-    postJSON<{ assessment_session: AssessmentSession }>("/assessment_sessions", {
-      assessment_session: data,
-    }),
-  updateAssessmentSession: (id: number, data: Partial<AssessmentSessionInput>) =>
+    postJSON<{ assessment_session: AssessmentSession }>(
+      "/assessment_sessions",
+      {
+        assessment_session: data,
+      },
+    ),
+  updateAssessmentSession: (
+    id: number,
+    data: Partial<AssessmentSessionInput>,
+  ) =>
     postJSON<{ assessment_session: AssessmentSession }>(
       `/assessment_sessions/${id}`,
       { assessment_session: data },
       "PATCH",
     ),
-  addAssessmentSessionPlayers: (id: number, players: AssessmentSessionPlayerInput[]) =>
+  addAssessmentSessionPlayers: (
+    id: number,
+    players: AssessmentSessionPlayerInput[],
+  ) =>
     postJSON<{ assessment_session: AssessmentSession; added: number }>(
       `/assessment_sessions/${id}/add_players`,
       { players },
@@ -2143,7 +2312,10 @@ export const api = {
       { player_profile_ids: playerProfileIds },
       "PATCH",
     ),
-  saveAssessmentSessionScores: (id: number, scores: AssessmentSessionScoreInput[]) =>
+  saveAssessmentSessionScores: (
+    id: number,
+    scores: AssessmentSessionScoreInput[],
+  ) =>
     postJSON<{ assessment_session: AssessmentSession }>(
       `/assessment_sessions/${id}/scores`,
       { scores },
@@ -2265,19 +2437,29 @@ export const api = {
    * role — you become a `member` whatever you send. 409 if you already belong.
    */
   joinOrganisation: (id: number) =>
-    postJSON<{ membership: OrganisationMembership }>(`/organisations/${id}/join`, {}),
+    postJSON<{ membership: OrganisationMembership }>(
+      `/organisations/${id}/join`,
+      {},
+    ),
 
   // ---------- Ranking consolidations (Phase 4) ----------
   // Archival records: there is no update or delete. A correction is a new
   // consolidation, so a published club ranking can never be quietly rewritten.
   rankingConsolidations: () =>
-    fetchAPI<{ ranking_consolidations: RankingConsolidation[] }>("/ranking_consolidations"),
+    fetchAPI<{ ranking_consolidations: RankingConsolidation[] }>(
+      "/ranking_consolidations",
+    ),
   rankingConsolidation: (id: number) =>
-    fetchAPI<{ ranking_consolidation: RankingConsolidation }>(`/ranking_consolidations/${id}`),
+    fetchAPI<{ ranking_consolidation: RankingConsolidation }>(
+      `/ranking_consolidations/${id}`,
+    ),
   createRankingConsolidation: (data: RankingConsolidationInput) =>
-    postJSON<{ ranking_consolidation: RankingConsolidation }>("/ranking_consolidations", {
-      ranking_consolidation: data,
-    }),
+    postJSON<{ ranking_consolidation: RankingConsolidation }>(
+      "/ranking_consolidations",
+      {
+        ranking_consolidation: data,
+      },
+    ),
   /**
    * Freeze a draft as the club's official ranking. Refused with 422 while any
    * source session is still unpublished; the server re-derives the ranking from
@@ -2336,17 +2518,26 @@ export const api = {
     ),
 
   categoryCustoms: () => fetchAPI<CategoryCustom[]>("/category_customs"),
-  createCategoryCustom: (data: { name: string; visibility?: "shared" | "private" }) =>
+  createCategoryCustom: (data: {
+    name: string;
+    visibility?: "shared" | "private";
+  }) =>
     postJSON<CategoryCustom>("/category_customs", { category_custom: data }),
 
   // Admin
-  adminUsers: async (params?: { page?: number; per_page?: number; search?: string }) => {
+  adminUsers: async (params?: {
+    page?: number;
+    per_page?: number;
+    search?: string;
+  }) => {
     const qs = new URLSearchParams();
     if (params?.page) qs.set("page", String(params.page));
     if (params?.per_page) qs.set("per_page", String(params.per_page));
     if (params?.search) qs.set("search", params.search);
     const query = qs.toString();
-    const response = await fetchAPI<AdminUser[] | PaginatedResponse<AdminUser>>(`/admin/users${query ? `?${query}` : ""}`);
+    const response = await fetchAPI<AdminUser[] | PaginatedResponse<AdminUser>>(
+      `/admin/users${query ? `?${query}` : ""}`,
+    );
     return normalizePaginatedResponse(response);
   },
   adminAddRole: (userId: number, role: string) =>
@@ -2355,7 +2546,7 @@ export const api = {
     postJSON<{ roles: string[] }>(
       `/admin/users/${userId}/roles/${encodeURIComponent(role)}`,
       {},
-      "DELETE"
+      "DELETE",
     ),
 
   // Admin Settings — Skills (admin-only endpoints, authorize_admin! on backend)
@@ -2364,19 +2555,33 @@ export const api = {
     if (params?.page) qs.set("page", String(params.page));
     if (params?.per_page) qs.set("per_page", String(params.per_page));
     const query = qs.toString();
-    const response = await fetchAPI<Skill[] | PaginatedResponse<Skill>>(`/admin/skills${query ? `?${query}` : ""}`);
+    const response = await fetchAPI<Skill[] | PaginatedResponse<Skill>>(
+      `/admin/skills${query ? `?${query}` : ""}`,
+    );
     return normalizePaginatedResponse(response);
   },
   adminSkill: (id: string | number) =>
     fetchAPI<Skill>(`/admin/skills/${encodeURIComponent(String(id))}`),
-  adminCreateSkill: (data: { title: string; category_id: number; description?: string | null }) =>
-    postJSON<Skill>("/admin/skills", { skill: data }),
+  adminCreateSkill: (data: {
+    title: string;
+    category_id: number;
+    description?: string | null;
+  }) => postJSON<Skill>("/admin/skills", { skill: data }),
   adminUpdateSkill: (
     id: string | number,
-    data: { title?: string; category_id?: number; description?: string | null }
-  ) => postJSON<Skill>(`/admin/skills/${encodeURIComponent(String(id))}`, { skill: data }, "PATCH"),
+    data: { title?: string; category_id?: number; description?: string | null },
+  ) =>
+    postJSON<Skill>(
+      `/admin/skills/${encodeURIComponent(String(id))}`,
+      { skill: data },
+      "PATCH",
+    ),
   adminDestroySkill: (id: string | number) =>
-    postJSON<void>(`/admin/skills/${encodeURIComponent(String(id))}`, {}, "DELETE"),
+    postJSON<void>(
+      `/admin/skills/${encodeURIComponent(String(id))}`,
+      {},
+      "DELETE",
+    ),
 
   // Admin Settings — Categories
   adminCategories: async (params?: { page?: number; per_page?: number }) => {
@@ -2384,7 +2589,9 @@ export const api = {
     if (params?.page) qs.set("page", String(params.page));
     if (params?.per_page) qs.set("per_page", String(params.per_page));
     const query = qs.toString();
-    const response = await fetchAPI<Category[] | PaginatedResponse<Category>>(`/admin/categories${query ? `?${query}` : ""}`);
+    const response = await fetchAPI<Category[] | PaginatedResponse<Category>>(
+      `/admin/categories${query ? `?${query}` : ""}`,
+    );
     return normalizePaginatedResponse(response);
   },
   adminCategory: (id: string | number) =>
@@ -2395,35 +2602,51 @@ export const api = {
     postJSON<Category>(
       `/admin/categories/${encodeURIComponent(String(id))}`,
       { category: data },
-      "PATCH"
+      "PATCH",
     ),
   adminDestroyCategory: (id: string | number, confirmDestroy = false) =>
     postJSON<void>(
       `/admin/categories/${encodeURIComponent(String(id))}${
-        confirmDestroy ? `?confirm_destroy=${encodeURIComponent(String(id))}` : ""
+        confirmDestroy
+          ? `?confirm_destroy=${encodeURIComponent(String(id))}`
+          : ""
       }`,
       {},
-      "DELETE"
+      "DELETE",
     ),
 
   // Admin — Video Categories
-  adminVideoCategories: () => fetchAPI<VideoCategory[]>("/admin/video_categories"),
-  adminCreateVideoCategory: (data: { name: string; description?: string | null }) =>
-    postJSON<VideoCategory>("/admin/video_categories", { video_category: data }),
+  adminVideoCategories: () =>
+    fetchAPI<VideoCategory[]>("/admin/video_categories"),
+  adminCreateVideoCategory: (data: {
+    name: string;
+    description?: string | null;
+  }) =>
+    postJSON<VideoCategory>("/admin/video_categories", {
+      video_category: data,
+    }),
   adminUpdateVideoCategory: (
     id: string | number,
-    data: { name?: string; description?: string | null }
+    data: { name?: string; description?: string | null },
   ) =>
     postJSON<VideoCategory>(
       `/admin/video_categories/${encodeURIComponent(String(id))}`,
       { video_category: data },
-      "PATCH"
+      "PATCH",
     ),
   adminDestroyVideoCategory: (id: string | number) =>
-    postJSON<void>(`/admin/video_categories/${encodeURIComponent(String(id))}`, {}, "DELETE"),
+    postJSON<void>(
+      `/admin/video_categories/${encodeURIComponent(String(id))}`,
+      {},
+      "DELETE",
+    ),
   /** Persists the drag-and-drop order; `ids` must list every category once. */
   adminReorderVideoCategories: (ids: number[]) =>
-    postJSON<VideoCategory[]>("/admin/video_categories/reorder", { ids }, "PATCH"),
+    postJSON<VideoCategory[]>(
+      "/admin/video_categories/reorder",
+      { ids },
+      "PATCH",
+    ),
 
   // Admin — Video Tags
   adminVideoTags: () => fetchAPI<VideoTag[]>("/admin/video_tags"),
@@ -2433,10 +2656,14 @@ export const api = {
     postJSON<VideoTag>(
       `/admin/video_tags/${encodeURIComponent(String(id))}`,
       { video_tag: data },
-      "PATCH"
+      "PATCH",
     ),
   adminDestroyVideoTag: (id: string | number) =>
-    postJSON<void>(`/admin/video_tags/${encodeURIComponent(String(id))}`, {}, "DELETE"),
+    postJSON<void>(
+      `/admin/video_tags/${encodeURIComponent(String(id))}`,
+      {},
+      "DELETE",
+    ),
   /** Persists the drag-and-drop order; `ids` must list every tag once. */
   adminReorderVideoTags: (ids: number[]) =>
     postJSON<VideoTag[]>("/admin/video_tags/reorder", { ids }, "PATCH"),
@@ -2447,7 +2674,9 @@ export const api = {
     if (params?.page) qs.set("page", String(params.page));
     if (params?.per_page) qs.set("per_page", String(params.per_page));
     const query = qs.toString();
-    const response = await fetchAPI<Drill[] | PaginatedResponse<Drill>>(`/admin/drills${query ? `?${query}` : ""}`);
+    const response = await fetchAPI<Drill[] | PaginatedResponse<Drill>>(
+      `/admin/drills${query ? `?${query}` : ""}`,
+    );
     return normalizePaginatedResponse(response);
   },
   adminDrill: (id: string | number) =>
@@ -2475,53 +2704,80 @@ export const api = {
       ideal_num_players?: number | null;
       definition?: DrillDefinition | null;
       skill_ids?: number[];
-    }
+    },
   ) =>
     postJSON<Drill>(
       `/admin/drills/${encodeURIComponent(String(id))}`,
       { drill: data },
-      "PATCH"
+      "PATCH",
     ),
   adminDestroyDrill: (id: string | number) =>
-    postJSON<void>(`/admin/drills/${encodeURIComponent(String(id))}`, {}, "DELETE"),
-
+    postJSON<void>(
+      `/admin/drills/${encodeURIComponent(String(id))}`,
+      {},
+      "DELETE",
+    ),
 
   // ---------- Admin "Act as User" impersonation ----------
   startImpersonation: (userId: number) =>
     postJSON<{
       impersonating: boolean;
-      effective_user: { id: number; name: string; email_address: string; roles: string[] } | null;
+      effective_user: {
+        id: number;
+        name: string;
+        email_address: string;
+        roles: string[];
+      } | null;
       real_admin: { id: number; name: string; email_address: string };
     }>("/admin/impersonations", { user_id: userId }),
   stopImpersonation: () =>
     postJSON<{
       impersonating: boolean;
-      effective_user: { id: number; name: string; email_address: string; roles: string[] } | null;
+      effective_user: {
+        id: number;
+        name: string;
+        email_address: string;
+        roles: string[];
+      } | null;
       real_admin: { id: number; name: string; email_address: string };
     }>("/admin/impersonations", {}, "DELETE"),
 
   // ---------- Health diagnostics (admin) ----------
-health: () => fetchAPI<{ status: string }>("/health"),
-healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
-
+  health: () => fetchAPI<{ status: string }>("/health"),
+  healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
 
   me: () => fetchAPI<User | null>("/me"),
   login: (email_address: string, password: string) =>
-    postJSON<UserWithToken>("/sessions", { email_address, password, api: true })
-      .then((data) => {
-        // Pending verification never carries an email token or session token.
-        if (data.status === "pending_verification") return data;
-        if (data.token) setToken(data.token);
-        return data;
-      }),
+    postJSON<UserWithToken>("/sessions", {
+      email_address,
+      password,
+      api: true,
+    }).then((data) => {
+      // Pending verification never carries an email token or session token.
+      if (data.status === "pending_verification") return data;
+      if (data.token) setToken(data.token);
+      return data;
+    }),
   logout: () => {
     const request = postJSON<void>("/sessions", {}, "DELETE");
     setToken(null);
     return request;
   },
-  register: (first_name: string, last_name: string, email_address: string, password: string, password_confirmation: string) =>
+  register: (
+    first_name: string,
+    last_name: string,
+    email_address: string,
+    password: string,
+    password_confirmation: string,
+  ) =>
     postJSON<UserWithToken>("/registrations", {
-      user: { first_name, last_name, email_address, password, password_confirmation },
+      user: {
+        first_name,
+        last_name,
+        email_address,
+        password,
+        password_confirmation,
+      },
       api: true,
     }).then((data) => {
       // Same guard as login: no session is created until email verification.
@@ -2540,32 +2796,42 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
     ),
   requestPasswordReset: (email_address: string) =>
     postJSON<void>("/passwords", { email_address }),
-  resetPassword: (token: string, password: string, password_confirmation: string) =>
-        postJSON<UserWithToken>(`/passwords/${encodeURIComponent(token)}`, {
-      password,
-      password_confirmation,
-      api: true,
-    }, "PUT").then((data) => {
+  resetPassword: (
+    token: string,
+    password: string,
+    password_confirmation: string,
+  ) =>
+    postJSON<UserWithToken>(
+      `/passwords/${encodeURIComponent(token)}`,
+      {
+        password,
+        password_confirmation,
+        api: true,
+      },
+      "PUT",
+    ).then((data) => {
       if (data.token) setToken(data.token);
       return data;
     }),
 
   // Admin audit logs (read-only)
-  adminLogs: (params: {
-    page?: number;
-    per_page?: number;
-    action?: string;
-    action_filter?: string;
-    user_id?: string;
-    object_type?: string;
-    object_id?: string;
-    request_id?: string;
-    date_from?: string;
-    date_to?: string;
-    start_date?: string;
-    end_date?: string;
-    search?: string;
-  } = {}) => {
+  adminLogs: (
+    params: {
+      page?: number;
+      per_page?: number;
+      action?: string;
+      action_filter?: string;
+      user_id?: string;
+      object_type?: string;
+      object_id?: string;
+      request_id?: string;
+      date_from?: string;
+      date_to?: string;
+      start_date?: string;
+      end_date?: string;
+      search?: string;
+    } = {},
+  ) => {
     const qs = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== "") qs.set(k, String(v));
@@ -2573,7 +2839,8 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
     const query = qs.toString();
     return fetchAPI<LogsResponse>(`/admin/logs${query ? `?${query}` : ""}`);
   },
-  adminLog: (id: number | string) => fetchAPI<{ data: Log }>(`/admin/logs/${id}`),
+  adminLog: (id: number | string) =>
+    fetchAPI<{ data: Log }>(`/admin/logs/${id}`),
 
   // Rails log file tail (read-only)
   adminSystemLogs: (lines: number = 500) =>
@@ -2588,33 +2855,50 @@ healthDetailed: () => fetchAPI<HealthDetailed>("/health/detailed"),
 
   // Generic app_settings rows (admin-only key/value pairs) for the
   // Configuration page's custom-settings table.
-  appSettings: () => fetchAPI<{ settings: AppSettingRow[] }>("/admin/app_settings"),
+  appSettings: () =>
+    fetchAPI<{ settings: AppSettingRow[] }>("/admin/app_settings"),
   createAppSetting: (data: { key: string; value: string }) =>
     postJSON<AppSettingRow>("/admin/app_settings", data),
   updateAppSetting: (key: string, value: string) =>
-    postJSON<AppSettingRow>(`/admin/app_settings/${encodeURIComponent(key)}`, { value }, "PATCH"),
+    postJSON<AppSettingRow>(
+      `/admin/app_settings/${encodeURIComponent(key)}`,
+      { value },
+      "PATCH",
+    ),
   deleteAppSetting: (key: string) =>
-    postJSON<void>(`/admin/app_settings/${encodeURIComponent(key)}`, {}, "DELETE"),
+    postJSON<void>(
+      `/admin/app_settings/${encodeURIComponent(key)}`,
+      {},
+      "DELETE",
+    ),
 
   // Account
   account: (accountId?: number): Promise<Account> =>
     fetchAPI<Account>(`/account${accountId ? `?account_id=${accountId}` : ""}`),
-  accountDetail: (id: number): Promise<Account> => fetchAPI<Account>(`/accounts/${id}`),
-  updateAccount: (data: {
-    first_name: string | null;
-    last_name: string | null;
-    email: string | null;
-    phone: string | null;
-    date_of_birth: string | null;
-    address: {
-      street_address: string | null;
-      city: string | null;
-      state: string | null;
-      postal_code: string | null;
-      country: string | null;
-    };
-  }, accountId?: number): Promise<Account> =>
-    postJSON<Account>(`/account${accountId ? `?account_id=${accountId}` : ""}`, data, "PATCH"),
+  accountDetail: (id: number): Promise<Account> =>
+    fetchAPI<Account>(`/accounts/${id}`),
+  updateAccount: (
+    data: {
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+      phone: string | null;
+      date_of_birth: string | null;
+      address: {
+        street_address: string | null;
+        city: string | null;
+        state: string | null;
+        postal_code: string | null;
+        country: string | null;
+      };
+    },
+    accountId?: number,
+  ): Promise<Account> =>
+    postJSON<Account>(
+      `/account${accountId ? `?account_id=${accountId}` : ""}`,
+      data,
+      "PATCH",
+    ),
   updatePassword: (data: {
     current_password: string;
     password: string;

@@ -142,6 +142,7 @@ export default function ProfileManagementDashboard() {
         <Pager meta={meta} page={page} setPage={setPage} />
       </> : <p>No claims match these filters.</p>}
     </> : <>
+<section className="detail-section">
       <h3>Profiles in your authorized scope</h3>
       <div className="profile-management-filters">
         <label className="auth-field">Profile type<select aria-label="Invitation profile type" value={profileType} onChange={(event) => { setProfileType(event.target.value); setProfilePage(1); }}><option value="all">Players and coaches</option><option value="PlayerProfile">Players</option><option value="CoachProfile">Coaches</option></select></label>
@@ -149,22 +150,50 @@ export default function ProfileManagementDashboard() {
         <label className="auth-field">Account link<select aria-label="Profile account link status" value={linkState} onChange={(event) => { setLinkState(event.target.value); setProfilePage(1); }}><option value="unlinked">Unlinked profiles</option><option value="linked">Linked profiles</option><option value="all">All profiles</option></select></label>
         <label className="auth-field">Search profiles<input aria-label="Search managed profiles" value={profileQuery} onChange={(event) => { setProfileQuery(event.target.value); setProfilePage(1); }} /></label>
       </div>
-      {profileLoading ? <p role="status">Loading profiles…</p> : profiles.length ? <ul>{profiles.map((profile) => {
-        const key = `${profile.claimable_type}:${profile.claimable_id}`;
-        const prior = currentActive.get(key);
-        const label = profile.claimable_type === "PlayerProfile" ? "Player" : "Coach";
-        const path = profile.claimable_type === "PlayerProfile" ? `/players/${profile.claimable_id}` : `/coaches/${profile.claimable_id}`;
-        return <li key={key}>
-          <Link to={path}>{profile.display_name || `${label} profile #${profile.claimable_id}`}</Link> · {label} · {profile.status} · {profile.linked_to_account ? "Account linked" : "Unlinked"}
-          {profile.can_invite && !profile.linked_to_account && <div className="profile-management-actions">
-            <label className="auth-field">Recipient email (new or existing account)<input type="email" aria-label={`Recipient email for ${label.toLowerCase()} profile ${profile.claimable_id}`} value={emails[key] ?? ""} onChange={(event) => setEmails((old) => ({ ...old, [key]: event.target.value }))} placeholder="Optional; requires a verified email match" /></label>
-            <button className="admin-btn" disabled={busy === key} onClick={() => void issue(profile, prior)}>{busy === key ? "Creating link…" : prior ? "Create new invite link" : "Create invite link"}</button>
-            {prior && <span>Active invitation · expires {new Date(prior.expires_at).toLocaleDateString()}</span>}
-            {newLinks[key] && <div role="status"><label className="auth-field">New invitation link for {label.toLowerCase()} profile {profile.claimable_id}<input aria-label={`New invitation link for ${label.toLowerCase()} profile ${profile.claimable_id}`} readOnly value={newLinks[key]} /></label><button className="admin-btn" onClick={() => { void navigator.clipboard?.writeText(newLinks[key]); }}>Copy link</button></div>}
-          </div>}
-        </li>;
-      })}</ul> : <p>No profiles match these filters.</p>}
+      {profileLoading ? <p role="status">Loading profiles…</p> : profiles.length ? <>
+        <ul>{profiles.map((profile) => {
+          const linkPath = profile.claimable_type === "PlayerProfile" ? `/players/${profile.claimable_id}` : `/coaches/${profile.claimable_id}`;
+          const typeLabel = profile.claimable_type === "PlayerProfile" ? "Player" : "Coach";
+          return (
+            <li key={`${profile.claimable_type}:${profile.claimable_id}`} className="profile-item">
+              <div className="profile-info">
+                <Link to={linkPath}><strong>{profile.display_name || `${typeLabel} profile #${profile.claimable_id}`}</strong></Link>
+                <span className="management-tag">{typeLabel}</span>
+                <span className="management-tag">{profile.status}</span>
+                <span className="management-tag">{profile.linked_to_account ? "Account linked" : "Unlinked"}</span>
+              </div>
+            </li>
+          );
+        })}</ul>
+        {/* Invitation actions for unlinked, invitable profiles */}
+        {profiles
+          .filter((p) => p.can_invite && !p.linked_to_account)
+          .map((profile) => {
+            const key = `${profile.claimable_type}:${profile.claimable_id}`;
+            const prior = currentActive.get(key);
+            return (
+              <div key={key} className="profile-management-actions">
+                <h4>{profile.display_name || `${profile.claimable_type === "PlayerProfile" ? "Player" : "Coach"} profile #${profile.claimable_id}`}</h4>
+                <label className="auth-field">Recipient email (new or existing account)
+                  <input type="email" aria-label={`Recipient email for ${profile.display_name}`} value={emails[key] ?? ""} onChange={(event) => setEmails((old) => ({ ...old, [key]: event.target.value }))} placeholder="Optional; requires a verified email match" />
+                </label>
+                <button className="admin-btn" disabled={busy === key} onClick={() => void issue(profile, prior)}>{busy === key ? "Creating link…" : prior ? "Create new invite link" : "Create invite link"}</button>
+                {prior && <span className="management-tag">Active invitation · expires {new Date(prior.expires_at).toLocaleDateString()}</span>}
+                {newLinks[key] && (
+                  <div role="status" className="new-link">
+                    <label className="auth-field">New invitation link for {profile.display_name}
+                      <input aria-label={`New invitation link for ${profile.display_name}`} readOnly value={newLinks[key]} />
+                    </label>
+                    <button className="admin-btn" onClick={() => { void navigator.clipboard?.writeText(newLinks[key]); }}>Copy link</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+      </> : <p>No profiles match these filters.</p>}
       <Pager meta={profileMeta} page={profilePage} setPage={setProfilePage} />
+</section>
+<section className="detail-section">
       <h3>Invitation history</h3>
       <div className="profile-management-filters">
         <label className="auth-field">Invitation profile type<select aria-label="Invitation history profile type" value={invitationType} onChange={(event) => { setInvitationType(event.target.value); setPage(1); }}><option value="all">All profiles</option><option value="PlayerProfile">Players</option><option value="CoachProfile">Coaches</option></select></label>
@@ -184,6 +213,7 @@ export default function ProfileManagementDashboard() {
         })}</ul>
         <Pager meta={meta} page={page} setPage={setPage} />
       </> : <p>No invitations match these filters.</p>}
+</section>
     </>}
   </section>;
 }

@@ -7,7 +7,9 @@ const PER_PAGE = 20;
 
 export default function AdminUsers() {
   const { user, startImpersonating } = useAuth();
-  const isAdmin = user?.roles?.includes("admin") && !(user as { real_admin?: unknown }).real_admin;
+  const isAdmin =
+    user?.roles?.includes("admin") &&
+    !(user as { real_admin?: unknown }).real_admin;
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Record<number, boolean>>({});
@@ -95,9 +97,16 @@ export default function AdminUsers() {
         <p>Manage roles for every account in the system.</p>
       </header>
 
-      <form onSubmit={applySearch} style={{ margin: "0 0 16px", display: "flex", gap: 8, maxWidth: 480 }}>
+      <form
+        onSubmit={applySearch}
+        style={{ margin: "0 0 16px", display: "flex", gap: 8, maxWidth: 480 }}
+      >
         <div style={{ flex: 1 }}>
-          <label htmlFor="users-search" className="admin-table-name" style={{ display: "block", fontWeight: "normal" }}>
+          <label
+            htmlFor="users-search"
+            className="admin-table-name"
+            style={{ display: "block", fontWeight: "normal" }}
+          >
             Search by name or email
           </label>
           <input
@@ -105,12 +114,16 @@ export default function AdminUsers() {
             type="search"
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
-            placeholder="e.g. Anderson or romalopes@yahoo.com.br"
+            placeholder="e.g. Anderson or test.beachvolleyballhub.com"
             style={{ width: "100%" }}
           />
         </div>
         <div style={{ alignSelf: "flex-end" }}>
-          <button type="submit" className="admin-btn admin-btn-add" disabled={loading}>
+          <button
+            type="submit"
+            className="admin-btn admin-btn-add"
+            disabled={loading}
+          >
             Search
           </button>
         </div>
@@ -128,7 +141,7 @@ export default function AdminUsers() {
             <div key={u.id} className="admin-user-card">
               <div className="admin-user-info">
                 <span className="admin-user-name">
-                  {u.name || u.email_address}
+                  {(u.first_name || u.last_name) ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : (u.name || u.email_address)}
                 </span>
                 <span className="admin-user-email">{u.email_address}</span>
               </div>
@@ -140,38 +153,44 @@ export default function AdminUsers() {
                 ))}
               </div>
               <div className="admin-user-actions">
-                {(["guest", "player", "coach", "curator", "admin"] as const).map((role) => {
-                    const present = hasRole(u, role);
-                    const isOwnAdminRole =
-                      role === "admin" && u.id === user?.id;
-                    return (
-                      <button
-                        key={role}
-                        type="button"
-                        className={
-                          present
-                            ? "admin-btn admin-btn-remove"
-                            : "admin-btn admin-btn-add"
-                        }
-                        disabled={busy[u.id] || isOwnAdminRole}
-                        title={
-                          isOwnAdminRole
-                            ? "You cannot remove your own admin role"
-                            : undefined
-                        }
-                        onClick={() => toggleRole(u, role)}
-                      >
-                        {present ? `Remove ${role}` : `Add ${role}`}
-                      </button>
-                    );
-                  })}
+                {(
+                  ["guest", "player", "coach", "curator", "admin"] as const
+                ).map((role) => {
+                  const present = hasRole(u, role);
+                  const isOwnAdminRole = role === "admin" && u.id === user?.id;
+                  return (
+                    <button
+                      key={role}
+                      type="button"
+                      className={
+                        present
+                          ? "admin-btn admin-btn-remove"
+                          : "admin-btn admin-btn-add"
+                      }
+                      disabled={busy[u.id] || isOwnAdminRole}
+                      title={
+                        isOwnAdminRole
+                          ? "You cannot remove your own admin role"
+                          : undefined
+                      }
+                      onClick={() => toggleRole(u, role)}
+                    >
+                      {present ? `Remove ${role}` : `Add ${role}`}
+                    </button>
+                  );
+                })}
                 {isAdmin && !hasRole(u, "admin") && u.id !== user?.id && (
                   <button
                     type="button"
                     className="admin-btn admin-btn-add"
                     disabled={actingBusy[u.id]}
                     onClick={async () => {
-                      if (!window.confirm(`Act as ${u.name || u.email_address}? You will operate the app as that user until you return.`)) return;
+                      if (
+                        !window.confirm(
+                          `Act as ${(u.first_name || u.last_name) ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : (u.name || u.email_address)}? You will operate the app as that user until you return.`,
+                        )
+                      )
+                        return;
                       setActingBusy((prev) => ({ ...prev, [u.id]: true }));
                       try {
                         await startImpersonating(u.id);
