@@ -79,6 +79,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockedApi.assessmentSessions.mockResolvedValue({
     assessment_sessions: [session()],
+    meta: { page: 1, total_pages: 1, total: 1, per_page: 20 },
   } as never);
   mockedApi.assessmentDefinitions.mockResolvedValue({
     data: [definition],
@@ -124,6 +125,7 @@ describe("AssessmentSessions list", () => {
   it("explains an empty list", async () => {
     mockedApi.assessmentSessions.mockResolvedValue({
       assessment_sessions: [],
+      meta: { page: 1, total_pages: 1, total: 0, per_page: 20 },
     } as never);
     renderPage();
 

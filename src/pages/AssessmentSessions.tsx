@@ -9,10 +9,15 @@ import {
   type Coach,
   type AssessmentSessionInput,
   type Group as GroupRecord,
+  type PaginationMeta,
 } from "../api";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
 import Tag from "../components/Tag";
+import Pagination from "../components/settings/Pagination";
+
+/** Page size for assessment sessions list. */
+const PER_PAGE = 20;
 
 export default function AssessmentSessions() {
   const navigate = useNavigate();
@@ -20,6 +25,8 @@ export default function AssessmentSessions() {
   const [definitions, setDefinitions] = useState<AssessmentDefinition[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [groups, setGroups] = useState<GroupRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
   // Load-once page: `loading` is derived from whether the first load finished,
   // rather than synced by the effect (which would cascade a render, see
   // AdminUsers.tsx).
@@ -43,7 +50,7 @@ export default function AssessmentSessions() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      api.assessmentSessions(),
+      api.assessmentSessions({ page, per_page: PER_PAGE }),
       api.assessmentDefinitions("active"),
       api.coaches(),
       // A group is optional and only seeds the roster, so a failure here must
@@ -53,6 +60,7 @@ export default function AssessmentSessions() {
       .then(([sessionsRes, definitionsRes, coachesRes, groupsRes]) => {
         if (cancelled) return;
         setSessions(sessionsRes.assessment_sessions || []);
+        if (sessionsRes.meta) setMeta(sessionsRes.meta);
         setDefinitions(definitionsRes.data || []);
         const coachList = Array.isArray(coachesRes) ? coachesRes : coachesRes.data || [];
         setCoaches(coachList);
@@ -83,7 +91,7 @@ export default function AssessmentSessions() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [page]);
 
   const handleStartCreate = () => {
     setIsCreating(true);
@@ -222,6 +230,15 @@ export default function AssessmentSessions() {
               </Link>
             ))}
           </div>
+          {meta && (
+            <Pagination
+              currentPage={meta.page}
+              totalPages={meta.total_pages}
+              totalItems={meta.total}
+              itemsPerPage={meta.per_page}
+              onPageChange={setPage}
+            />
+          )}
         </>
       )}
 

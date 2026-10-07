@@ -83,7 +83,7 @@ const renderPage = () =>
 beforeEach(() => {
   vi.clearAllMocks();
   mockedApi.rankingConsolidations.mockResolvedValue({ ranking_consolidations: [] });
-  mockedApi.assessmentSessions.mockResolvedValue({ assessment_sessions: [] });
+  mockedApi.assessmentSessions.mockResolvedValue({ assessment_sessions: [], meta: { page: 1, total_pages: 1, total: 0, per_page: 20 } });
 });
 
 describe("RankingConsolidations", () => {
@@ -133,6 +133,7 @@ describe("RankingConsolidations", () => {
           },
         }),
       ],
+      meta: { page: 1, total_pages: 1, total: 3, per_page: 20 },
     });
     renderPage();
 
@@ -150,6 +151,7 @@ describe("RankingConsolidations", () => {
   it("shows each session's date, coach and ranked count so sessions are distinguishable", async () => {
     mockedApi.assessmentSessions.mockResolvedValue({
       assessment_sessions: [session({ id: 1, name: "September Combine" })],
+      meta: { page: 1, total_pages: 1, total: 1, per_page: 20 },
     });
     renderPage();
 
@@ -178,6 +180,7 @@ describe("RankingConsolidations", () => {
         session({ id: 1, name: "Published one" }),
         session({ id: 2, name: "Draft one", status: "draft" }),
       ],
+      meta: { page: 1, total_pages: 1, total: 2, per_page: 20 },
     });
     renderPage();
 
@@ -206,6 +209,7 @@ describe("RankingConsolidations", () => {
       assessment_sessions: [
         session({ id: 1, name: "Unscored draft", status: "draft", ranking: { ranking: [], incomplete: [], excluded: [] } }),
       ],
+      meta: { page: 1, total_pages: 1, total: 1, per_page: 20 },
     });
     renderPage();
 
@@ -225,6 +229,7 @@ describe("RankingConsolidations", () => {
         session({ id: 1, name: "First screening" }),
         session({ id: 2, name: "Second screening" }),
       ],
+      meta: { page: 1, total_pages: 1, total: 2, per_page: 20 },
     });
     renderPage();
 
@@ -246,6 +251,7 @@ describe("RankingConsolidations", () => {
     const user = userEvent.setup();
     mockedApi.assessmentSessions.mockResolvedValue({
       assessment_sessions: [session({ id: 1, name: "First screening" })],
+      meta: { page: 1, total_pages: 1, total: 1, per_page: 20 },
     });
     renderPage();
 
@@ -265,6 +271,7 @@ describe("RankingConsolidations", () => {
   it("refuses to submit without a name or a session", async () => {
     mockedApi.assessmentSessions.mockResolvedValue({
       assessment_sessions: [session()],
+      meta: { page: 1, total_pages: 1, total: 1, per_page: 20 },
     });
     renderPage();
 
@@ -289,6 +296,7 @@ describe("RankingConsolidations", () => {
         session({ id: 1, name: "First screening" }),
         session({ id: 2, name: "Second screening" }),
       ],
+      meta: { page: 1, total_pages: 1, total: 2, per_page: 20 },
     });
     mockedApi.createRankingConsolidation.mockResolvedValue({
       ranking_consolidation: consolidation(),
@@ -316,6 +324,7 @@ describe("RankingConsolidations", () => {
   it("reports a rejected merge without losing what was selected", async () => {
     mockedApi.assessmentSessions.mockResolvedValue({
       assessment_sessions: [session({ id: 1, name: "First screening" })],
+      meta: { page: 1, total_pages: 1, total: 1, per_page: 20 },
     });
     mockedApi.createRankingConsolidation.mockRejectedValue(
       new Error("Session \"First screening\" uses a different assessment definition"),

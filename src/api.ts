@@ -2274,10 +2274,15 @@ export const api = {
     return postFormData<Organisation>(`/organisations/${id}/logo`, form);
   },
 
-  assessmentSessions: () =>
-    fetchAPI<{ assessment_sessions: AssessmentSession[] }>(
-      "/assessment_sessions",
-    ),
+  assessmentSessions: (params?: { page?: number; per_page?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.page) qs.set("page", String(params.page));
+    if (params?.per_page) qs.set("per_page", String(params.per_page));
+    const query = qs.toString();
+    return fetchAPI<{ assessment_sessions: AssessmentSession[]; meta: PaginationMeta }>(
+      `/assessment_sessions${query ? `?${query}` : ""}`,
+    );
+  },
   assessmentSession: (id: number) =>
     fetchAPI<{ assessment_session: AssessmentSession }>(
       `/assessment_sessions/${id}`,
