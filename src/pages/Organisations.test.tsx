@@ -23,10 +23,12 @@ vi.mock("../api", async (importOriginal) => {
       deleteOrganisation: vi.fn(),
       uploadOrganisationLogo: vi.fn(),
       organisationMembers: vi.fn(),
+      organisationMemberCandidates: vi.fn(),
       addOrganisationMember: vi.fn(),
       updateOrganisationMember: vi.fn(),
+      updateOrganisationMembership: vi.fn(),
       endOrganisationMember: vi.fn(),
-      people: vi.fn(),
+      endOrganisationMembership: vi.fn(),
     },
   };
 });
@@ -187,19 +189,19 @@ describe("Organisation detail", () => {
   });
 
   it("updates a roster member role", async () => {
-    mockedApi.updateOrganisationMember.mockResolvedValue(membership({ role: "coach", role_label: "Coach" }));
+    mockedApi.updateOrganisationMembership.mockResolvedValue(membership({ role: "coach", role_label: "Coach" }));
     renderWithAuth(<OrganisationDetail />, authValue(), "/organisations/1", "/organisations/:id");
     await screen.findByText("Alex Owner");
 
     await userEvent.selectOptions(screen.getByLabelText("Role for Alex Owner"), "coach");
 
-    expect(mockedApi.updateOrganisationMember).toHaveBeenCalledWith(1, 10, { role: "coach" });
+    expect(mockedApi.updateOrganisationMembership).toHaveBeenCalledWith(1, 10, { role: "coach" });
     expect(await screen.findByRole("status")).toHaveTextContent("Alex Owner is now Coach.");
   });
 
-  it("adds a searched person to the roster", async () => {
-    mockedApi.people.mockResolvedValue([{ id: 77, first_name: "Rosa", last_name: "New", full_name: "Rosa New" }] as never);
-    mockedApi.addOrganisationMember.mockResolvedValue(membership({ id: 77, person_id: 77, person_name: "Rosa New", role: "member", role_label: "Member" }));
+  it("adds a searched polymorphic candidate to the roster", async () => {
+    mockedApi.organisationMemberCandidates.mockResolvedValue([{ id: "PlayerProfile:77", memberable_type: "PlayerProfile", memberable_id: 77, account_id: null, player_profile_id: 77, coach_profile_id: null, display_name: "Rosa New", member_type_label: "Player profile", account_status: "profile_only" }]);
+    mockedApi.addOrganisationMember.mockResolvedValue(membership({ id: 77, memberable_type: "PlayerProfile", memberable_id: 77, person_name: "Rosa New", display_name: "Rosa New", role: "member", role_label: "Member" }));
     renderWithAuth(<OrganisationDetail />, authValue(), "/organisations/1", "/organisations/:id");
     await screen.findByText("Alex Owner");
 
@@ -209,7 +211,8 @@ describe("Organisation detail", () => {
     await userEvent.click(within(row.closest("li") as HTMLElement).getByRole("button", { name: "Select" }));
     await userEvent.click(screen.getByRole("button", { name: /^add$/i }));
 
-    expect(mockedApi.addOrganisationMember).toHaveBeenCalledWith(1, 77, { role: "member" });
+    expect(mockedApi.organisationMemberCandidates).toHaveBeenCalledWith(1, "Ro");
+    expect(mockedApi.addOrganisationMember).toHaveBeenCalledWith(1, { memberable_type: "PlayerProfile", memberable_id: 77 }, { role: "member" });
     expect(await screen.findByRole("status")).toHaveTextContent("Rosa New added to the roster.");
   });
 });

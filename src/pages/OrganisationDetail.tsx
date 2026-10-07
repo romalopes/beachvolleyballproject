@@ -5,10 +5,11 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   api,
   type Organisation,
+  type OrganisationMemberCandidate,
   type OrganisationMembership,
+  type OrganisationMemberInput,
   type OrganisationMembershipRole,
   type OrganisationType,
-  type PersonIdentity,
 } from "../api";
 
 const ORGANISATION_TYPES: Array<{ value: OrganisationType; label: string }> = [
@@ -304,12 +305,12 @@ function OrganisationRoster({ organisation }: { organisation: Organisation }) {
   }, [load]);
 
   const changeRole = async (membership: OrganisationMembership, role: OrganisationMembershipRole) => {
-    setBusyId(membership.person_id);
+    setBusyId(membership.id);
     setError(null);
     setNotice(null);
     try {
-      const saved = await api.updateOrganisationMember(organisation.id, membership.person_id, { role });
-      setMemberships((current) => current.map((item) => item.person_id === saved.person_id ? saved : item));
+      const saved = await api.updateOrganisationMembership(organisation.id, membership.id, { role });
+      setMemberships((current) => current.map((item) => item.id === saved.id ? saved : item));
       setNotice(`${saved.person_name ?? "Member"} is now ${saved.role_label}.`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Failed to update member.");
@@ -320,16 +321,17 @@ function OrganisationRoster({ organisation }: { organisation: Organisation }) {
 
   const remove = async (membership: OrganisationMembership) => {
     if (!window.confirm(`Remove ${membership.person_name ?? "this member"} from ${organisation.name}?`)) return;
-    setBusyId(membership.person_id);
+    setBusyId(membership.id);
     setError(null);
     setNotice(null);
     try {
-      const result = await api.endOrganisationMember(organisation.id, membership.person_id);
+      const result = await api.endOrganisationMembership(organisation.id, membership.id);
       if (result.removed) {
-        setMemberships((current) => current.filter((item) => item.person_id !== membership.person_id));
+        setMemberships((current) => current.filter((item) => item.id !== membership.id));
         setNotice(`Invitation to ${membership.person_name ?? "member"} withdrawn.`);
       } else if (result.membership) {
-        setMemberships((current) => current.map((item) => item.person_id === result.membership?.person_id ? result.membership : item));
+        const saved = result.membership;
+        setMemberships((current) => current.map((item) => item.id === saved.id ? saved : item));
         setNotice(`${result.membership.person_name ?? "Member"} removed from active roster.`);
       }
     } catch (reason) {
@@ -404,34 +406,42 @@ function AddMemberForm({
   onError: (message: string | null) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [people, setPeople] = useState<PersonIdentity[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [candidates, setCandidates] = useState<OrganisationMemberCandidate[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [role, setRole] = useState<OrganisationMembershipRole>("member");
   const [busy, setBusy] = useState(false);
-  const existingIds = useMemo(() => new Set(memberships.map((membership) => membership.person_id)), [memberships]);
+  const existingKeys = useMemo(() => new Set(memberships.map((membership) => `${membership.memberable_type ?? membership.member_type ?? "Account"}:${membership.memberable_id ?? membership.member_id ?? membership.account_id ?? membership.person_id}`)), [memberships]);
 
   useEffect(() => {
     if (query.trim().length < 2) {
+      setCandidates([]);
       return;
     }
     let cancelled = false;
-    api.people({ q: query.trim() })
-      .then((result) => { if (!cancelled) setPeople(result); })
-      .catch((reason) => { if (!cancelled) onError(reason instanceof Error ? reason.message : "Failed to search people."); });
+    api.organisationMemberCandidates(organisation.id, query.trim())
+      .then((result) => { if (!cancelled) setCandidates(result); })
+      .catch((reason) => { if (!cancelled) onError(reason instanceof Error ? reason.message : "Failed to search members."); });
     return () => { cancelled = true; };
-  }, [query, onError]);
+  }, [organisation.id, query, onError]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (selectedId === null) {
+    const selected = candidates.find((candidate) => candidate.id === selectedId);
+    if (!selected) {
       onError("Choose a person to add.");
       return;
     }
     setBusy(true);
     onError(null);
     try {
-      const membership = await api.addOrganisationMember(organisation.id, selectedId, { role });
+      const payload: OrganisationMemberInput = selected.account_id
+        ? { account_id: selected.account_id }
+        : { memberable_type: selected.memberable_type, memberable_id: selected.memberable_id };
+      const membership = await api.addOrganisationMember(organisation.id, payload, { role });
       onAdded(membership);
+      setQuery("");
+      setCandidates([]);
+      setSelectedId(null);
     } catch (reason) {
       onError(reason instanceof Error ? reason.message : "Failed to add member.");
     } finally {
@@ -442,7 +452,7 @@ function AddMemberForm({
   return (
     <form className="organisations-add" onSubmit={submit}>
       <div className="form-row"><label htmlFor="member-search">Search by name</label><input id="member-search" placeholder="Search by name" value={query} onChange={(e) => setQuery(e.target.value)} disabled={busy} /></div>
-      {people.length > 0 && <ul className="organisations-add-results">{people.map((person) => { const exists = existingIds.has(person.id); return <li key={person.id}><span>{person.full_name}</span><button type="button" className="admin-btn" disabled={exists || busy} onClick={() => setSelectedId(person.id)}>{exists ? "Already on roster" : selectedId === person.id ? "Selected" : "Select"}</button></li>; })}</ul>}
+      {candidates.length > 0 && <ul className="organisations-add-results">{candidates.map((candidate) => { const key = `${candidate.memberable_type}:${candidate.memberable_id}`; const exists = existingKeys.has(key); return <li key={candidate.id}><span>{candidate.display_name}<small> {candidate.member_type_label}</small></span><button type="button" className="admin-btn" disabled={exists || busy} onClick={() => setSelectedId(candidate.id)}>{exists ? "Already on roster" : selectedId === candidate.id ? "Selected" : "Select"}</button></li>; })}</ul>}
       <div className="form-row"><label htmlFor="member-role">Role</label><select id="member-role" value={role} onChange={(e) => setRole(e.target.value as OrganisationMembershipRole)} disabled={busy}>{MEMBERSHIP_ROLES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
       <div className="form-actions"><button type="submit" className="admin-btn admin-btn-primary" disabled={busy}>{busy ? "Adding…" : "Add"}</button></div>
     </form>

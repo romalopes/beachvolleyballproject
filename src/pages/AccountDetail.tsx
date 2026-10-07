@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, type Account } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import AdminUserRoleControls from "../components/AdminUserRoleControls";
 import EmptyState from "../components/EmptyState";
+import MembershipSections from "../components/MembershipSections";
 
 const addressLines = (account: Account) =>
   [
@@ -46,6 +48,17 @@ export default function AccountDetail() {
         )}
       </header>
 
+      {account.user && (
+        <section className="detail-section">
+          <h2>User roles</h2>
+          <AdminUserRoleControls
+            adminUser={account.user}
+            onUserChange={(updatedUser) => setAccount({ ...account, user: updatedUser })}
+            onError={(message) => setError(message || null)}
+          />
+        </section>
+      )}
+
       <section className="detail-section">
         <h2>Contact information</h2>
         {contactVisible ? (
@@ -66,6 +79,11 @@ export default function AccountDetail() {
         <h2>Coach profiles</h2>
         {account.coach_profiles?.length ? <ul>{account.coach_profiles.map((profile) => <li key={profile.id}><Link to={`/coaches/${profile.id}`}>{profile.name}</Link></li>)}</ul> : <EmptyState title="No linked coach profiles" />}
       </section>
+
+      <MembershipSections
+        organisationMemberships={account.organisation_memberships}
+        groupMemberships={account.group_memberships}
+      />
     </div>
   );
 }

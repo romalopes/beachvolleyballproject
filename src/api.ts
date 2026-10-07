@@ -710,6 +710,12 @@ export type OrganisationType =
 export interface OrganisationMembership {
   id: number;
   organisation_id: number;
+  account_id?: number | null;
+  memberable_type?: "Account" | "PlayerProfile" | "CoachProfile";
+  memberable_id?: number;
+  member_type?: "Account" | "PlayerProfile" | "CoachProfile";
+  member_id?: number;
+  display_name?: string | null;
   person_id: number;
   person_name: string | null;
   role: OrganisationMembershipRole;
@@ -734,6 +740,30 @@ export type OrganisationMembershipRole =
 export interface OrganisationMembershipList {
   organisation: { id: number; name: string };
   data: OrganisationMembership[];
+}
+
+export type OrganisationMemberableType = "Account" | "PlayerProfile" | "CoachProfile";
+
+export interface OrganisationMemberCandidate {
+  id: string;
+  memberable_type: OrganisationMemberableType;
+  memberable_id: number;
+  account_id: number | null;
+  player_profile_id: number | null;
+  coach_profile_id: number | null;
+  display_name: string;
+  member_type_label: string;
+  account_status: string;
+}
+
+export interface OrganisationMemberInput {
+  account_id?: number;
+  memberable_type?: OrganisationMemberableType;
+  memberable_id?: number;
+  player_profile_id?: number;
+  coach_profile_id?: number;
+  role?: OrganisationMembershipRole;
+  status?: string;
 }
 
 /** Outcome of leaving or withdrawing: the row survives only for a real departure. */
@@ -1481,6 +1511,8 @@ export interface AdminUser {
   email_address: string;
   first_name?: string | null;
   last_name?: string | null;
+  account_id?: number | null;
+  account?: Account | null;
   roles: { id: number; name: string }[];
 }
 
@@ -1571,8 +1603,11 @@ export interface Account {
   date_of_birth: string | null;
   address: AccountAddress;
   can_edit?: boolean;
+  user?: AdminUser | null;
   player_profiles?: { id: number; name: string }[];
   coach_profiles?: { id: number; name: string }[];
+  organisation_memberships?: OrganisationMembership[];
+  group_memberships?: UserGroupMembership[];
 }
 
 export interface ProfileAccount {
@@ -2229,17 +2264,24 @@ export const api = {
   /** The roster. Managers see everyone; others see only their own row and history. */
   organisationMembers: (id: number) =>
     fetchAPI<OrganisationMembershipList>(`/organisations/${id}/members`),
+  organisationMemberCandidates: (id: number, q: string) => {
+    const qs = new URLSearchParams();
+    qs.set("q", q);
+    return fetchAPI<{ data: OrganisationMemberCandidate[] }>(
+      `/organisations/${id}/member_candidates?${qs.toString()}`,
+    ).then((response) => response.data);
+  },
   /**
    * Invite someone. Defaults to a `pending` invitation server-side — adding
    * somebody to a roster is an invitation, not a grant.
    */
   addOrganisationMember: (
     id: number,
-    accountId: number,
+    member: number | OrganisationMemberInput,
     data: { role?: OrganisationMembershipRole; status?: string } = {},
   ) =>
     postJSON<OrganisationMembership>(`/organisations/${id}/members`, {
-      membership: { account_id: accountId, ...data },
+      membership: typeof member === "number" ? { account_id: member, ...data } : { ...member, ...data },
     }),
   updateOrganisationMember: (
     id: number,
@@ -2253,6 +2295,18 @@ export const api = {
       },
       "PATCH",
     ),
+  updateOrganisationMembership: (
+    id: number,
+    membershipId: number,
+    data: { role?: OrganisationMembershipRole; status?: string },
+  ) =>
+    postJSON<OrganisationMembership>(
+      `/organisations/${id}/memberships/${membershipId}`,
+      {
+        membership: data,
+      },
+      "PATCH",
+    ),
   /**
    * Leave or withdraw. A real member's membership ends and the row survives; an
    * unaccepted invitation is withdrawn and removed. `removed` says which happened.
@@ -2260,6 +2314,12 @@ export const api = {
   endOrganisationMember: (id: number, accountId: number) =>
     postJSON<OrganisationMembershipEnded>(
       `/organisations/${id}/members/${accountId}`,
+      {},
+      "DELETE",
+    ),
+  endOrganisationMembership: (id: number, membershipId: number) =>
+    postJSON<OrganisationMembershipEnded>(
+      `/organisations/${id}/memberships/${membershipId}`,
       {},
       "DELETE",
     ),
@@ -2545,6 +2605,8 @@ export const api = {
     );
     return normalizePaginatedResponse(response);
   },
+  adminUser: (id: number): Promise<AdminUser> =>
+    fetchAPI<AdminUser>(`/admin/users/${id}`),
   adminAddRole: (userId: number, role: string) =>
     postJSON<{ roles: string[] }>(`/admin/users/${userId}/roles`, { role }),
   adminRemoveRole: (userId: number, role: string) =>

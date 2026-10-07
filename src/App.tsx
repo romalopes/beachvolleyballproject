@@ -39,6 +39,7 @@ import OrganisationDetail from "./pages/OrganisationDetail";
 import RankingConsolidationDetail from "./pages/RankingConsolidationDetail";
 import ProfileEditPage from "./pages/ProfileEditPage";
 import AdminUsers from "./pages/AdminUsers";
+import AdminUserDetail from "./pages/AdminUserDetail";
 import SettingsDashboard from "./pages/settings/SettingsDashboard";
 import SkillsSettings from "./pages/settings/Skills";
 import SkillFormPage from "./pages/settings/SkillFormPage";
@@ -337,6 +338,14 @@ export default function App() {
                   element={
                     <AdminRoute>
                       <AdminUsers />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/users/:id"
+                  element={
+                    <AdminRoute>
+                      <AdminUserDetail />
                     </AdminRoute>
                   }
                 />

@@ -1,19 +1,18 @@
 import { useEffect, useState } from "react";
 import { api, type AdminUser, type PaginationMeta } from "../api";
 import { useAuth } from "../auth/AuthContext";
+import AdminUserRoleControls from "../components/AdminUserRoleControls";
 import Pagination from "../components/settings/Pagination";
 
 const PER_PAGE = 20;
 
 export default function AdminUsers() {
-  const { user, startImpersonating } = useAuth();
+  const { user } = useAuth();
   const isAdmin =
     user?.roles?.includes("admin") &&
     !(user as { real_admin?: unknown }).real_admin;
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<Record<number, boolean>>({});
-  const [actingBusy, setActingBusy] = useState<Record<number, boolean>>({});
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [searchDraft, setSearchDraft] = useState("");
@@ -58,28 +57,6 @@ export default function AdminUsers() {
     setError(null);
     setPage(1);
     setSearch(searchDraft.trim());
-  };
-
-  const hasRole = (u: AdminUser, role: string) =>
-    u.roles.some((r) => r.name === role);
-
-  const toggleRole = async (u: AdminUser, role: string) => {
-    const present = hasRole(u, role);
-    setBusy((prev) => ({ ...prev, [u.id]: true }));
-    setError(null);
-    try {
-      if (present) await api.adminRemoveRole(u.id, role);
-      else await api.adminAddRole(u.id, role);
-      // Re-read the roster: clearing the loaded key shows the loading state and
-      // bumping the key re-runs the load effect, exactly like the old
-      // `setLoading(true); loadUsers();` pair.
-      setLoadedKey(null);
-      setRefreshKey((k) => k + 1);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to update the role.");
-    } finally {
-      setBusy((prev) => ({ ...prev, [u.id]: false }));
-    }
   };
 
   if (!isAdmin) {
@@ -138,78 +115,15 @@ export default function AdminUsers() {
       ) : (
         <div className="admin-users">
           {users.map((u) => (
-            <div key={u.id} className="admin-user-card">
-              <div className="admin-user-info">
-                <span className="admin-user-name">
-                  {(u.first_name || u.last_name) ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : (u.name || u.email_address)}
-                </span>
-                <span className="admin-user-email">{u.email_address}</span>
-              </div>
-              <div className="admin-user-roles">
-                {u.roles.map((r) => (
-                  <span key={r.id} className="role-badge">
-                    {r.name}
-                  </span>
-                ))}
-              </div>
-              <div className="admin-user-actions">
-                {(
-                  ["guest", "player", "coach", "curator", "admin"] as const
-                ).map((role) => {
-                  const present = hasRole(u, role);
-                  const isOwnAdminRole = role === "admin" && u.id === user?.id;
-                  return (
-                    <button
-                      key={role}
-                      type="button"
-                      className={
-                        present
-                          ? "admin-btn admin-btn-remove"
-                          : "admin-btn admin-btn-add"
-                      }
-                      disabled={busy[u.id] || isOwnAdminRole}
-                      title={
-                        isOwnAdminRole
-                          ? "You cannot remove your own admin role"
-                          : undefined
-                      }
-                      onClick={() => toggleRole(u, role)}
-                    >
-                      {present ? `Remove ${role}` : `Add ${role}`}
-                    </button>
-                  );
-                })}
-                {isAdmin && !hasRole(u, "admin") && u.id !== user?.id && (
-                  <button
-                    type="button"
-                    className="admin-btn admin-btn-add"
-                    disabled={actingBusy[u.id]}
-                    onClick={async () => {
-                      if (
-                        !window.confirm(
-                          `Act as ${(u.first_name || u.last_name) ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : (u.name || u.email_address)}? You will operate the app as that user until you return.`,
-                        )
-                      )
-                        return;
-                      setActingBusy((prev) => ({ ...prev, [u.id]: true }));
-                      try {
-                        await startImpersonating(u.id);
-                      } catch (e: unknown) {
-                        setError(
-                          e instanceof Error
-                            ? e.message
-                            : "Failed to start impersonating.",
-                        );
-                      } finally {
-                        setActingBusy((prev) => ({ ...prev, [u.id]: false }));
-                      }
-                    }}
-                  >
-                    Act as User
-                  </button>
-                )}
-              </div>
-            </div>
+            <AdminUserRoleControls
+              key={u.id}
+              adminUser={u}
+              onError={(message) => setError(message || null)}
+              onRoleChange={() => {
+                setLoadedKey(null);
+                setRefreshKey((k) => k + 1);
+              }}
+            />
           ))}
         </div>
       )}

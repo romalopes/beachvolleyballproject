@@ -67,6 +67,13 @@ describe("fetchAPI (GET helpers)", () => {
     mockFetchOnce({ ok: false, status: 404, body: {} });
     await expect(api.drills()).rejects.toThrow("API Error: 404");
   });
+
+  it("fetches an admin user detail by id", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, body: { id: 7 } });
+    await api.adminUser(7);
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/admin/users/7");
+  });
 });
 
 describe("postJSON (auth + mutations)", () => {
@@ -337,7 +344,28 @@ describe("people, players and coaches", () => {
     await api.people({ q: "pedro", email: "pedro@example.com" });
     const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
     // The typeahead returns a bare array for profile and roster pickers.
-    expect(url).toBe("/api/v1/people/search?q=pedro&email=pedro%40example.com");
+    expect(url).toBe("/api/v1/accounts/search?q=pedro&email=pedro%40example.com");
+  });
+
+  it("searches organisation member candidates", async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, body: { data: [] } });
+    await api.organisationMemberCandidates(12, "A1");
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/organisations/12/member_candidates?q=A1");
+  });
+
+  it("updates and ends organisation memberships by membership id", async () => {
+    let fetchMock = mockFetchOnce({ ok: true, status: 200, body: { id: 44 } });
+    await api.updateOrganisationMembership(12, 44, { role: "coach" });
+    let [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/organisations/12/memberships/44");
+    expect(init.method).toBe("PATCH");
+
+    fetchMock = mockFetchOnce({ ok: true, status: 200, body: { removed: false } });
+    await api.endOrganisationMembership(12, 44);
+    [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/organisations/12/memberships/44");
+    expect(init.method).toBe("DELETE");
   });
 
   it("lists players with a search term", async () => {
