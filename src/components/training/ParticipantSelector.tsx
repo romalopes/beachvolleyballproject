@@ -5,14 +5,12 @@ import {
   Plus,
   Search,
   Trash2,
-  UserPlus,
 } from "lucide-react";
 import type { ParticipantStatus, Player } from "../../api";
-import { PARTICIPANT_STATUSES, personName } from "../../utils/training";
+import { PARTICIPANT_STATUSES } from "../../utils/training";
 import { moveFocus } from "./focusDraft";
 import {
   includesPlayer,
-  participantFromPerson,
   participantFromPlayer,
   playerSubtitle,
   type ParticipantDraft,
@@ -24,13 +22,6 @@ interface ParticipantSelectorProps {
   selected: ParticipantDraft[];
   onChange: (participants: ParticipantDraft[]) => void;
 }
-
-const emptyNewPerson = {
-  first_name: "",
-  last_name: "",
-  email: "",
-  phone: "",
-};
 
 /**
  * Roster editor for a training session.
@@ -50,9 +41,6 @@ export default function ParticipantSelector({
   onChange,
 }: ParticipantSelectorProps) {
   const [search, setSearch] = useState("");
-  const [addingNew, setAddingNew] = useState(false);
-  const [newPerson, setNewPerson] = useState(emptyNewPerson);
-  const [error, setError] = useState<string | null>(null);
 
   const candidates = useMemo(
     () => players.filter((player) => !includesPlayer(selected, player.id)),
@@ -62,7 +50,7 @@ export default function ParticipantSelector({
   const term = search.trim().toLowerCase();
   const visibleCandidates = term
     ? candidates.filter((player) =>
-        `${player.full_name ?? personName(player.person)} ${player.person?.email ?? ""}`
+        `${player.full_name ?? player.display_name ?? ""}`
           .toLowerCase()
           .includes(term),
       )
@@ -74,36 +62,15 @@ export default function ParticipantSelector({
     );
 
   const handleAddPlayer = (player: Player) => {
-    setError(null);
     onChange([...selected, participantFromPlayer(player)]);
     setSearch("");
-  };
-
-  const handleAddNewPerson = () => {
-    if (!newPerson.first_name.trim()) {
-      setError("A first name is required to record a new player.");
-      return;
-    }
-    setError(null);
-    onChange([
-      ...selected,
-      participantFromPerson({
-        first_name: newPerson.first_name.trim(),
-        last_name: newPerson.last_name.trim() || null,
-        email: newPerson.email.trim() || null,
-        phone: newPerson.phone.trim() || null,
-      }),
-    ]);
-    setNewPerson(emptyNewPerson);
-    setAddingNew(false);
   };
 
   return (
     <div className="training-editor-section" role="group" aria-label="Players">
       <h3>Players</h3>
       <p className="related-item-meta">
-        Who is training? Add players from the catalogue, or record someone who
-        has not signed up yet.
+        Who is training? Add player profiles from the catalogue.
       </p>
 
       <label className="training-participant-search">
@@ -123,7 +90,7 @@ export default function ParticipantSelector({
         <ul className="training-participant-candidates">
           {visibleCandidates.map((player) => {
             const subtitle = playerSubtitle(player);
-            const name = player.full_name ?? personName(player.person);
+            const name = player.full_name ?? player.display_name ?? `Player #${player.id}`;
             return (
               <li key={player.id} className="training-participant-candidate">
                 <span className="training-participant-candidate-name">
@@ -149,89 +116,6 @@ export default function ParticipantSelector({
           })}
         </ul>
       )}
-
-      {addingNew ? (
-        <div className="training-participant-new">
-          <h4>Record a new player</h4>
-          <div className="training-participant-new-fields">
-            <label>
-              First name
-              <input
-                type="text"
-                value={newPerson.first_name}
-                onChange={(event) =>
-                  setNewPerson({ ...newPerson, first_name: event.target.value })
-                }
-              />
-            </label>
-            <label>
-              Last name
-              <input
-                type="text"
-                value={newPerson.last_name}
-                onChange={(event) =>
-                  setNewPerson({ ...newPerson, last_name: event.target.value })
-                }
-              />
-            </label>
-            <label>
-              Email
-              <input
-                type="email"
-                value={newPerson.email}
-                onChange={(event) =>
-                  setNewPerson({ ...newPerson, email: event.target.value })
-                }
-              />
-            </label>
-            <label>
-              Phone
-              <input
-                type="text"
-                value={newPerson.phone}
-                onChange={(event) =>
-                  setNewPerson({ ...newPerson, phone: event.target.value })
-                }
-              />
-            </label>
-          </div>
-          <p className="related-item-meta">
-            No account or password is created — the player is recorded so they
-            can be scheduled, and can claim this profile later.
-          </p>
-          <div className="training-editor-row-actions">
-            <button
-              type="button"
-              className="admin-btn admin-btn-add"
-              onClick={handleAddNewPerson}
-            >
-              Add player
-            </button>
-            <button
-              type="button"
-              className="admin-btn"
-              onClick={() => {
-                setAddingNew(false);
-                setNewPerson(emptyNewPerson);
-                setError(null);
-              }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          className="admin-btn"
-          onClick={() => setAddingNew(true)}
-        >
-          <UserPlus size={14} />
-          Record a new player
-        </button>
-      )}
-
-      {error && <div className="admin-error">{error}</div>}
 
       {selected.length === 0 ? (
         <p className="related-item-meta">

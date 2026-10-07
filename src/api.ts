@@ -1757,7 +1757,7 @@ export const api = {
     if (params?.email) qs.set("email", params.email);
     const query = qs.toString();
     return fetchAPI<PersonIdentity[]>(
-      `/people/search${query ? `?${query}` : ""}`,
+      `/accounts/search${query ? `?${query}` : ""}`,
     );
   },
 
@@ -2235,19 +2235,19 @@ export const api = {
    */
   addOrganisationMember: (
     id: number,
-    personId: number,
+    accountId: number,
     data: { role?: OrganisationMembershipRole; status?: string } = {},
   ) =>
     postJSON<OrganisationMembership>(`/organisations/${id}/members`, {
-      membership: { person_id: personId, ...data },
+      membership: { account_id: accountId, ...data },
     }),
   updateOrganisationMember: (
     id: number,
-    personId: number,
+    accountId: number,
     data: { role?: OrganisationMembershipRole; status?: string },
   ) =>
     postJSON<OrganisationMembership>(
-      `/organisations/${id}/members/${personId}`,
+      `/organisations/${id}/members/${accountId}`,
       {
         membership: data,
       },
@@ -2257,9 +2257,9 @@ export const api = {
    * Leave or withdraw. A real member's membership ends and the row survives; an
    * unaccepted invitation is withdrawn and removed. `removed` says which happened.
    */
-  endOrganisationMember: (id: number, personId: number) =>
+  endOrganisationMember: (id: number, accountId: number) =>
     postJSON<OrganisationMembershipEnded>(
-      `/organisations/${id}/members/${personId}`,
+      `/organisations/${id}/members/${accountId}`,
       {},
       "DELETE",
     ),
