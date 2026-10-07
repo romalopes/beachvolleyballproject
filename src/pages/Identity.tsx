@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { api, type ClaimInvitation, type PlayerClaim, type PlayerProfileCandidate, type PaginationMeta } from "../api";
+import { api, type Account, type ClaimInvitation, type PlayerClaim, type PlayerProfileCandidate, type PaginationMeta } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
 import ProfileManagementDashboard from "../components/identity/ProfileManagementDashboard";
@@ -35,6 +35,8 @@ export default function IdentityPage() {
     return fragmentToken ?? searchParams.get("claim_token") ?? "";
   });
 
+  const [account, setAccount] = useState<Account | null>(null);
+
   const canManageProfiles = Boolean(user?.roles.some((role) => role === "admin" || role === "coach" || role === "curator"));
   const userId = user?.id;
   const accountId = user?.account_id;
@@ -62,6 +64,17 @@ export default function IdentityPage() {
     }).finally(() => { if (!cancelled) setLoadedUserId(userId); });
     return () => { cancelled = true; };
   }, [userId, accountId]);
+
+  useEffect(() => {
+    if (!accountId) return;
+    let cancelled = false;
+    api.accountDetail(accountId).then((acc) => {
+      if (!cancelled) setAccount(acc);
+    }).catch(() => {
+      if (!cancelled) setAccount(null);
+    });
+    return () => { cancelled = true; };
+  }, [accountId]);
 
   useEffect(() => {
     if (!accountId) return;
@@ -160,9 +173,18 @@ export default function IdentityPage() {
     {error && <div className="auth-flash auth-flash-error" role="alert">{error}</div>}
     {notice && <div className="auth-flash auth-flash-notice" role="status">{notice}</div>}
 
+    <div className="identity-grid">
     <section className="detail-section" aria-labelledby="account-context-heading">
       <h2 id="account-context-heading">Account</h2>
-      <dl className="identity-context"><dt>Account</dt><dd>{user.account_id ? <Link className="identity-link" to={`/accounts/${user.account_id}`}>View account #{user.account_id}</Link> : "No linked account"}</dd></dl>
+      <dl className="identity-context"><dt>Account</dt><dd>{account ? (
+          <Link className="identity-link" to={`/accounts/${account.id}`}>
+            {account.full_name ?? `Account #${account.id}`}
+          </Link>
+        ) : user.account_id ? (
+          <Link className="identity-link" to={`/accounts/${user.account_id}`}>View account #{user.account_id}</Link>
+        ) : (
+          "No linked account"
+        )}</dd></dl>
     </section>
     <section className="detail-section"><h2>Player profiles</h2>
       {user.player_profiles?.length ? <ul className="identity-link-list">{user.player_profiles.map((profile) => <li key={profile.id}><Link className="identity-link" to={`/players/${profile.id}`}>{profile.display_name || `Player profile #${profile.id}`}</Link> · {profile.status}{profile.level ? ` · ${profile.level}` : ""}</li>)}</ul> : <p>No player profiles are linked to this account.</p>}
@@ -228,6 +250,7 @@ export default function IdentityPage() {
       {claims.some((claim) => claim.status !== "pending") || receivedInvitations.some((invitation) => invitation.status !== "active") ? <ul>{claims.filter((claim) => claim.status !== "pending").map((claim) => <li key={`claim-${claim.id}`}>Claim #{claim.id} · {claim.claimable_type?.replace("Profile", " profile ") || "Profile"} · {claim.status}{claim.reviewed_at ? ` · ${new Date(claim.reviewed_at).toLocaleDateString()}` : ""}</li>)}{receivedInvitations.filter((invitation) => invitation.status !== "active").map((invitation) => <li key={`invitation-${invitation.id}`}>Invitation #{invitation.id} · {invitation.claimable_type.replace("Profile", " profile ")} · {invitation.status}</li>)}</ul> : <p>No claim or invitation history yet.</p>}
     </section>
 
+    </div>
     {canManageProfiles && <ProfileManagementDashboard />}
   </div>;
 }

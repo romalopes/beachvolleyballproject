@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Plus } from "lucide-react";
 import { api, type Coach, type CoachContext, type Player, type PlayerCoach } from "../../api";
 import DeleteConfirm from "../settings/DeleteConfirm";
@@ -91,6 +91,33 @@ export default function CoachingRelationships({
   const [players, setPlayers] = useState<Player[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [otherId, setOtherId] = useState<number | "">("");
+
+  // lookup maps for names
+  const playerNameMap = useMemo(
+    () =>
+      new Map(
+        players.map((p) => [
+          p.id,
+          p.full_name?.trim() ||
+            `${p.person?.first_name ?? ""} ${p.person?.last_name ?? ""}`.trim() ||
+            `Player #${p.id}`,
+        ])
+      ),
+    [players]
+  );
+
+  const coachNameMap = useMemo(
+    () =>
+      new Map(
+        coaches.map((c) => [
+          c.id,
+          c.full_name?.trim() ||
+            `${c.person?.first_name ?? ""} ${c.person?.last_name ?? ""}`.trim() ||
+            `Coach #${c.id}`,
+        ])
+      ),
+    [coaches]
+  );
   const activeViewerProfiles = viewerCoachProfiles.filter((profile) => profile.status === "active");
   const [selectedViewerCoachId, setSelectedViewerCoachId] = useState<number | null>(
     viewerCoachProfileId ?? activeViewerProfiles[0]?.id ?? null,
@@ -226,35 +253,39 @@ export default function CoachingRelationships({
   const former = rows.filter((row) => !row.current);
   const otherLabel = side === "player" ? "Coach" : "Player";
 
-  const renderRow = (row: PlayerCoach) => (
-    <li key={row.id} className="coaching-row">
-      <span className="coaching-row-name">
-        {side === "player"
-          ? row.coach_name || `Coach #${row.coach_profile_id}`
-          : row.player_name || `Player #${row.player_profile_id}`}
-      </span>
-      <span className="coaching-row-meta">
-        {formatDate(row.start_date)} – {row.end_date ? formatDate(row.end_date) : "present"}
-        {row.duration_in_days != null ? ` · ${row.duration_in_days} days` : ""}
-      </span>
-      <Tag variant={row.current ? "teal" : "default"}>
-        {row.current ? "Current" : "Former"}
-      </Tag>
-      {canManage && row.current && (
-        <button
-          type="button"
-          className="admin-btn"
-          disabled={working}
-          onClick={() => {
-            setEndError(null);
-            setEnding(row);
-          }}
-        >
-          End
-        </button>
-      )}
-    </li>
-  );
+  const renderRow = (row: PlayerCoach) => {
+    const displayName = side === "player"
+      ? (coachNameMap.get(row.coach_profile_id) ?? row.coach_name ?? `Coach #${row.coach_profile_id}`)
+      : (playerNameMap.get(row.player_profile_id) ?? row.player_name ?? `Player #${row.player_profile_id}`);
+
+    return (
+      <li key={row.id} className="coaching-row">
+        <span className="coaching-row-name">
+          {displayName}
+        </span>
+        <span className="coaching-row-meta">
+          {formatDate(row.start_date)} – {row.end_date ? formatDate(row.end_date) : "present"}
+          {row.duration_in_days != null ? ` · ${row.duration_in_days} days` : ""}
+        </span>
+        <Tag variant={row.current ? "teal" : "default"}>
+          {row.current ? "Current" : "Former"}
+        </Tag>
+        {canManage && row.current && (
+          <button
+            type="button"
+            className="admin-btn"
+            disabled={working}
+            onClick={() => {
+              setEndError(null);
+              setEnding(row);
+            }}
+          >
+            End
+          </button>
+        )}
+      </li>
+    );
+  };
 
   return (
     <section className="detail-section coaching-relationships">

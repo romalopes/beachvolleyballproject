@@ -207,7 +207,13 @@ export default function PlayerDetail() {
 
       <section className="detail-section">
         <h2>Account link</h2>
-        <p className="related-item-meta">{player.account_status === "connected" ? "This profile is linked to an account." : "This profile has no linked account. Create an invitation to let its owner claim it."}</p>
+        {player.account_status === "connected" && player.account ? (
+          <p className="related-item-meta">
+            Linked to account: <a href={`/accounts/${player.account.id}`}><strong>{player.account.full_name}</strong></a>
+          </p>
+        ) : (
+          <p className="related-item-meta">This profile has no linked account. Create an invitation to let its owner claim it.</p>
+        )}
         {player.account_status !== "connected" && <ClaimInvitationPanel
           key={`${player.id}:${player.status}`}
           claimableType="PlayerProfile"
@@ -225,7 +231,8 @@ export default function PlayerDetail() {
         onMerged={(canonicalId) => navigate(`/players/${canonicalId}`, { replace: true })}
       />}
 
-      {player.person?.organisation_memberships?.length ? (
+      <div className="player-detail-grid">
+        {player.person?.organisation_memberships?.length ? (
         <section className="detail-section">
           <h2>Organisation memberships</h2>
           <ul className="people-list">
@@ -308,6 +315,7 @@ export default function PlayerDetail() {
           </ul>
         )}
       </section>
+      </div>
     </div>
   );
 }

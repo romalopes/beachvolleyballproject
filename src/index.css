@@ -132,3 +132,24 @@ ul { list-style: none; }
 .page-enter-active { opacity: 1; transform: translateY(0); transition: opacity 250ms ease, transform 250ms ease; }
 .page-exit { opacity: 1; }
 .page-exit-active { opacity: 0; transition: opacity 200ms ease; }
+
+/* ==== Grid utilities for identity and player detail pages ==== */
+.identity-grid,
+.player-detail-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+/* Card style for each detail-section */
+.detail-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+}
+
+.detail-section h2 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+}

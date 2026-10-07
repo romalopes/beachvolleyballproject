@@ -190,7 +190,13 @@ export default function CoachDetail() {
 
       <section className="detail-section">
         <h2>Account link</h2>
-        <p className="related-item-meta">{coach.account_status === "connected" ? "This profile is linked to an account." : "This profile has no linked account. Create an invitation to let its owner claim it."}</p>
+        {coach.account_status === "connected" && coach.account ? (
+          <p className="related-item-meta">
+            Linked to account: <a href={`/accounts/${coach.account.id}`}><strong>{coach.account.full_name}</strong></a>
+          </p>
+        ) : (
+          <p className="related-item-meta">This profile has no linked account. Create an invitation to let its owner claim it.</p>
+        )}
         {coach.account_status !== "connected" && <ClaimInvitationPanel
           key={`${coach.id}:${coach.status}`}
           claimableType="CoachProfile"
