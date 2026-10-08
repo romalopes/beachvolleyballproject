@@ -914,6 +914,7 @@ export interface AssessmentSessionPlayerInput {
   /** A new, accountless profile recorded directly from the session roster. */
   profile?: {
     display_name: string;
+    email?: string | null;
   };
 }
 
@@ -1272,6 +1273,7 @@ export interface Player {
   id: number;
   person_id: number | null;
   display_name?: string | null;
+  email?: string | null;
   preferred_position: string | null;
   level: string | null;
   status: ProfileStatus;
@@ -1337,6 +1339,7 @@ export interface PlayerInput {
   player_profile?: {
     /** Required when recording a player before their Person is known. */
     display_name?: string;
+    email?: string | null;
     preferred_position?: string | null;
     level?: string | null;
     status?: ProfileStatus;
@@ -1442,6 +1445,7 @@ export interface Coach {
   person_id: number | null;
   /** Only set on a profile recorded without a Person. */
   display_name?: string | null;
+  email?: string | null;
   coaching_level: string | null;
   qualifications: string | null;
   status: ProfileStatus;
@@ -1471,6 +1475,7 @@ export interface CoachInput {
   };
   coach_profile?: {
     display_name?: string;
+    email?: string | null;
     coaching_level?: string | null;
     qualifications?: string | null;
     status?: ProfileStatus;

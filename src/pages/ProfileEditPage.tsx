@@ -14,6 +14,7 @@ interface LoadedProfile {
   created_by: ProfileOwner | null;
   initialValues: {
     display_name: string;
+    email?: string | null;
     preferred_position?: string | null;
     level?: string | null;
     coaching_level?: string | null;
@@ -47,6 +48,7 @@ export default function ProfileEditPage({ kind }: Props) {
           created_by: record.created_by,
           initialValues: {
             display_name: ("display_name" in record ? record.display_name : null) || name,
+            email: record.email,
             preferred_position: "preferred_position" in record ? record.preferred_position : null,
             level: "level" in record ? record.level : null,
             coaching_level: "coaching_level" in record ? record.coaching_level : null,

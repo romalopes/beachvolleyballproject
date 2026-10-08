@@ -253,7 +253,7 @@ describe("Identity", () => {
       const dialog = await screen.findByRole("dialog", { name: "Create Player Profile" });
       const form = dialog.querySelector("form");
       // Click the submit button in the modal
-      await userEvent.click(within(dialog).getByRole("button", { name: "Create Player Profile", type: "submit" }));
+      await userEvent.click(within(dialog).getByRole("button", { name: "Create Player Profile" }));
       // Also fire submit event on form to ensure handler is called
       if (form) {
         await act(async () => {
@@ -267,7 +267,7 @@ describe("Identity", () => {
     });
 
     it("creates player profile successfully and shows notice", async () => {
-      const newProfile = { id: 99, person_id: null, display_name: "New Player", preferred_position: "setter", level: "beginner", status: "active" as const, visibility: "shared" as const, possible_duplicates: [] };
+      const newProfile = { id: 99, person_id: null, display_name: "New Player", email: null, preferred_position: "setter", level: "beginner", status: "active" as const, visibility: "shared" as const, created_by: null, created_at: "2026-10-08T00:00:00.000Z", updated_at: "2026-10-08T00:00:00.000Z", person: null, possible_duplicates: [] };
       mockedApi.createPlayer.mockResolvedValue(newProfile);
       mockedApi.playerClaims.mockResolvedValue([]);
       mockedApi.receivedClaimInvitations.mockResolvedValue([]);
@@ -281,11 +281,12 @@ describe("Identity", () => {
       await userEvent.selectOptions(screen.getByLabelText("Preferred position"), "setter");
       await userEvent.selectOptions(screen.getByLabelText("Level"), "beginner");
       // Click the submit button in the modal (type="submit")
-      await userEvent.click(within(dialog).getByRole("button", { name: "Create Player Profile", type: "submit" }));
+      await userEvent.click(within(dialog).getByRole("button", { name: "Create Player Profile" }));
 
       await waitFor(() => expect(mockedApi.createPlayer).toHaveBeenCalledWith({
         player_profile: {
           display_name: "New Player",
+          email: null,
           preferred_position: "setter",
           level: "beginner",
           link_to_account: true,
@@ -312,7 +313,7 @@ describe("Identity", () => {
 
       await userEvent.type(screen.getByLabelText("Display name *"), "New Player");
       // Click the submit button in the modal
-      await userEvent.click(within(dialog).getByRole("button", { name: "Create Player Profile", type: "submit" }));
+      await userEvent.click(within(dialog).getByRole("button", { name: "Create Player Profile" }));
 
       expect(await screen.findByText("API error")).toBeInTheDocument();
       expect(screen.getByRole("dialog", { name: "Create Player Profile" })).toBeInTheDocument();

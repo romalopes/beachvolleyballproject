@@ -22,7 +22,7 @@ interface AssessmentSessionRosterProps {
   onRemovePlayers: (playerProfileIds: number[]) => Promise<void>;
 }
 
-const emptyNewProfile = { display_name: "" };
+const emptyNewProfile = { display_name: "", email: "" };
 
 export default function AssessmentSessionRoster({
   participants,
@@ -133,6 +133,7 @@ export default function AssessmentSessionRoster({
         {
           profile: {
             display_name: newProfile.display_name.trim(),
+            email: newProfile.email.trim() || null,
           },
           inclusion: "included",
         },
@@ -238,8 +239,16 @@ export default function AssessmentSessionRoster({
                   <input
                     type="text"
                     value={newProfile.display_name}
-                    onChange={(e) => setNewProfile({ display_name: e.target.value })}
+                    onChange={(e) => setNewProfile({ ...newProfile, display_name: e.target.value })}
                     required
+                  />
+                </label>
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    value={newProfile.email}
+                    onChange={(e) => setNewProfile({ ...newProfile, email: e.target.value })}
                   />
                 </label>
               </div>

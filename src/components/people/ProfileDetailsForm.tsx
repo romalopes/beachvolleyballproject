@@ -7,6 +7,7 @@ export type ProfileKind = "player" | "coach";
 export interface ProfileFormValues {
   profile: {
     display_name: string;
+    email?: string | null;
     preferred_position?: string | null;
     level?: string | null;
     coaching_level?: string | null;
@@ -17,6 +18,7 @@ export interface ProfileFormValues {
 
 export interface ProfileInitialValues {
   display_name?: string | null;
+  email?: string | null;
   preferred_position?: string | null;
   level?: string | null;
   coaching_level?: string | null;
@@ -51,6 +53,7 @@ export default function ProfileDetailsForm({
   children,
 }: Props) {
   const [displayName, setDisplayName] = useState(blank(initialValues?.display_name));
+  const [email, setEmail] = useState(blank(initialValues?.email));
   const [position, setPosition] = useState(blank(initialValues?.preferred_position));
   const [level, setLevel] = useState(blank(initialValues?.level));
   const [coachingLevel, setCoachingLevel] = useState(blank(initialValues?.coaching_level));
@@ -67,8 +70,8 @@ export default function ProfileDetailsForm({
     setLocalErrors([]);
     onSubmit({
       profile: kind === "player"
-        ? { display_name: displayName.trim(), preferred_position: position.trim() || null, level: level.trim() || null, visibility }
-        : { display_name: displayName.trim(), coaching_level: coachingLevel.trim() || null, qualifications: qualifications.trim() || null, visibility },
+        ? { display_name: displayName.trim(), email: email.trim() || null, preferred_position: position.trim() || null, level: level.trim() || null, visibility }
+        : { display_name: displayName.trim(), email: email.trim() || null, coaching_level: coachingLevel.trim() || null, qualifications: qualifications.trim() || null, visibility },
     });
   };
 
@@ -77,6 +80,7 @@ export default function ProfileDetailsForm({
     <fieldset className="person-new-fields">
       <legend><UserPlus size={14} aria-hidden="true" /> {kind === "player" ? "Player" : "Coach"} profile identity</legend>
       <label>Display name<input type="text" value={displayName} onChange={(event) => setDisplayName(event.target.value)} /></label>
+      <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
       <span className="related-item-meta">Profile information is stored separately from account and contact details. An account can be linked later through an invitation and claim.</span>
     </fieldset>
     <fieldset className="person-profile-fields">

@@ -107,6 +107,7 @@ export default function IdentityPage() {
 
     const formData = new FormData(event.currentTarget);
     const displayName = formData.get("display_name")?.toString().trim() ?? "";
+    const email = formData.get("email")?.toString().trim() ?? "";
     const preferredPosition = formData.get("preferred_position")?.toString() ?? "";
     const level = formData.get("level")?.toString() ?? "";
 
@@ -120,6 +121,7 @@ export default function IdentityPage() {
       await api.createPlayer({
         player_profile: {
           display_name: displayName,
+          email: email || null,
           preferred_position: preferredPosition || null,
           level: level || null,
           link_to_account: true,
@@ -149,6 +151,7 @@ export default function IdentityPage() {
 
     const formData = new FormData(event.currentTarget);
     const displayName = formData.get("display_name")?.toString().trim() ?? "";
+    const email = formData.get("email")?.toString().trim() ?? "";
     const coachingLevel = formData.get("coaching_level")?.toString() ?? "";
     const qualifications = formData.get("qualifications")?.toString() ?? "";
 
@@ -162,6 +165,7 @@ export default function IdentityPage() {
       await api.createCoach({
         coach_profile: {
           display_name: displayName,
+          email: email || null,
           coaching_level: coachingLevel || null,
           qualifications: qualifications || null,
           link_to_account: true,
@@ -551,6 +555,10 @@ export default function IdentityPage() {
                 <input id="display_name" name="display_name" type="text" required autoComplete="off" disabled={createPlayerLoading} />
               </div>
               <div className="auth-field">
+                <label htmlFor="player_email">Email</label>
+                <input id="player_email" name="email" type="email" autoComplete="email" disabled={createPlayerLoading} />
+              </div>
+              <div className="auth-field">
                 <label htmlFor="preferred_position">Preferred position</label>
                 <select id="preferred_position" name="preferred_position" disabled={createPlayerLoading}>
                   <option value="">Select position</option>
@@ -596,6 +604,10 @@ export default function IdentityPage() {
               <div className="auth-field">
                 <label htmlFor="coach_display_name">Display name <span aria-hidden="true">*</span></label>
                 <input id="coach_display_name" name="display_name" type="text" required autoComplete="off" disabled={createCoachLoading} />
+              </div>
+              <div className="auth-field">
+                <label htmlFor="coach_email">Email</label>
+                <input id="coach_email" name="email" type="email" autoComplete="email" disabled={createCoachLoading} />
               </div>
               <div className="auth-field">
                 <label htmlFor="coaching_level">Coaching level</label>

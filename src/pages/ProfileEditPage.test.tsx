@@ -14,12 +14,12 @@ vi.mock("../api", async (importOriginal) => {
 const mockedApi = vi.mocked(api, true);
 const coachUser = { id: 2, name: "Coach", email_address: "coach@x.com", roles: ["coach"] };
 const player = (overrides: Partial<Player> = {}): Player => ({
-  id: 12, person_id: 120, display_name: "Pedro Santos", preferred_position: "setter", level: "beginner", status: "active", visibility: "shared",
+  id: 12, person_id: 120, display_name: "Pedro Santos", email: "pedro@example.com", preferred_position: "setter", level: "beginner", status: "active", visibility: "shared",
   created_by: { id: 2, name: "Coach" }, created_at: "2026-09-01T00:00:00.000Z", updated_at: "2026-09-01T00:00:00.000Z",
   full_name: "Pedro Santos", account_status: "profile_only", person: null, ...overrides,
 });
 const coach = (overrides: Partial<Coach> = {}): Coach => ({
-  id: 7, person_id: 70, display_name: "Ana Coach", coaching_level: null, qualifications: null, status: "active", visibility: "shared",
+  id: 7, person_id: 70, display_name: "Ana Coach", email: "ana@example.com", coaching_level: null, qualifications: null, status: "active", visibility: "shared",
   created_by: { id: 2, name: "Coach" }, created_at: "2026-09-01T00:00:00.000Z", updated_at: "2026-09-01T00:00:00.000Z",
   full_name: "Ana Coach", account_status: "profile_only", person: null, ...overrides,
 });
@@ -42,6 +42,7 @@ describe("Profile edit page", () => {
   it("prefills profile fields without exposing Person contact fields", async () => {
     renderEdit();
     expect(await screen.findByLabelText("Display name")).toHaveValue("Pedro Santos");
+    expect(screen.getByLabelText("Email")).toHaveValue("pedro@example.com");
     expect(screen.getByLabelText("Preferred position")).toHaveValue("setter");
     expect(screen.getByLabelText("Level")).toHaveValue("beginner");
     expect(screen.queryByLabelText("First name")).not.toBeInTheDocument();
@@ -56,7 +57,7 @@ describe("Profile edit page", () => {
     await userEvent.type(screen.getByLabelText("Level"), "advanced");
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(mockedApi.updatePlayer).toHaveBeenCalledWith(12, {
-      player_profile: { display_name: "Pedro Santos", preferred_position: "setter", level: "advanced", visibility: "shared" },
+      player_profile: { display_name: "Pedro Santos", email: "pedro@example.com", preferred_position: "setter", level: "advanced", visibility: "shared" },
     });
     expect(await screen.findByText("Pedro Santos saved.")).toBeInTheDocument();
   });
@@ -93,7 +94,7 @@ describe("Profile edit page", () => {
     await userEvent.selectOptions(screen.getByLabelText("Visibility"), "private");
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(mockedApi.updateCoach).toHaveBeenCalledWith(7, {
-      coach_profile: { display_name: "Ana Coach", coaching_level: null, qualifications: null, visibility: "private" },
+      coach_profile: { display_name: "Ana Coach", email: "ana@example.com", coaching_level: null, qualifications: null, visibility: "private" },
     });
   });
 });

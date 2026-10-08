@@ -170,12 +170,14 @@ describe("AssessmentSessionRoster inline player creation", () => {
 
     await user.click(screen.getByRole("button", { name: /record a new player/i }));
     await user.type(screen.getByLabelText(/display name/i), "Carla Dias");
+    await user.type(screen.getByLabelText(/^email$/i), "carla@example.com");
     await user.click(screen.getByRole("button", { name: /create & add player/i }));
 
     expect(onAddPlayers).toHaveBeenCalledWith([
       {
         profile: {
           display_name: "Carla Dias",
+          email: "carla@example.com",
         },
         inclusion: "included",
       },
@@ -208,6 +210,7 @@ describe("AssessmentSessionRoster inline player creation", () => {
     const [entry] = onAddPlayers.mock.calls[0][0];
     expect(entry.profile).toEqual({
       display_name: "Carla",
+      email: null,
     });
   });
 
