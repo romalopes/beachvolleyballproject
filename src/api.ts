@@ -597,6 +597,16 @@ export interface Group {
   status: GroupStatus;
   status_label: string;
   visibility: GroupVisibility;
+  /**
+   * The join policy: when true a self-service `join` records a `pending` request
+   * for the owner's review instead of an active roster row. Open (false) joins
+   * immediately. Archived groups accept neither.
+   */
+  requires_approval: boolean;
+  /** Same value as `requires_approval`, named as the question it answers. */
+  approval_required: boolean;
+  /** Whether the caller may decide a pending join request (owner/curator/admin). */
+  can_approve_members: boolean;
   /** Roster size, so a picker can label a squad without loading its members. */
   player_count: number;
   /**
@@ -632,7 +642,11 @@ export interface GroupMember {
   preferred_position: string | null;
   email: string | null;
   role: "owner" | "coach" | "member";
-  status: "active" | "ended";
+  /**
+   * `pending` is a self-service join request awaiting review; it grants nothing
+   * until an approver activates it. `ended` rows are kept as history (§2.5).
+   */
+  status: "pending" | "active" | "ended";
   joined_at: string | null;
   /** Set only when the membership ended (§2.5). */
   left_at: string | null;
@@ -653,6 +667,8 @@ export interface GroupInput {
    * create it for an organisation the caller is not an active member of.
    */
   organisation_id?: number | null;
+  /** Join policy. Omit to leave unchanged on an edit. */
+  requires_approval?: boolean;
 }
 
 export interface AssessmentSessionRankingRow {
@@ -815,6 +831,19 @@ export interface Organisation {
    * not an officer of any club.
    */
   can_manage_members: boolean;
+  /**
+   * Whether the caller may decide a pending self-service join request — the org's
+   * owner/administrators plus curator/admin oversight. Narrower than
+   * `can_manage_members` only in intent; the server enforces it per request.
+   */
+  can_approve_members: boolean;
+  /**
+   * The join policy: when true a self-service `join` records a `pending` request
+   * for review instead of an active membership. Open (false) joins immediately.
+   */
+  requires_approval: boolean;
+  /** Same value as `requires_approval`, named as the question it answers. */
+  approval_required: boolean;
   created_by_person: { id: number; name: string } | null;
   created_at: string;
   updated_at: string;
@@ -827,6 +856,8 @@ export interface OrganisationInput {
   acronym?: string | null;
   organisation_type?: OrganisationType;
   parent_organisation_id?: number | null;
+  /** Join policy. Omit to leave unchanged on an edit. */
+  requires_approval?: boolean;
 }
 
 /**
@@ -880,12 +911,9 @@ export interface AssessmentSessionPlayerInput {
   player_profile_id?: number;
   inclusion?: AssessmentSessionInclusion;
   missing_reason?: string | null;
-  person?: {
-    first_name: string;
-    last_name?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    date_of_birth?: string | null;
+  /** A new, accountless profile recorded directly from the session roster. */
+  profile?: {
+    display_name: string;
   };
 }
 
@@ -1313,6 +1341,8 @@ export interface PlayerInput {
     level?: string | null;
     status?: ProfileStatus;
     visibility?: ProfileVisibility;
+    /** When true, links the created profile to the current user's account (self-service flow). */
+    link_to_account?: boolean;
   };
 }
 
@@ -1445,6 +1475,8 @@ export interface CoachInput {
     qualifications?: string | null;
     status?: ProfileStatus;
     visibility?: ProfileVisibility;
+    /** When true, links the created profile to the current user's account (self-service flow). */
+    link_to_account?: boolean;
   };
 }
 
@@ -2500,10 +2532,55 @@ export const api = {
    * Join an organisation yourself. Separate from `addOrganisationMember`, which an
    * officer uses on somebody else: this writes your own row, so it cannot grant a
    * role — you become a `member` whatever you send. 409 if you already belong.
+   * When the organisation `requires_approval`, the membership comes back `pending`
+   * until an officer approves it.
    */
   joinOrganisation: (id: number) =>
     postJSON<{ membership: OrganisationMembership }>(
       `/organisations/${id}/join`,
+      {},
+    ),
+  /**
+   * Approve a pending join request. Owner/administrators of the organisation plus
+   * curator/admin oversight may approve; anyone else gets a 403 from the server.
+   */
+  approveOrganisationMembership: (id: number, membershipId: number) =>
+    postJSON<{ membership: OrganisationMembership }>(
+      `/organisations/${id}/memberships/${membershipId}/approve`,
+      {},
+    ),
+  /**
+   * Reject (or, for the requester, withdraw) a pending join request. The row is
+   * removed — a request nobody answered records no stint.
+   */
+  rejectOrganisationMembership: (id: number, membershipId: number) =>
+    postJSON<{ removed: boolean; membership_id: number }>(
+      `/organisations/${id}/memberships/${membershipId}/reject`,
+      {},
+    ),
+  /**
+   * Join a group yourself. Separate from `addGroupMembers`, which the owner uses on
+   * somebody else: this writes your own row as `member`. When the group
+   * `requires_approval`, the row comes back `pending` until the owner approves.
+   */
+  joinGroup: (id: number) =>
+    postJSON<{ membership: GroupMember }>(`/groups/${id}/join`, {}),
+  /**
+   * Approve a pending group join request. The group's owner plus curator/admin
+   * oversight may approve; anyone else gets a 403 from the server.
+   */
+  approveGroupMembership: (id: number, membershipId: number) =>
+    postJSON<{ membership: GroupMember }>(
+      `/groups/${id}/memberships/${membershipId}/approve`,
+      {},
+    ),
+  /**
+   * Reject (or, for the requester, withdraw) a pending group join request. The row
+   * is removed — a request nobody answered records no stint.
+   */
+  rejectGroupMembership: (id: number, membershipId: number) =>
+    postJSON<{ removed: boolean; membership_id: number }>(
+      `/groups/${id}/memberships/${membershipId}/reject`,
       {},
     ),
 

@@ -169,25 +169,20 @@ describe("AssessmentSessionRoster inline player creation", () => {
     );
 
     await user.click(screen.getByRole("button", { name: /record a new player/i }));
-    await user.type(screen.getByLabelText(/first name/i), "Carla");
-    await user.type(screen.getByLabelText(/last name/i), "Dias");
-    await user.type(screen.getByLabelText(/email/i), "carla@example.com");
+    await user.type(screen.getByLabelText(/display name/i), "Carla Dias");
     await user.click(screen.getByRole("button", { name: /create & add player/i }));
 
     expect(onAddPlayers).toHaveBeenCalledWith([
       {
-        person: {
-          first_name: "Carla",
-          last_name: "Dias",
-          email: "carla@example.com",
-          phone: null,
+        profile: {
+          display_name: "Carla Dias",
         },
         inclusion: "included",
       },
     ]);
   });
 
-  it("requires a first name and sends blanks as null, not empty strings", async () => {
+  it("requires a display name and trims it before submitting", async () => {
     const user = userEvent.setup();
     const onAddPlayers = vi.fn().mockResolvedValue(undefined);
     render(
@@ -203,19 +198,16 @@ describe("AssessmentSessionRoster inline player creation", () => {
     await user.click(screen.getByRole("button", { name: /record a new player/i }));
     await user.click(screen.getByRole("button", { name: /create & add player/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/first name is required/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/display name is required/i);
     expect(onAddPlayers).not.toHaveBeenCalled();
 
-    await user.type(screen.getByLabelText(/first name/i), "  Carla  ");
+    await user.type(screen.getByLabelText(/display name/i), "  Carla  ");
     await user.click(screen.getByRole("button", { name: /create & add player/i }));
 
     await waitFor(() => expect(onAddPlayers).toHaveBeenCalled());
     const [entry] = onAddPlayers.mock.calls[0][0];
-    expect(entry.person).toEqual({
-      first_name: "Carla",
-      last_name: null,
-      email: null,
-      phone: null,
+    expect(entry.profile).toEqual({
+      display_name: "Carla",
     });
   });
 

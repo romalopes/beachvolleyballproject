@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { api, type Account, type ClaimInvitation, type PlayerClaim, type PlayerProfileCandidate, type PaginationMeta } from "../api";
+import { api, type Account, type ClaimInvitation, type PlayerClaim, type PlayerProfileCandidate, type PaginationMeta, type Organisation, type Group, type PaginatedResponse } from "../api";
 import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
 import ProfileManagementDashboard from "../components/identity/ProfileManagementDashboard";
@@ -30,6 +30,24 @@ export default function IdentityPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showCreatePlayerModal, setShowCreatePlayerModal] = useState(false);
+  const [createPlayerLoading, setCreatePlayerLoading] = useState(false);
+  const [createPlayerError, setCreatePlayerError] = useState<string | null>(null);
+  const [showCreateCoachModal, setShowCreateCoachModal] = useState(false);
+  const [createCoachLoading, setCreateCoachLoading] = useState(false);
+  const [createCoachError, setCreateCoachError] = useState<string | null>(null);
+  const [showJoinOrgModal, setShowJoinOrgModal] = useState(false);
+  const [joinOrgLoading, setJoinOrgLoading] = useState(false);
+  const [joinOrgError, setJoinOrgError] = useState<string | null>(null);
+  const [joinOrgId, setJoinOrgId] = useState("");
+  const [showJoinGroupModal, setShowJoinGroupModal] = useState(false);
+  const [joinGroupLoading, setJoinGroupLoading] = useState(false);
+  const [joinGroupError, setJoinGroupError] = useState<string | null>(null);
+  const [joinGroupId, setJoinGroupId] = useState("");
+  const [organisations, setOrganisations] = useState<Organisation[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [orgsLoading, setOrgsLoading] = useState(false);
+  const [groupsLoading, setGroupsLoading] = useState(false);
   const [token, setToken] = useState(() => {
     const fragmentToken = new URLSearchParams(location.hash.replace(/^#/, "")).get("claim_token");
     return fragmentToken ?? searchParams.get("claim_token") ?? "";
@@ -46,10 +64,182 @@ export default function IdentityPage() {
     if (token) rememberClaimInvitationPath(invitationReturnPath);
   }, [token, invitationReturnPath]);
 
+  // fetch organisations and groups for join modals
+  useEffect(() => {
+    const fetchLists = async () => {
+      setOrgsLoading(true);
+      setGroupsLoading(true);
+      try {
+        const orgsResp = await api.organisations("active", undefined, false, false);
+        // api returns PaginatedResponse<Organisation>
+        const orgsData = (orgsResp as PaginatedResponse<Organisation>).data ?? orgsResp;
+        setOrganisations(Array.isArray(orgsData) ? orgsData : []);
+      } catch (e) {
+        console.error("Failed to load organisations", e);
+        setOrganisations([]);
+      } finally {
+        setOrgsLoading(false);
+      }
+      try {
+        const groupsResp = await api.groups({ status: "active", mine: false });
+        const groupsData = (groupsResp as PaginatedResponse<Group>).data ?? groupsResp;
+        setGroups(Array.isArray(groupsData) ? groupsData : []);
+      } catch (e) {
+        console.error("Failed to load groups", e);
+        setGroups([]);
+      } finally {
+        setGroupsLoading(false);
+      }
+    };
+    fetchLists();
+  }, []);
+
   const reloadClaims = async () => {
     const mine = await api.playerClaims();
     setClaims(mine.filter((claim) => claim.claimant_account_id === user?.account_id));
     setReceivedInvitations(await api.receivedClaimInvitations());
+  };
+
+  const handleCreatePlayerSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCreatePlayerError(null);
+    setCreatePlayerLoading(true);
+
+    const formData = new FormData(event.currentTarget);
+    const displayName = formData.get("display_name")?.toString().trim() ?? "";
+    const preferredPosition = formData.get("preferred_position")?.toString() ?? "";
+    const level = formData.get("level")?.toString() ?? "";
+
+    if (!displayName) {
+      setCreatePlayerError("Display name is required");
+      setCreatePlayerLoading(false);
+      return;
+    }
+
+    try {
+      await api.createPlayer({
+        player_profile: {
+          display_name: displayName,
+          preferred_position: preferredPosition || null,
+          level: level || null,
+          link_to_account: true,
+        },
+      });
+      setNotice("Player profile created successfully!");
+      setShowCreatePlayerModal(false);
+      // Reload the page to reflect the new profile
+      window.location.reload();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create player profile";
+      setCreatePlayerError(message);
+    } finally {
+      setCreatePlayerLoading(false);
+    }
+  };
+
+  const handleCloseCreatePlayerModal = () => {
+    setShowCreatePlayerModal(false);
+    setCreatePlayerError(null);
+  };
+
+  const handleCreateCoachSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCreateCoachError(null);
+    setCreateCoachLoading(true);
+
+    const formData = new FormData(event.currentTarget);
+    const displayName = formData.get("display_name")?.toString().trim() ?? "";
+    const coachingLevel = formData.get("coaching_level")?.toString() ?? "";
+    const qualifications = formData.get("qualifications")?.toString() ?? "";
+
+    if (!displayName) {
+      setCreateCoachError("Display name is required");
+      setCreateCoachLoading(false);
+      return;
+    }
+
+    try {
+      await api.createCoach({
+        coach_profile: {
+          display_name: displayName,
+          coaching_level: coachingLevel || null,
+          qualifications: qualifications || null,
+          link_to_account: true,
+        },
+      });
+      setNotice("Coach profile created successfully!");
+      setShowCreateCoachModal(false);
+      // Reload the page to reflect the new profile
+      window.location.reload();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create coach profile";
+      setCreateCoachError(message);
+    } finally {
+      setCreateCoachLoading(false);
+    }
+  };
+
+  const handleCloseCreateCoachModal = () => {
+    setShowCreateCoachModal(false);
+    setCreateCoachError(null);
+  };
+
+  const handleJoinOrganisation = async () => {
+    const orgId = parseInt(joinOrgId, 10);
+    if (isNaN(orgId)) {
+      setJoinOrgError("Please enter a valid organisation ID");
+      return;
+    }
+    setJoinOrgError(null);
+    setJoinOrgLoading(true);
+    try {
+      await api.joinOrganisation(orgId);
+      setNotice("Organisation membership request sent!");
+      setShowJoinOrgModal(false);
+      setJoinOrgId("");
+      // Reload the page to reflect the new organisation membership
+      window.location.reload();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to join organisation";
+      setJoinOrgError(message);
+    } finally {
+      setJoinOrgLoading(false);
+    }
+  };
+
+  const handleCloseJoinOrgModal = () => {
+    setShowJoinOrgModal(false);
+    setJoinOrgError(null);
+    setJoinOrgId("");
+  };
+
+  const handleJoinGroup = async () => {
+    const groupId = parseInt(joinGroupId, 10);
+    if (isNaN(groupId)) {
+      setJoinGroupError("Please enter a valid group ID");
+      return;
+    }
+    setJoinGroupError(null);
+    setJoinGroupLoading(true);
+    try {
+      await api.joinGroup(groupId);
+      setNotice("Group membership request sent!");
+      setShowJoinGroupModal(false);
+      setJoinGroupId("");
+      // Reload the page to reflect the new group membership
+      window.location.reload();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to join group";
+      setJoinGroupError(message);
+    } finally {
+      setJoinGroupLoading(false);
+    }
+  };
+
+  const handleCloseJoinGroupModal = () => {
+    setShowJoinGroupModal(false);
+    setJoinGroupError(null);
+    setJoinGroupId("");
   };
 
   useEffect(() => {
@@ -63,7 +253,7 @@ export default function IdentityPage() {
       if (!cancelled) setError(err instanceof Error ? err.message : "Could not load identity information.");
     }).finally(() => { if (!cancelled) setLoadedUserId(userId); });
     return () => { cancelled = true; };
-  }, [userId, accountId]);
+  }, [userId, accountId, loadedUserId]);
 
   useEffect(() => {
     if (!accountId) return;
@@ -74,7 +264,7 @@ export default function IdentityPage() {
       if (!cancelled) setAccount(null);
     });
     return () => { cancelled = true; };
-  }, [accountId]);
+  }, [accountId, loadedUserId]);
 
   useEffect(() => {
     if (!accountId) return;
@@ -165,6 +355,24 @@ export default function IdentityPage() {
     finally { setBusy(false); }
   };
 
+  const leaveOrganisation = async (orgId: number, membershipId: number) => {
+    setBusy(true); setError(null); setNotice(null);
+    try {
+      await api.endOrganisationMembership(orgId, membershipId);
+      window.location.reload();
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not leave organisation."); }
+    finally { setBusy(false); }
+  };
+
+  const leaveGroup = async (groupId: number, membershipId: number) => {
+    setBusy(true); setError(null); setNotice(null);
+    try {
+      await api.rejectGroupMembership(groupId, membershipId);
+      window.location.reload();
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not leave group."); }
+    finally { setBusy(false); }
+  };
+
   if (!user) return <div className="page"><EmptyState title="Sign in to view your identity" description="Sign in or create an account to redeem this invitation. The invitation link will be restored after email verification." /><Link className="auth-submit" to="/login" state={{ from: invitationReturnPath }}>Sign in</Link></div>;
   if (loading) return <div className="loading">Loading identity…</div>;
 
@@ -187,16 +395,79 @@ export default function IdentityPage() {
         )}</dd></dl>
     </section>
     <section className="detail-section"><h2>Player profiles</h2>
-      {user.player_profiles?.length ? <ul className="identity-link-list">{user.player_profiles.map((profile) => <li key={profile.id}><Link className="identity-link" to={`/players/${profile.id}`}>{profile.display_name || `Player profile #${profile.id}`}</Link> · {profile.status}{profile.level ? ` · ${profile.level}` : ""}</li>)}</ul> : <p>No player profiles are linked to this account.</p>}
+      {user.player_profiles?.length ? <ul className="identity-link-list">{user.player_profiles.map((profile) => <li key={profile.id}><Link className="identity-link" to={`/players/${profile.id}`}>{profile.display_name || `Player profile #${profile.id}`}</Link> · {profile.status}{profile.level ? ` · ${profile.level}` : ""}</li>)}</ul> : (
+        <>
+          <p>No player profiles are linked to this account.</p>
+          <button className="auth-submit" type="button" onClick={() => setShowCreatePlayerModal(true)}>
+            Create Player Profile
+          </button>
+        </>
+      )}
     </section>
     <section className="detail-section"><h2>Coach profiles</h2>
-      {user.coach_profiles?.length ? <ul className="identity-link-list">{user.coach_profiles.map((profile) => <li key={profile.id}><Link className="identity-link" to={`/coaches/${profile.id}`}>{profile.display_name || profile.name || `Coach profile #${profile.id}`}</Link> · {profile.coaching_level || "Level not set"} · {profile.status}</li>)}</ul> : <p>No coach profiles are linked to this account.</p>}
+      {user.coach_profiles?.length ? (
+        <ul className="identity-link-list">
+          {user.coach_profiles.map((profile) => (
+            <li key={profile.id}>
+              <Link className="identity-link" to={`/coaches/${profile.id}`}>
+                {profile.display_name || profile.name || `Coach profile #${profile.id}`}
+              </Link> · {profile.coaching_level || "Level not set"} · {profile.status}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <>
+          <p>No coach profiles are linked to this account.</p>
+          <button className="auth-submit" type="button" onClick={() => setShowCreateCoachModal(true)}>
+            Create Coach Profile
+          </button>
+        </>
+      )}
     </section>
     <section className="detail-section"><h2>Organisation memberships</h2>
-      {user.organisation_memberships?.length ? <ul className="identity-link-list">{user.organisation_memberships.map((membership) => <li key={membership.id}><Link className="identity-link" to={`/organisations/${membership.organisation_id}`}>{membership.organisation?.name || `Organisation #${membership.organisation_id}`}</Link> · {membership.role} · {membership.status}</li>)}</ul> : <p>No organisation memberships.</p>}
+      {user.organisation_memberships?.length ? (
+        <ul className="identity-link-list">
+          {user.organisation_memberships.map((membership) => (
+            <li key={membership.id}>
+              <Link className="identity-link" to={`/organisations/${membership.organisation_id}`}>
+                {membership.organisation?.name || `Organisation #${membership.organisation_id}`}
+              </Link> · {membership.role} · {membership.status}
+              {membership.status === "active" && (
+                <button className="admin-btn" onClick={() => leaveOrganisation(membership.organisation_id, membership.id)}>Leave</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No organisation memberships.</p>
+      )}
+      <button className="auth-submit" type="button" onClick={() => setShowJoinOrgModal(true)}>
+        Join Organisation
+      </button>
     </section>
     <section className="detail-section"><h2>Group memberships</h2>
-      {user.group_memberships?.length ? <ul className="identity-link-list">{user.group_memberships.map((membership) => <li key={membership.id}><Link className="identity-link" to={`/groups/${membership.group_id}`}>{membership.group.name}</Link> · {membership.role} · {membership.status}{membership.group.organisation && <> · <Link className="identity-link" to={`/organisations/${membership.group.organisation.id}`}>{membership.group.organisation.name}</Link></>}</li>)}</ul> : <p>No group memberships.</p>}
+      {user.group_memberships?.length ? (
+        <ul className="identity-link-list">
+          {user.group_memberships.map((membership) => (
+            <li key={membership.id}>
+              <Link className="identity-link" to={`/groups/${membership.group_id}`}>
+                {membership.group.name}
+              </Link> · {membership.role} · {membership.status}
+              {membership.group.organisation && (
+                <> · <Link className="identity-link" to={`/organisations/${membership.group.organisation.id}`}>{membership.group.organisation.name}</Link></>
+              )}
+              {membership.status === "active" && (
+                <button className="admin-btn" onClick={() => leaveGroup(membership.group_id, membership.id)}>Leave</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No group memberships.</p>
+      )}
+      <button className="auth-submit" type="button" onClick={() => setShowJoinGroupModal(true)}>
+        Join Group
+      </button>
     </section>
 
     <section className="detail-section"><h2>Redeem a claim invitation</h2><p>Redeeming an active invitation accepts it and links the profile to your account. An invitation addressed to an email also requires that email to be verified.</p>
@@ -265,6 +536,189 @@ export default function IdentityPage() {
     </section>
 
     </div>
+    {showCreatePlayerModal && (
+      <div className="modal-overlay" onClick={handleCloseCreatePlayerModal} role="dialog" aria-modal="true" aria-labelledby="create-player-title">
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <header className="modal-header">
+            <h2 id="create-player-title">Create Player Profile</h2>
+            <button className="modal-close" onClick={handleCloseCreatePlayerModal} aria-label="Close">×</button>
+          </header>
+          <div className="modal-body">
+            <form onSubmit={handleCreatePlayerSubmit} noValidate>
+              {createPlayerError && <div className="auth-flash auth-flash-error" role="alert">{createPlayerError}</div>}
+              <div className="auth-field">
+                <label htmlFor="display_name">Display name <span aria-hidden="true">*</span></label>
+                <input id="display_name" name="display_name" type="text" required autoComplete="off" disabled={createPlayerLoading} />
+              </div>
+              <div className="auth-field">
+                <label htmlFor="preferred_position">Preferred position</label>
+                <select id="preferred_position" name="preferred_position" disabled={createPlayerLoading}>
+                  <option value="">Select position</option>
+                  <option value="setter">Setter</option>
+                  <option value="blocker">Blocker</option>
+                  <option value="defender">Defender</option>
+                  <option value="universal">Universal</option>
+                </select>
+              </div>
+              <div className="auth-field">
+                <label htmlFor="level">Level</label>
+                <select id="level" name="level" disabled={createPlayerLoading}>
+                  <option value="">Select level</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                  <option value="professional">Professional</option>
+                </select>
+              </div>
+              <div className="modal-actions" style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
+                <button type="button" className="admin-btn" onClick={handleCloseCreatePlayerModal} disabled={createPlayerLoading}>
+                  Cancel
+                </button>
+                <button type="submit" className="auth-submit" disabled={createPlayerLoading}>
+                  {createPlayerLoading ? "Creating…" : "Create Player Profile"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    )}
+    {showCreateCoachModal && (
+      <div className="modal-overlay" onClick={handleCloseCreateCoachModal} role="dialog" aria-modal="true" aria-labelledby="create-coach-title">
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <header className="modal-header">
+            <h2 id="create-coach-title">Create Coach Profile</h2>
+            <button className="modal-close" onClick={handleCloseCreateCoachModal} aria-label="Close">×</button>
+          </header>
+          <div className="modal-body">
+            <form onSubmit={handleCreateCoachSubmit} noValidate>
+              {createCoachError && <div className="auth-flash auth-flash-error" role="alert">{createCoachError}</div>}
+              <div className="auth-field">
+                <label htmlFor="coach_display_name">Display name <span aria-hidden="true">*</span></label>
+                <input id="coach_display_name" name="display_name" type="text" required autoComplete="off" disabled={createCoachLoading} />
+              </div>
+              <div className="auth-field">
+                <label htmlFor="coaching_level">Coaching level</label>
+                <select id="coaching_level" name="coaching_level" disabled={createCoachLoading}>
+                  <option value="">Select level</option>
+                  <option value="assistant">Assistant</option>
+                  <option value="level1">Level 1</option>
+                  <option value="level2">Level 2</option>
+                  <option value="level3">Level 3</option>
+                  <option value="level4">Level 4</option>
+                </select>
+              </div>
+              <div className="auth-field">
+                <label htmlFor="qualifications">Qualifications</label>
+                <textarea id="qualifications" name="qualifications" disabled={createCoachLoading} rows={3} />
+              </div>
+              <div className="modal-actions" style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
+                <button type="button" className="admin-btn" onClick={handleCloseCreateCoachModal} disabled={createCoachLoading}>
+                  Cancel
+                </button>
+                <button type="submit" className="auth-submit" disabled={createCoachLoading}>
+                  {createCoachLoading ? "Creating…" : "Create Coach Profile"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    )}
+    {showJoinOrgModal && (
+      <div className="modal-overlay" onClick={handleCloseJoinOrgModal} role="dialog" aria-modal="true" aria-labelledby="join-org-title">
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <header className="modal-header">
+            <h2 id="join-org-title">Join Organisation</h2>
+            <button className="modal-close" onClick={handleCloseJoinOrgModal} aria-label="Close">×</button>
+          </header>
+          <div className="modal-body">
+            <form onSubmit={(e) => { e.preventDefault(); handleJoinOrganisation(); }}>
+              {joinOrgError && <div className="auth-flash auth-flash-error" role="alert">{joinOrgError}</div>}
+              <div className="auth-field">
+                <label htmlFor="org_id">Organisation <span aria-hidden="true">*</span></label>
+                <select
+                  id="org_id"
+                  name="org_id"
+                  required
+                  value={joinOrgId}
+                  onChange={(e) => setJoinOrgId(e.target.value)}
+                  disabled={joinOrgLoading || orgsLoading}
+                >
+                  <option value="">Select organisation</option>
+                  {orgsLoading ? (
+                    <option disabled>Loading organisations…</option>
+                  ) : organisations.length === 0 ? (
+                    <option disabled>No organisations available</option>
+                  ) : (
+                    organisations.map((org) => (
+                      <option key={org.id} value={String(org.id)}>
+                        {org.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+              <div className="modal-actions" style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
+                <button type="button" className="admin-btn" onClick={handleCloseJoinOrgModal} disabled={joinOrgLoading}>
+                  Cancel
+                </button>
+                <button type="submit" className="auth-submit" disabled={joinOrgLoading || !joinOrgId}>
+                  {joinOrgLoading ? "Requesting…" : "Request Membership"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    )}
+    {showJoinGroupModal && (
+      <div className="modal-overlay" onClick={handleCloseJoinGroupModal} role="dialog" aria-modal="true" aria-labelledby="join-group-title">
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <header className="modal-header">
+            <h2 id="join-group-title">Join Group</h2>
+            <button className="modal-close" onClick={handleCloseJoinGroupModal} aria-label="Close">×</button>
+          </header>
+          <div className="modal-body">
+            <form onSubmit={(e) => { e.preventDefault(); handleJoinGroup(); }}>
+              {joinGroupError && <div className="auth-flash auth-flash-error" role="alert">{joinGroupError}</div>}
+              <div className="auth-field">
+                <label htmlFor="group_id">Group <span aria-hidden="true">*</span></label>
+                <select
+                  id="group_id"
+                  name="group_id"
+                  required
+                  value={joinGroupId}
+                  onChange={(e) => setJoinGroupId(e.target.value)}
+                  disabled={joinGroupLoading || groupsLoading}
+                >
+                  <option value="">Select group</option>
+                  {groupsLoading ? (
+                    <option disabled>Loading groups…</option>
+                  ) : groups.length === 0 ? (
+                    <option disabled>No groups available</option>
+                  ) : (
+                    groups.map((g) => (
+                      <option key={g.id} value={String(g.id)}>
+                        {g.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+              <div className="modal-actions" style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", marginTop: "1.5rem" }}>
+                <button type="button" className="admin-btn" onClick={handleCloseJoinGroupModal} disabled={joinGroupLoading}>
+                  Cancel
+                </button>
+                <button type="submit" className="auth-submit" disabled={joinGroupLoading || !joinGroupId}>
+                  {joinGroupLoading ? "Requesting…" : "Request Membership"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    )}
     {canManageProfiles && <ProfileManagementDashboard />}
   </div>;
 }

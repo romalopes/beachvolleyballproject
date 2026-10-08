@@ -22,12 +22,7 @@ interface AssessmentSessionRosterProps {
   onRemovePlayers: (playerProfileIds: number[]) => Promise<void>;
 }
 
-const emptyNewPerson = {
-  first_name: "",
-  last_name: "",
-  email: "",
-  phone: "",
-};
+const emptyNewProfile = { display_name: "" };
 
 export default function AssessmentSessionRoster({
   participants,
@@ -40,7 +35,7 @@ export default function AssessmentSessionRoster({
   const [matches, setMatches] = useState<Player[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [addingNew, setAddingNew] = useState(false);
-  const [newPerson, setNewPerson] = useState(emptyNewPerson);
+  const [newProfile, setNewProfile] = useState(emptyNewProfile);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -126,9 +121,9 @@ export default function AssessmentSessionRoster({
     }
   };
 
-  const handleAddNewPerson = async () => {
-    if (!newPerson.first_name.trim()) {
-      setError("A first name is required to record a new player.");
+  const handleAddNewProfile = async () => {
+    if (!newProfile.display_name.trim()) {
+      setError("A display name is required to record a new player.");
       return;
     }
     setError(null);
@@ -136,16 +131,13 @@ export default function AssessmentSessionRoster({
     try {
       await onAddPlayers([
         {
-          person: {
-            first_name: newPerson.first_name.trim(),
-            last_name: newPerson.last_name.trim() || null,
-            email: newPerson.email.trim() || null,
-            phone: newPerson.phone.trim() || null,
+          profile: {
+            display_name: newProfile.display_name.trim(),
           },
           inclusion: "included",
         },
       ]);
-      setNewPerson(emptyNewPerson);
+      setNewProfile(emptyNewProfile);
       setAddingNew(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create and add player.");
@@ -242,38 +234,12 @@ export default function AssessmentSessionRoster({
               <h4>Record a new player</h4>
               <div className="form-row">
                 <label>
-                  First name *
+                  Display name *
                   <input
                     type="text"
-                    value={newPerson.first_name}
-                    onChange={(e) => setNewPerson({ ...newPerson, first_name: e.target.value })}
+                    value={newProfile.display_name}
+                    onChange={(e) => setNewProfile({ display_name: e.target.value })}
                     required
-                  />
-                </label>
-                <label>
-                  Last name
-                  <input
-                    type="text"
-                    value={newPerson.last_name}
-                    onChange={(e) => setNewPerson({ ...newPerson, last_name: e.target.value })}
-                  />
-                </label>
-              </div>
-              <div className="form-row">
-                <label>
-                  Email
-                  <input
-                    type="email"
-                    value={newPerson.email}
-                    onChange={(e) => setNewPerson({ ...newPerson, email: e.target.value })}
-                  />
-                </label>
-                <label>
-                  Phone
-                  <input
-                    type="tel"
-                    value={newPerson.phone}
-                    onChange={(e) => setNewPerson({ ...newPerson, phone: e.target.value })}
                   />
                 </label>
               </div>
@@ -281,7 +247,7 @@ export default function AssessmentSessionRoster({
                 <button
                   type="button"
                   className="admin-btn admin-btn-add"
-                  onClick={() => void handleAddNewPerson()}
+                  onClick={() => void handleAddNewProfile()}
                   disabled={working}
                 >
                   Create &amp; Add Player
@@ -291,7 +257,7 @@ export default function AssessmentSessionRoster({
                   className="admin-btn"
                   onClick={() => {
                     setAddingNew(false);
-                    setNewPerson(emptyNewPerson);
+                    setNewProfile(emptyNewProfile);
                     setError(null);
                   }}
                   disabled={working}

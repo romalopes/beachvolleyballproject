@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,13 +8,14 @@ import IdentityPage from "./Identity";
 
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
-  return { ...actual, api: { ...actual.api, playerProfileCandidates: vi.fn(), searchProfileCandidates: vi.fn(), receivedClaimInvitations: vi.fn(), acceptReceivedClaimInvitation: vi.fn(), declineReceivedClaimInvitation: vi.fn(), claimInvitations: vi.fn(), managementPlayerClaims: vi.fn(), managementClaimInvitations: vi.fn(), managementClaimables: vi.fn(), playerClaims: vi.fn(), requestPlayerClaim: vi.fn(), approvePlayerClaim: vi.fn(), rejectPlayerClaim: vi.fn(), redeemClaimInvitation: vi.fn(), people: vi.fn(), personConsolidationPreview: vi.fn() } };
+  return { ...actual, api: { ...actual.api, playerProfileCandidates: vi.fn(), searchProfileCandidates: vi.fn(), receivedClaimInvitations: vi.fn(), acceptReceivedClaimInvitation: vi.fn(), declineReceivedClaimInvitation: vi.fn(), claimInvitations: vi.fn(), managementPlayerClaims: vi.fn(), managementClaimInvitations: vi.fn(), managementClaimables: vi.fn(), playerClaims: vi.fn(), requestPlayerClaim: vi.fn(), approvePlayerClaim: vi.fn(), rejectPlayerClaim: vi.fn(), redeemClaimInvitation: vi.fn(), people: vi.fn(), personConsolidationPreview: vi.fn(), createPlayer: vi.fn() } };
 });
 
 const mockedApi = vi.mocked(api, true);
 const user = { id: 7, name: "Alex Player", email_address: "alex@example.com", roles: ["player"], account_id: 9,
   player_profiles: [{ id: 12, display_name: "Alex Player", preferred_position: null, level: "advanced", status: "active" as const, visibility: "shared" as const }],
   coach_profiles: [], organisation_memberships: [], group_memberships: [] };
+const userWithoutProfiles = { ...user, player_profiles: [] };
 const authValue = { user, loading: false, login: vi.fn(), register: vi.fn(), resetPassword: vi.fn(), logout: vi.fn(), impersonation: { active: false, realAdmin: null }, startImpersonating: vi.fn(), stopImpersonating: vi.fn() } as unknown as AuthContextValue;
 const renderPage = (entry = "/identity", currentUser: AuthContextValue["user"] = user) => render(<AuthContext.Provider value={{ ...authValue, user: currentUser } as unknown as AuthContextValue}><MemoryRouter initialEntries={[entry]}><IdentityPage /></MemoryRouter></AuthContext.Provider>);
 function RouteState() {
@@ -201,5 +202,120 @@ describe("Identity", () => {
     expect(await screen.findByText("Identity")).toBeInTheDocument();
     expect(screen.queryByText("Person consolidation")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Find people")).not.toBeInTheDocument();
+  });
+
+  describe("Create Player Profile", () => {
+    beforeEach(() => {
+      mockedApi.createPlayer.mockReset();
+      mockedApi.playerClaims.mockResolvedValue([]);
+    });
+
+    it("shows create player button when no profiles exist", async () => {
+      renderPage("/identity", userWithoutProfiles);
+      expect(await screen.findByText("No player profiles are linked to this account.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Create Player Profile" })).toBeInTheDocument();
+    });
+
+    it("opens modal when create player button is clicked", async () => {
+      renderPage("/identity", userWithoutProfiles);
+      await screen.findByRole("button", { name: "Create Player Profile" });
+      await userEvent.click(screen.getByRole("button", { name: "Create Player Profile" }));
+      expect(await screen.findByRole("dialog", { name: "Create Player Profile" })).toBeInTheDocument();
+      expect(screen.getByLabelText("Display name *")).toBeInTheDocument();
+      expect(screen.getByLabelText("Preferred position")).toBeInTheDocument();
+      expect(screen.getByLabelText("Level")).toBeInTheDocument();
+    });
+
+    it("closes modal when cancel is clicked", async () => {
+      renderPage("/identity", userWithoutProfiles);
+      await screen.findByRole("button", { name: "Create Player Profile" });
+      await userEvent.click(screen.getByRole("button", { name: "Create Player Profile" }));
+      await screen.findByRole("dialog", { name: "Create Player Profile" });
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByRole("dialog", { name: "Create Player Profile" })).not.toBeInTheDocument();
+    });
+
+    it("closes modal when overlay is clicked", async () => {
+      renderPage("/identity", userWithoutProfiles);
+      await screen.findByRole("button", { name: "Create Player Profile" });
+      await userEvent.click(screen.getByRole("button", { name: "Create Player Profile" }));
+      await screen.findByRole("dialog", { name: "Create Player Profile" });
+      // Click the modal overlay (outside the modal content)
+      const overlay = document.querySelector(".modal-overlay");
+      if (overlay) await userEvent.click(overlay);
+      expect(screen.queryByRole("dialog", { name: "Create Player Profile" })).not.toBeInTheDocument();
+    });
+
+    it("shows validation error when display name is empty", async () => {
+      renderPage("/identity", userWithoutProfiles);
+      await screen.findByRole("button", { name: "Create Player Profile" });
+      await userEvent.click(screen.getByRole("button", { name: "Create Player Profile" }));
+      const dialog = await screen.findByRole("dialog", { name: "Create Player Profile" });
+      const form = dialog.querySelector("form");
+      // Click the submit button in the modal
+      await userEvent.click(within(dialog).getByRole("button", { name: "Create Player Profile", type: "submit" }));
+      // Also fire submit event on form to ensure handler is called
+      if (form) {
+        await act(async () => {
+          fireEvent.submit(form);
+        });
+      }
+      // Check what's in the dialog
+      await waitFor(() => {});
+      // Wait for the validation error to appear in the modal - use getByText since role="alert" name matching might not work
+      expect(await screen.findByText("Display name is required")).toBeInTheDocument();
+    });
+
+    it("creates player profile successfully and shows notice", async () => {
+      const newProfile = { id: 99, person_id: null, display_name: "New Player", preferred_position: "setter", level: "beginner", status: "active" as const, visibility: "shared" as const, possible_duplicates: [] };
+      mockedApi.createPlayer.mockResolvedValue(newProfile);
+      mockedApi.playerClaims.mockResolvedValue([]);
+      mockedApi.receivedClaimInvitations.mockResolvedValue([]);
+
+      renderPage("/identity", userWithoutProfiles);
+      await screen.findByRole("button", { name: "Create Player Profile" });
+      await userEvent.click(screen.getByRole("button", { name: "Create Player Profile" }));
+      const dialog = await screen.findByRole("dialog", { name: "Create Player Profile" });
+
+      await userEvent.type(screen.getByLabelText("Display name *"), "New Player");
+      await userEvent.selectOptions(screen.getByLabelText("Preferred position"), "setter");
+      await userEvent.selectOptions(screen.getByLabelText("Level"), "beginner");
+      // Click the submit button in the modal (type="submit")
+      await userEvent.click(within(dialog).getByRole("button", { name: "Create Player Profile", type: "submit" }));
+
+      await waitFor(() => expect(mockedApi.createPlayer).toHaveBeenCalledWith({
+        player_profile: {
+          display_name: "New Player",
+          preferred_position: "setter",
+          level: "beginner",
+          link_to_account: true,
+        },
+      }));
+
+      // Wait for the modal to close
+      expect(await screen.queryByRole("dialog", { name: "Create Player Profile" })).not.toBeInTheDocument();
+      
+      // Wait for loading to complete after reload
+      await screen.findByRole("heading", { name: "Identity" });
+      
+      // Check for the notice
+      expect(await screen.findByText("Player profile created successfully!")).toBeInTheDocument();
+    });
+
+    it("shows error when API call fails", async () => {
+      mockedApi.createPlayer.mockRejectedValue(new Error("API error"));
+
+      renderPage("/identity", userWithoutProfiles);
+      await screen.findByRole("button", { name: "Create Player Profile" });
+      await userEvent.click(screen.getByRole("button", { name: "Create Player Profile" }));
+      const dialog = await screen.findByRole("dialog", { name: "Create Player Profile" });
+
+      await userEvent.type(screen.getByLabelText("Display name *"), "New Player");
+      // Click the submit button in the modal
+      await userEvent.click(within(dialog).getByRole("button", { name: "Create Player Profile", type: "submit" }));
+
+      expect(await screen.findByText("API error")).toBeInTheDocument();
+      expect(screen.getByRole("dialog", { name: "Create Player Profile" })).toBeInTheDocument();
+    });
   });
 });
