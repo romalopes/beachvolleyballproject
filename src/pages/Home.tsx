@@ -37,7 +37,7 @@ export default function Home() {
           <Target size={14} />
           Beach Volleyball Knowledge System
         </div>
-        <h1>BEACH VOLLEYBALL PROJECT</h1>
+        <h1>BEACH VOLLEYBALL HUB</h1>
         <p className="home-hero-tagline">
           Organise the skills. Understand the game. Train with purpose.
         </p>
