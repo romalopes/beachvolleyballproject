@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { FormEvent } from "react";
 import { AlertCircle, Plus, Search, Trash2, X } from "lucide-react";
 import {
@@ -139,6 +140,7 @@ export default function Groups() {
   };
 
   const openEdit = async (group: GroupRecord) => {
+    if (!group.can_edit) return;
     setIsCreating(false);
     setFormError(null);
     try {
@@ -202,6 +204,7 @@ export default function Groups() {
   };
 
   const handleArchiveToggle = async (group: GroupRecord) => {
+    if (!group.can_archive) return;
     setError(null);
     try {
       await api.updateGroup(group.id, {
@@ -217,6 +220,7 @@ export default function Groups() {
   };
 
   const handleDelete = async (group: GroupRecord) => {
+    if (!group.can_delete) return;
     // The server refuses to delete a group that has run sessions and says so in
     // its error message; confirming first keeps that refusal from surprising
     // anyone mid-flow.
@@ -446,7 +450,7 @@ export default function Groups() {
           {visibleGroups.map((group) => (
             <li key={group.id} className="group-row">
               <div className="group-row-main">
-                <span className="group-name">{group.name}</span>
+                <Link className="group-name" to={`/groups/${group.id}`}>{group.name}</Link>
                 {group.visibility === "private" && (
                   <span className="tag">Private</span>
                 )}
@@ -468,28 +472,28 @@ export default function Groups() {
                 <p className="group-description">{group.description}</p>
               )}
               <div className="group-row-actions">
-                <button
+                {group.can_edit && <button
                   type="button"
                   className="admin-btn admin-btn-secondary"
                   onClick={() => void openEdit(group)}
                 >
                   Edit
-                </button>
-                <button
+                </button>}
+                {group.can_archive && <button
                   type="button"
                   className="admin-btn admin-btn-secondary"
                   onClick={() => void handleArchiveToggle(group)}
                 >
                   {group.status === "archived" ? "Restore" : "Archive"}
-                </button>
-                <button
+                </button>}
+                {group.can_delete && <button
                   type="button"
                   className="admin-btn admin-btn-remove"
                   onClick={() => void handleDelete(group)}
                 >
                   <Trash2 size={14} />
                   Delete
-                </button>
+                </button>}
               </div>
             </li>
           ))}

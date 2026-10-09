@@ -590,6 +590,10 @@ export type GroupStatus = "active" | "archived";
 export type GroupVisibility = "shared" | "private";
 
 export interface Group {
+  can_edit?: boolean;
+  can_archive?: boolean;
+  /** Server-authorized owner/admin/curator deletion. */
+  can_delete?: boolean;
   id: number;
   name: string;
   slug: string;
@@ -1523,6 +1527,7 @@ export interface CoachContext {
   status: "active" | "archived";
   name?: string;
   display_name?: string;
+  full_name?: string;
 }
 
 export interface PlayerContext {
@@ -2697,6 +2702,8 @@ export const api = {
       {},
       "DELETE",
     ),
+  adminDeleteUser: (userId: number) =>
+    postJSON<void>(`/admin/users/${userId}`, {}, "DELETE"),
 
   // Admin Settings — Skills (admin-only endpoints, authorize_admin! on backend)
   adminSkills: async (params?: { page?: number; per_page?: number }) => {

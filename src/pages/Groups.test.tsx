@@ -35,6 +35,9 @@ const squad = (overrides: Partial<GroupRecord> = {}): GroupRecord => ({
   requires_approval: false,
   approval_required: false,
   can_approve_members: false,
+  can_delete: true,
+  can_edit: true,
+  can_archive: true,
   player_count: 2,
   organisation: { id: 1, name: "Volleyball Club" },
   owner: { id: 2, name: "Coach Ana" },
@@ -274,3 +277,20 @@ describe("Groups lifecycle", () => {
   });
 });
 
+
+
+it("links to group details and hides deletion when the server denies it", async () => {
+  mockedApi.groups.mockResolvedValue(page([squad({ can_delete: false })]));
+  renderPage();
+  expect(await screen.findByRole("link", { name: "U19 squad" })).toHaveAttribute("href", "/groups/3");
+  expect(screen.queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+});
+
+
+it("hides edit and archive actions without permission", async () => {
+  mockedApi.groups.mockResolvedValue(page([squad({ can_edit: false, can_archive: false })]));
+  renderPage();
+  await screen.findByRole("link", { name: "U19 squad" });
+  expect(screen.queryByRole("button", { name: /^edit$/i })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^archive$/i })).not.toBeInTheDocument();
+});

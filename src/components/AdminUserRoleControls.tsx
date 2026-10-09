@@ -16,6 +16,7 @@ interface AdminUserRoleControlsProps {
   onUserChange?: (user: AdminUser) => void;
   onError?: (message: string) => void;
   onRoleChange?: () => void;
+  onDelete?: () => void;
 }
 
 export default function AdminUserRoleControls({
@@ -24,10 +25,12 @@ export default function AdminUserRoleControls({
   onUserChange,
   onError,
   onRoleChange,
+  onDelete,
 }: AdminUserRoleControlsProps) {
   const { user, startImpersonating } = useAuth();
   const [busy, setBusy] = useState(false);
   const [actingBusy, setActingBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const isAdmin = user?.roles?.includes("admin") && !(user as { real_admin?: unknown })?.real_admin;
 
   const hasRole = (role: string) => adminUser.roles.some((r) => r.name === role);
@@ -65,6 +68,20 @@ export default function AdminUserRoleControls({
       onError?.(e instanceof Error ? e.message : "Failed to start impersonating.");
     } finally {
       setActingBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete user ${adminUserDisplayName(adminUser)} (${adminUser.email_address})? This will also remove their account, address and contact details.`)) return;
+    setDeleting(true);
+    onError?.("");
+    try {
+      await api.adminDeleteUser(adminUser.id);
+      onDelete?.();
+    } catch (e: unknown) {
+      onError?.(e instanceof Error ? e.message : "Failed to delete user.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -107,6 +124,16 @@ export default function AdminUserRoleControls({
         {isAdmin && !hasRole("admin") && adminUser.id !== user?.id && (
           <button type="button" className="admin-btn admin-btn-add" disabled={actingBusy} onClick={actAsUser}>
             Act as User
+          </button>
+        )}
+        {isAdmin && adminUser.id !== user?.id && (
+          <button
+            type="button"
+            className="admin-btn admin-btn-remove"
+            disabled={deleting}
+            onClick={handleDelete}
+          >
+            {deleting ? "Deleting…" : "Delete User"}
           </button>
         )}
       </div>

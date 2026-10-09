@@ -29,6 +29,8 @@ vi.mock("../api", async (importOriginal) => {
       updateOrganisationMembership: vi.fn(),
       endOrganisationMember: vi.fn(),
       endOrganisationMembership: vi.fn(),
+      approveOrganisationMembership: vi.fn(),
+      rejectOrganisationMembership: vi.fn(),
     },
   };
 });
@@ -217,5 +219,50 @@ describe("Organisation detail", () => {
     expect(mockedApi.organisationMemberCandidates).toHaveBeenCalledWith(1, "Ro");
     expect(mockedApi.addOrganisationMember).toHaveBeenCalledWith(1, { memberable_type: "PlayerProfile", memberable_id: 77 }, { role: "member" });
     expect(await screen.findByRole("status")).toHaveTextContent("Rosa New added to the roster.");
+  });
+});
+
+describe("Pending organisation requests", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedApi.organisation.mockResolvedValue(organisation({ can_approve_members: true }));
+    mockedApi.organisations.mockResolvedValue(paginated([organisation()]));
+    mockedApi.organisationMembers.mockResolvedValue({ organisation: { id: 1, name: "FIVB" }, data: [membership({ id: 42, person_id: 10, status: "pending", status_label: "Pending" })] });
+  });
+
+  it("approves by membership ID and moves the request into active members", async () => {
+    mockedApi.approveOrganisationMembership.mockResolvedValue({ membership: membership({ id: 42 }) });
+    renderWithAuth(<OrganisationDetail />, authValue(), "/organisations/1", "/organisations/:id");
+    expect(await screen.findByText("Pending requests (1)")).toBeInTheDocument();
+    expect(screen.getByText("Active members (0)")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Approve" }));
+    expect(mockedApi.approveOrganisationMembership).toHaveBeenCalledWith(1, 42);
+    expect(await screen.findByText("Active members (1)")).toBeInTheDocument();
+    expect(screen.queryByText("Pending requests (1)")).not.toBeInTheDocument();
+  });
+
+  it("rejects a pending request and removes it", async () => {
+    mockedApi.rejectOrganisationMembership.mockResolvedValue({ removed: true, membership_id: 42 });
+    renderWithAuth(<OrganisationDetail />, authValue(), "/organisations/1", "/organisations/:id");
+    await userEvent.click(await screen.findByRole("button", { name: "Reject" }));
+    expect(mockedApi.rejectOrganisationMembership).toHaveBeenCalledWith(1, 42);
+    await waitFor(() => expect(screen.queryByText("Pending requests (1)")).not.toBeInTheDocument());
+  });
+
+  it("keeps the request visible when approval fails", async () => {
+    mockedApi.approveOrganisationMembership.mockRejectedValue(new Error("Approval denied"));
+    renderWithAuth(<OrganisationDetail />, authValue(), "/organisations/1", "/organisations/:id");
+    await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Approval denied");
+    expect(screen.getByText("Pending requests (1)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
+  });
+
+  it("does not offer decisions without approval permission", async () => {
+    mockedApi.organisation.mockResolvedValue(organisation({ can_manage_members: true, can_approve_members: false }));
+    renderWithAuth(<OrganisationDetail />, authValue(), "/organisations/1", "/organisations/:id");
+    await screen.findByText("Pending requests (1)");
+    expect(screen.queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
   });
 });

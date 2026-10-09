@@ -341,7 +341,30 @@ function OrganisationRoster({ organisation }: { organisation: Organisation }) {
     }
   };
 
-  const active = memberships.filter((membership) => membership.status !== "ended");
+  const review = async (membership: OrganisationMembership, decision: "approve" | "reject") => {
+    setBusyId(membership.id);
+    setError(null);
+    setNotice(null);
+    try {
+      if (decision === "approve") {
+        const { membership: saved } = await api.approveOrganisationMembership(organisation.id, membership.id);
+        setMemberships((current) => current.map((item) => item.id === saved.id ? saved : item));
+        setNotice(`${saved.person_name ?? "Member"} approved.`);
+      } else {
+        await api.rejectOrganisationMembership(organisation.id, membership.id);
+        setMemberships((current) => current.filter((item) => item.id !== membership.id));
+        setNotice(`${membership.person_name ?? "Member"}'s request rejected.`);
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : `Failed to ${decision} request.`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const pending = memberships.filter((membership) => membership.status === "pending");
+  const active = memberships.filter((membership) => membership.status === "active");
+  const suspended = memberships.filter((membership) => membership.status === "suspended");
   const former = memberships.filter((membership) => membership.status === "ended");
 
   return (
@@ -352,7 +375,9 @@ function OrganisationRoster({ organisation }: { organisation: Organisation }) {
       </div>
       {error && <p className="form-error" role="alert">{error}</p>}
       {notice && !error && <p className="admin-success" role="status">{notice}</p>}
-      {showAdd && organisation.can_manage_members && <AddMemberForm organisation={organisation} memberships={memberships} onAdded={(membership) => { setMemberships((current) => [membership, ...current.filter((item) => item.person_id !== membership.person_id)]); setShowAdd(false); setNotice(`${membership.person_name ?? "Member"} added to the roster.`); }} onError={setError} />}
+      {showAdd && organisation.can_manage_members && <AddMemberForm organisation={organisation} memberships={memberships} onAdded={(membership) => { setMemberships((current) => [membership, ...current.filter((item) => item.id !== membership.id)]); setShowAdd(false); setNotice(`${membership.person_name ?? "Member"} added to the roster.`); }} onError={setError} />}
+      {pending.length > 0 && <RosterGroup title={`Pending requests (${pending.length})`} memberships={pending} canManage={false} canApprove={organisation.can_approve_members} busyId={busyId} onRoleChange={changeRole} onRemove={remove} onReview={review} />}
+      {suspended.length > 0 && <RosterGroup title={`Suspended members (${suspended.length})`} memberships={suspended} canManage={organisation.can_manage_members} busyId={busyId} onRoleChange={changeRole} onRemove={remove} />}
       <RosterGroup title={`Active members (${active.length})`} memberships={active} canManage={organisation.can_manage_members} busyId={busyId} onRoleChange={changeRole} onRemove={remove} />
       {former.length > 0 && <RosterGroup title={`Former members (${former.length})`} memberships={former} canManage={false} busyId={busyId} onRoleChange={changeRole} onRemove={remove} />}
     </section>
@@ -363,6 +388,8 @@ function RosterGroup({
   title,
   memberships,
   canManage,
+  canApprove = false,
+  onReview,
   busyId,
   onRoleChange,
   onRemove,
@@ -370,6 +397,8 @@ function RosterGroup({
   title: string;
   memberships: OrganisationMembership[];
   canManage: boolean;
+  canApprove?: boolean;
+  onReview?: (membership: OrganisationMembership, decision: "approve" | "reject") => void;
   busyId: number | null;
   onRoleChange: (membership: OrganisationMembership, role: OrganisationMembershipRole) => void;
   onRemove: (membership: OrganisationMembership) => void;
@@ -380,12 +409,16 @@ function RosterGroup({
       {memberships.length === 0 ? <p className="organisations-roster-empty">No members.</p> : (
         <ul className="organisations-roster-list">
           {memberships.map((membership) => (
-            <li className="organisations-roster-row" key={membership.person_id}>
+            <li className="organisations-roster-row" key={membership.id}>
               <span className="organisations-roster-name">{membership.person_name ?? `Person #${membership.person_id}`} <span className="organisations-roster-tag">{membership.status_label}</span></span>
               {canManage ? (
-                <select aria-label={`Role for ${membership.person_name ?? membership.person_id}`} value={membership.role} disabled={busyId === membership.person_id} onChange={(e) => onRoleChange(membership, e.target.value as OrganisationMembershipRole)}>{MEMBERSHIP_ROLES.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}</select>
+                <select aria-label={`Role for ${membership.person_name ?? membership.person_id}`} value={membership.role} disabled={busyId !== null} onChange={(e) => onRoleChange(membership, e.target.value as OrganisationMembershipRole)}>{MEMBERSHIP_ROLES.map((role) => <option key={role.value} value={role.value}>{role.label}</option>)}</select>
               ) : <span className="organisations-roster-role">{membership.role_label}</span>}
-              {canManage && <button type="button" className="admin-btn admin-btn-danger" disabled={busyId === membership.person_id} onClick={() => onRemove(membership)}>Remove</button>}
+              {canApprove && membership.status === "pending" && onReview && <>
+                <button type="button" className="admin-btn admin-btn-primary" disabled={busyId !== null} onClick={() => onReview(membership, "approve")}>Approve</button>
+                <button type="button" className="admin-btn admin-btn-danger" disabled={busyId !== null} onClick={() => onReview(membership, "reject")}>Reject</button>
+              </>}
+              {canManage && <button type="button" className="admin-btn admin-btn-danger" disabled={busyId !== null} onClick={() => onRemove(membership)}>Remove</button>}
             </li>
           ))}
         </ul>

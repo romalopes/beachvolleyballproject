@@ -11,6 +11,7 @@ import {
   type Group as GroupRecord,
   type PaginationMeta,
 } from "../api";
+import { useAuth } from "../auth/AuthContext";
 import EmptyState from "../components/EmptyState";
 import PageHeader from "../components/PageHeader";
 import Tag from "../components/Tag";
@@ -21,6 +22,12 @@ const PER_PAGE = 20;
 
 export default function AssessmentSessions() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const isCoach = user?.roles?.includes("coach") ?? false;
+  const canPickCoach = user?.roles?.some((r) => r === "curator" || r === "admin") ?? false;
+  const myCoachId = user?.coach_profile_id ?? user?.coach_profile_ids?.[0] ?? 0;
+
   const [sessions, setSessions] = useState<AssessmentSession[]>([]);
   const [definitions, setDefinitions] = useState<AssessmentDefinition[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
@@ -72,10 +79,20 @@ export default function AssessmentSessions() {
             assessment_definition_id: definitionsRes.data[0].id,
           }));
         }
-        if (coachList.length > 0) {
+        // Choose default coach based on role
+        if (canPickCoach) {
+          // Curator / Admin – first coach in list is fine
+          if (coachList.length > 0) {
+            setFormData((prev) => ({
+              ...prev,
+              coach_profile_id: coachList[0].id,
+            }));
+          }
+        } else if (isCoach) {
+          // Coach – must be their own profile (may be 0 if not created yet)
           setFormData((prev) => ({
             ...prev,
-            coach_profile_id: coachList[0].id,
+            coach_profile_id: myCoachId,
           }));
         }
         setError(null);
@@ -106,7 +123,7 @@ export default function AssessmentSessions() {
       setCreateError("Select an active assessment rubric first.");
       return;
     }
-    if (!formData.coach_profile_id) {
+    if (canPickCoach && !formData.coach_profile_id) {
       setCreateError("Select a coach of record first.");
       return;
     }
@@ -125,7 +142,7 @@ export default function AssessmentSessions() {
       setCreateError("An active assessment definition must be selected.");
       return;
     }
-    if (!formData.coach_profile_id) {
+    if (canPickCoach && !formData.coach_profile_id) {
       setCreateError("A coach of record must be selected.");
       return;
     }
@@ -155,6 +172,8 @@ export default function AssessmentSessions() {
     (session.participants || []).filter((p) => p.inclusion === "included").length;
 
   const selectedDef = definitions.find((d) => d.id === formData.assessment_definition_id);
+
+  const myCoach = coaches.find((c) => c.id === myCoachId);
 
   const coachLabel = (coach: Coach) =>
     `${coach.full_name ||
@@ -319,25 +338,38 @@ export default function AssessmentSessions() {
                         </ul>
                       </div>
                     )}
+                    {/* Coach of record field – only curator/admin may pick; coach sees own profile */}
                     <div className="admin-field">
                       <label htmlFor="session-coach">Coach of record *</label>
-                      <select
-                        id="session-coach"
-                        value={formData.coach_profile_id}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            coach_profile_id: Number(e.target.value),
-                          })
-                        }
-                      >
-                        {coaches.length === 0 && <option value={0}>No coaches available</option>}
-                        {coaches.map((coach) => (
-                          <option key={coach.id} value={coach.id}>
-                            {coachLabel(coach)}
-                          </option>
-                        ))}
-                      </select>
+                      {canPickCoach ? (
+                        <select
+                          id="session-coach"
+                          value={formData.coach_profile_id}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              coach_profile_id: Number(e.target.value),
+                            })
+                          }
+                        >
+                          {coaches.length === 0 && (
+                            <option value={0}>No coaches available</option>
+                          )}
+                          {coaches.map((coach) => (
+                            <option key={coach.id} value={coach.id}>
+                              {coachLabel(coach)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div className="admin-field-readonly">
+                          {myCoach ? (
+                            <strong>{coachLabel(myCoach)}</strong>
+                          ) : (
+                            <em>No coach profile yet – one will be created on submit</em>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (

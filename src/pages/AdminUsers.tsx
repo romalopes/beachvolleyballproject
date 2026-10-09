@@ -123,6 +123,10 @@ export default function AdminUsers() {
                 setLoadedKey(null);
                 setRefreshKey((k) => k + 1);
               }}
+              onDelete={() => {
+                setLoadedKey(null);
+                setRefreshKey((k) => k + 1);
+              }}
             />
           ))}
         </div>

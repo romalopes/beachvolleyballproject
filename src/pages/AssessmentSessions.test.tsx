@@ -5,6 +5,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type AssessmentSession } from "../api";
 import AssessmentSessions from "./AssessmentSessions";
 
+vi.mock("../auth/AuthContext", () => ({
+  useAuth: () => ({
+    user: {
+      id: 1,
+      roles: ["curator"],
+      coach_profile_id: null,
+      coach_profile_ids: [],
+    },
+  }),
+}));
+
 vi.mock("../api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api")>();
   return {
